@@ -488,11 +488,10 @@ void load_eval() {
 
 #if defined(__ANDROID__)
                 // Android GUIによっては作業ディレクトリ相対でEvalDirを配置しているため、
-                // 互換のために従来のcwd相対パスでも再試行する。
-                auto legacy_eval_path = Path::Combine(CommandLine::get_working_directory(), dir_name);
-                const std::string legacy_file_path = Path::Combine(legacy_eval_path, file_name);
+                // 互換のために従来どおり相対パスでも再試行する。
+                const std::string legacy_file_path = Path::Combine(dir_name, file_name);
                 std::ifstream legacy_stream(legacy_file_path, std::ios::binary);
-                sync_cout << "info string loading eval file (legacy cwd fallback) : "
+                sync_cout << "info string loading eval file (legacy relative fallback) : "
                           << legacy_file_path << sync_endl;
 				if (legacy_stream.is_open())
                     return NNUE::ReadParameters(legacy_stream);
