@@ -483,10 +483,21 @@ void load_eval() {
                 const std::string file_path = Path::Combine(abs_eval_path, file_name);
                 std::ifstream stream(file_path, std::ios::binary);
                 sync_cout << "info string loading eval file : " << file_path << sync_endl;
-				if (!stream.is_open())
-					return Tools::Result(Tools::ResultCode::FileNotFound);
+				if (stream.is_open())
+                    return NNUE::ReadParameters(stream);
 
-                return NNUE::ReadParameters(stream);
+#if defined(__ANDROID__)
+                // Android GUIによっては作業ディレクトリ相対でEvalDirを配置しているため、
+                // 互換のために従来のcwd相対パスでも再試行する。
+                auto legacy_eval_path = Path::Combine(CommandLine::get_working_directory(), dir_name);
+                const std::string legacy_file_path = Path::Combine(legacy_eval_path, file_name);
+                std::ifstream legacy_stream(legacy_file_path, std::ios::binary);
+                sync_cout << "info string loading eval file (legacy cwd fallback) : "
+                          << legacy_file_path << sync_endl;
+				if (legacy_stream.is_open())
+                    return NNUE::ReadParameters(legacy_stream);
+#endif
+				return Tools::Result(Tools::ResultCode::FileNotFound);
             }
             else {
                 // C++ way to prepare a buffer for a memory stream
