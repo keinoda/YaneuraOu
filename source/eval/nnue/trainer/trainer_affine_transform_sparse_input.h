@@ -1,7 +1,7 @@
 ﻿// NNUE評価関数の学習クラステンプレートのAffineTransformSparseInput用特殊化
 
-#ifndef _NNUE_TRAINER_AFFINE_TRANSFORM_SPARSE_INPUT_H_
-#define _NNUE_TRAINER_AFFINE_TRANSFORM_SPARSE_INPUT_H_
+#ifndef CLASSIC_NNUE_TRAINER_AFFINE_TRANSFORM_SPARSE_INPUT_H
+#define CLASSIC_NNUE_TRAINER_AFFINE_TRANSFORM_SPARSE_INPUT_H
 
 #include "../../../config.h"
 
@@ -13,9 +13,8 @@
 
 #include <random>
 
-namespace Eval {
-
-namespace NNUE {
+namespace YaneuraOu {
+namespace Eval::NNUE {
 
 // 学習：アフィン変換層
 template <typename PreviousLayer, IndexType OutputDimensions>
@@ -294,9 +293,8 @@ class Trainer<Layers::AffineTransformSparseInput<PreviousLayer, OutputDimensions
   LearnFloatType learning_rate_scale_;
 };
 
-}  // namespace NNUE
-
-}  // namespace Eval
+} // namespace Eval::NNUE
+} // namespace YaneuraOu
 
 #endif  // defined(EVAL_LEARN) && defined(EVAL_NNUE)
 

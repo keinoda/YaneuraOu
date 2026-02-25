@@ -10,9 +10,8 @@
 
 #include <set>
 
-namespace Eval {
-
-namespace NNUE {
+namespace YaneuraOu {
+namespace Eval::NNUE {
 
 namespace {
 
@@ -20,7 +19,7 @@ namespace {
 void TestFeatures(Position& pos) {
   const std::uint64_t num_games = 1000;
   StateInfo si;
-  pos.set_hirate(&si,Threads.main());
+  pos.set_hirate(&si);
   const int MAX_PLY = 256; // 256手までテスト
 
   StateInfo state[MAX_PLY]; // StateInfoを最大手数分だけ
@@ -108,7 +107,7 @@ void TestFeatures(Position& pos) {
       ASSERT(index_sets == make_index_sets(pos));
     }
 
-    pos.set_hirate(&si,Threads.main());
+    pos.set_hirate(&si);
 
     // 100回に1回ごとに'.'を出力(進んでいることがわかるように)
     if ((i % 100) == 0)
@@ -190,8 +189,7 @@ void TestCommand(Position& pos, std::istream& stream) {
   }
 }
 
-}  // namespace NNUE
-
-}  // namespace Eval
+} // namespace Eval::NNUE
+} // namespace YaneuraOu
 
 #endif  // defined(ENABLE_TEST_CMD) && defined(EVAL_NNUE)

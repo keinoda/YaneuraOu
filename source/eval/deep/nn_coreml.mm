@@ -1,4 +1,4 @@
-﻿#include "nn_coreml.h"
+#include "nn_coreml.h"
 
 #if defined(YANEURAOU_ENGINE_DEEP) && defined(COREML)
 
@@ -9,8 +9,7 @@
 #include "../../usi.h"
 
 using namespace std;
-using namespace Tools;
-
+using namespace YaneuraOu::Tools;
 
 /// Model Prediction Input Type
 API_AVAILABLE(macos(10.15), ios(13.0), watchos(6.0), tvos(13.0)) __attribute__((visibility("hidden")))
@@ -88,8 +87,9 @@ API_AVAILABLE(macos(10.15), ios(13.0), watchos(6.0), tvos(13.0)) __attribute__((
 
 @end
 
-namespace Eval::dlshogi
-{
+namespace YaneuraOu {
+namespace Eval::dlshogi {
+
 	// モデルファイルの読み込み。
 	Result NNCoreML::load(const std::string& model_filename , int gpu_id , int batch_size)
 	{
@@ -207,7 +207,6 @@ namespace Eval::dlshogi
 	}
 
 } // namespace Eval::dlshogi
-
+} // namespace YaneuraOu
 
 #endif // defined(YANEURAOU_ENGINE_DEEP) && defined(COREML)
-

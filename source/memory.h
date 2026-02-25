@@ -11,14 +11,54 @@
 
 #include "types.h"
 
-//namespace Stockfish {
+#if defined(_WIN64)
 
+    #if _WIN32_WINNT < 0x0601
+        #undef _WIN32_WINNT
+        #define _WIN32_WINNT 0x0601  // Force to include needed API prototypes
+    #endif
+
+    #if !defined(NOMINMAX)
+        #define NOMINMAX
+    #endif
+    #include <windows.h>
+
+    // Some Windows headers (RPC/old headers) define short macros such
+    // as 'small' expanding to 'char', which breaks identifiers in the code.
+    // Undefine those macros immediately after including <windows.h>.
+
+	// いくつかの Windows ヘッダー（RPC／古いヘッダーなど）は、
+	// 'small' のような短いマクロを 'char' に展開するなどして、
+	// コード内の識別子を壊してしまうことがあります。
+	// <windows.h> をインクルードした直後に、そうしたマクロを
+	// 即座に undef してください。
+
+    #ifdef small
+        #undef small
+    #endif
+
+    #include <psapi.h>
+
+extern "C" {
+using OpenProcessToken_t      = bool (*)(HANDLE, DWORD, PHANDLE);
+using LookupPrivilegeValueA_t = bool (*)(LPCSTR, LPCSTR, PLUID);
+using AdjustTokenPrivileges_t =
+  bool (*)(HANDLE, BOOL, PTOKEN_PRIVILEGES, DWORD, PTOKEN_PRIVILEGES, PDWORD);
+}
+#endif
+
+
+namespace YaneuraOu {
+
+// 通常のメモリ確保。alignmentされたsize[byte]のメモリを確保する。
+// 💡 AlignedPtrから内部的に呼び出して使うために用意されている。この関数は直接呼び出されない。
 void* std_aligned_alloc(size_t alignment, size_t size);
 void  std_aligned_free(void* ptr);
 
 // Memory aligned by page size, min alignment: 4096 bytes
 // 大きなメモリの確保用のalloc/free。4096 bytes単位でalignmentされていることは保証されている。
-// ⇨ 置換表のメモリ確保のために使われる。Windowsのlarge pages allocの機能が使えるなら、それを用いる。
+// ⇨ この関数は置換表のメモリ確保のために使われる。
+// 💡 Windowsのlarge pages allocの機能が使えるなら、それを用いる。
 void* aligned_large_pages_alloc(size_t size);
 void  aligned_large_pages_free(void* mem);
 
@@ -27,6 +67,10 @@ bool has_large_pages();
 
 // Frees memory which was placed there with placement new.
 // Works for both single objects and arrays of unknown bound.
+
+// placement new によって確保されたメモリを解放します。
+// 単一オブジェクトにも、サイズ不明の配列にも対応します。
+
 template<typename T, typename FREE_FUNC>
 void memory_deleter(T* ptr, FREE_FUNC free_func) {
     if (!ptr)
@@ -37,11 +81,14 @@ void memory_deleter(T* ptr, FREE_FUNC free_func) {
         ptr->~T();
 
     free_func(ptr);
-    return;
 }
 
 // Frees memory which was placed there with placement new.
 // Works for both single objects and arrays of unknown bound.
+
+// placement new を使って確保したメモリを解放します。
+// 単一のオブジェクトにも、不定長の配列にも対応します。
+
 template<typename T, typename FREE_FUNC>
 void memory_deleter_array(T* ptr, FREE_FUNC free_func) {
     if (!ptr)
@@ -49,7 +96,9 @@ void memory_deleter_array(T* ptr, FREE_FUNC free_func) {
 
 
     // Move back on the pointer to where the size is allocated
-    const size_t array_offset = std::max(sizeof(size_t), alignof(T));
+	// 配列サイズが格納されている位置までポインタを戻します
+
+	const size_t array_offset = std::max(sizeof(size_t), alignof(T));
     char*        raw_memory   = reinterpret_cast<char*>(ptr) - array_offset;
 
     if constexpr (!std::is_trivially_destructible_v<T>)
@@ -65,6 +114,8 @@ void memory_deleter_array(T* ptr, FREE_FUNC free_func) {
 }
 
 // Allocates memory for a single object and places it there with placement new
+// 単一のオブジェクト用にメモリを確保し、placement new でその場所に配置します
+
 template<typename T, typename ALLOC_FUNC, typename... Args>
 inline std::enable_if_t<!std::is_array_v<T>, T*> memory_allocator(ALLOC_FUNC alloc_func,
                                                                   Args&&... args) {
@@ -74,6 +125,8 @@ inline std::enable_if_t<!std::is_array_v<T>, T*> memory_allocator(ALLOC_FUNC all
 }
 
 // Allocates memory for an array of unknown bound and places it there with placement new
+// サイズが不明な配列用にメモリを確保し、placement new でその場所に配置します
+
 template<typename T, typename ALLOC_FUNC>
 inline std::enable_if_t<std::is_array_v<T>, std::remove_extent_t<T>*>
 memory_allocator(ALLOC_FUNC alloc_func, size_t num) {
@@ -93,6 +146,10 @@ memory_allocator(ALLOC_FUNC alloc_func, size_t num) {
 
     // Need to return the pointer at the start of the array so that
     // the indexing in unique_ptr<T[]> works.
+
+	// unique_ptr<T[]> での添字アクセスが正しく動作するように、
+	// 配列の先頭のポインタを返す必要があります。
+
     return reinterpret_cast<ElementType*>(raw_memory + array_offset);
 }
 
@@ -119,6 +176,8 @@ using LargePagePtr =
                      std::unique_ptr<T, LargePageDeleter<T>>>;
 
 // make_unique_large_page for single objects
+// 単一オブジェクト用の make_unique_large_page
+
 template<typename T, typename... Args>
 std::enable_if_t<!std::is_array_v<T>, LargePagePtr<T>> make_unique_large_page(Args&&... args) {
     static_assert(alignof(T) <= 4096,
@@ -130,6 +189,8 @@ std::enable_if_t<!std::is_array_v<T>, LargePagePtr<T>> make_unique_large_page(Ar
 }
 
 // make_unique_large_page for arrays of unknown bound
+// サイズが不明な配列用の make_unique_large_page
+
 template<typename T>
 std::enable_if_t<std::is_array_v<T>, LargePagePtr<T>> make_unique_large_page(size_t num) {
     using ElementType = std::remove_extent_t<T>;
@@ -158,6 +219,7 @@ struct AlignedArrayDeleter {
     void operator()(T* ptr) const { return memory_deleter_array<T>(ptr, std_aligned_free); }
 };
 
+// alignされたunique_ptr<T>
 template<typename T>
 using AlignedPtr =
   std::conditional_t<std::is_array_v<T>,
@@ -165,6 +227,8 @@ using AlignedPtr =
                      std::unique_ptr<T, AlignedDeleter<T>>>;
 
 // make_unique_aligned for single objects
+// 単一オブジェクト用の make_unique_aligned
+
 template<typename T, typename... Args>
 std::enable_if_t<!std::is_array_v<T>, AlignedPtr<T>> make_unique_aligned(Args&&... args) {
     const auto func = [](size_t size) { return std_aligned_alloc(alignof(T), size); };
@@ -174,6 +238,8 @@ std::enable_if_t<!std::is_array_v<T>, AlignedPtr<T>> make_unique_aligned(Args&&.
 }
 
 // make_unique_aligned for arrays of unknown bound
+// サイズが不明な配列用の make_unique_aligned
+
 template<typename T>
 std::enable_if_t<std::is_array_v<T>, AlignedPtr<T>> make_unique_aligned(size_t num) {
     using ElementType = std::remove_extent_t<T>;
@@ -188,6 +254,11 @@ std::enable_if_t<std::is_array_v<T>, AlignedPtr<T>> make_unique_aligned(size_t n
 // Get the first aligned element of an array.
 // ptr must point to an array of size at least `sizeof(T) * N + alignment` bytes,
 // where N is the number of elements in the array.
+
+// 配列の最初のアラインされた要素を取得します。
+// ptr は、配列の要素数を N とした場合、少なくとも `sizeof(T) * N + alignment` バイト
+// のサイズを持つ配列を指している必要があります。
+
 template<uintptr_t Alignment, typename T>
 T* align_ptr_up(T* ptr) {
     static_assert(alignof(T) < Alignment);
@@ -197,7 +268,82 @@ T* align_ptr_up(T* ptr) {
       reinterpret_cast<char*>((ptrint + (Alignment - 1)) / Alignment * Alignment));
 }
 
+#if defined(_WIN32)
 
-//}  // namespace Stockfish
+template<typename FuncYesT, typename FuncNoT>
+auto windows_try_with_large_page_priviliges([[maybe_unused]] FuncYesT&& fyes, FuncNoT&& fno) {
+
+    #if !defined(_WIN64)
+    return fno();
+    #else
+
+    HANDLE hProcessToken{};
+    LUID   luid{};
+
+    const size_t largePageSize = GetLargePageMinimum();
+    if (!largePageSize)
+        return fno();
+
+    // Dynamically link OpenProcessToken, LookupPrivilegeValue and AdjustTokenPrivileges
+
+    HMODULE hAdvapi32 = GetModuleHandle(TEXT("advapi32.dll"));
+
+    if (!hAdvapi32)
+        hAdvapi32 = LoadLibrary(TEXT("advapi32.dll"));
+
+    auto OpenProcessToken_f =
+      OpenProcessToken_t((void (*)()) GetProcAddress(hAdvapi32, "OpenProcessToken"));
+    if (!OpenProcessToken_f)
+        return fno();
+    auto LookupPrivilegeValueA_f =
+      LookupPrivilegeValueA_t((void (*)()) GetProcAddress(hAdvapi32, "LookupPrivilegeValueA"));
+    if (!LookupPrivilegeValueA_f)
+        return fno();
+    auto AdjustTokenPrivileges_f =
+      AdjustTokenPrivileges_t((void (*)()) GetProcAddress(hAdvapi32, "AdjustTokenPrivileges"));
+    if (!AdjustTokenPrivileges_f)
+        return fno();
+
+    // We need SeLockMemoryPrivilege, so try to enable it for the process
+
+    if (!OpenProcessToken_f(  // OpenProcessToken()
+          GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &hProcessToken))
+        return fno();
+
+    if (!LookupPrivilegeValueA_f(nullptr, "SeLockMemoryPrivilege", &luid))
+        return fno();
+
+    TOKEN_PRIVILEGES tp{};
+    TOKEN_PRIVILEGES prevTp{};
+    DWORD            prevTpLen = 0;
+
+    tp.PrivilegeCount           = 1;
+    tp.Privileges[0].Luid       = luid;
+    tp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
+
+    // Try to enable SeLockMemoryPrivilege. Note that even if AdjustTokenPrivileges()
+    // succeeds, we still need to query GetLastError() to ensure that the privileges
+    // were actually obtained.
+
+    if (!AdjustTokenPrivileges_f(hProcessToken, FALSE, &tp, sizeof(TOKEN_PRIVILEGES), &prevTp,
+                                 &prevTpLen)
+        || GetLastError() != ERROR_SUCCESS)
+        return fno();
+
+    auto&& ret = fyes(largePageSize);
+
+    // Privilege no longer needed, restore previous state
+    AdjustTokenPrivileges_f(hProcessToken, FALSE, &prevTp, 0, nullptr, nullptr);
+
+    CloseHandle(hProcessToken);
+
+    return std::forward<decltype(ret)>(ret);
+
+    #endif
+}
+
+#endif
+
+} // namespace YaneuraOu
 
 #endif  // #ifndef MEMORY_H_INCLUDED

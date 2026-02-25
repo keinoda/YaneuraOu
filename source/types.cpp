@@ -3,11 +3,14 @@
 #include "search.h"
 #include "tt.h"
 
+namespace YaneuraOu {
+
 // ----------------------------------------
 //    const
 // ----------------------------------------
 
 const char* USI_PIECE = ". P L N S B R G K +P+L+N+S+B+R+G+.p l n s b r g k +p+l+n+s+b+r+g+k";
+const std::string StartSFEN = "lnsgkgsnl/1r5b1/ppppppppp/9/9/9/PPPPPPPPP/1B5R1/LNSGKGSNL b - 1";
 
 // ----------------------------------------
 //    tables
@@ -43,8 +46,8 @@ std::string pretty(Move m, Piece movedPieceType)
 		return pretty(m.to_sq()) + pretty2(movedPieceType) + (m.is_promote() ? (pretty_jp ? "成" : "+") : "") + "[" + pretty(m.from_sq()) + "]";
 }
 
-std::string to_usi_string(Move   m){ return USI::move(m); }
-std::string to_usi_string(Move16 m){ return USI::move(m); }
+std::string to_usi_string(Move   m){ return USIEngine::move(m); }
+std::string to_usi_string(Move16 m){ return USIEngine::move(m); }
 
 std::ostream& operator<<(std::ostream& os, Color c) { os << ((c == BLACK) ? (pretty_jp ? "先手" : "BLACK") : (pretty_jp ? "後手" : "WHITE")); return os; }
 
@@ -101,54 +104,20 @@ std::ostream& operator<<(std::ostream& os, RepetitionState rs)
 // 探索用のglobalな変数
 // ----------------------------------------
 
-namespace Search {
-	LimitsType Limits;
+// エンジンオプションの入玉ルールに関する文字列
+std::vector<std::string> EKR_STRINGS = {"NoEnteringKing", "CSARule24", "CSARule24H", "CSARule27",
+                                        "CSARule27H",     "TryRule" /* , "EKR_NULL"*/};
 
-	// Called in case we have no ponder move before exiting the search,
-	// for instance, in case we stop the search during a fail high at root.
-	// We try hard to have a ponder move to return to the GUI,
-	// otherwise in case of 'ponder on' we have nothing to think about.
+// 文字列に対応するEnteringKingRuleを取得する。
+EnteringKingRule to_entering_king_rule(const std::string& rule) {
+    for (size_t i = 0; i < EKR_STRINGS.size(); ++i)
+        if (EKR_STRINGS[i] == rule)
+            return (EnteringKingRule) i;
 
-	// 探索を終了する前にponder moveがない場合に呼び出されます。
-	// 例えば、rootでfail highが発生して探索を中断した場合などです。
-	// GUIに返すponder moveをできる限り準備しようとしますが、
-	// そうでない場合、「ponder on」の際に考えるべきものが何もなくなります。
-
-	bool RootMove::extract_ponder_from_tt(const TranspositionTable& tt, Position& pos, Move ponder_candidate)
-	{
-		StateInfo st;
-
-		ASSERT_LV3(pv.size() == 1);
-
-		// 詰みの局面が"ponderhit"で返ってくることがあるので、
-		// ここでのpv[0] == Move::resign()であることがありうる。
-
-		if (!pv[0].is_ok())
-			return false;
-
-		pos.do_move(pv[0], st);
-
-		auto [ttHit, ttData, ttWriter] = tt.probe(pos.key(), pos);
-		if (ttHit)
-		{
-			Move m = ttData.move;
-			//if (MoveList<LEGAL>(pos).contains(ttData.move))
-			// ⇨ Stockfishのこのコード、pseudo_legalとlegalで十分なのではないか？
-			if (pos.pseudo_legal_s<true>(m) && pos.legal(m))
-				pv.push_back(m);
-		}
-		// 置換表にもなかったので以前のiteration時のpv[1]をほじくり返す。
-		else if (ponder_candidate)
-		{
-			Move m = ponder_candidate;
-			if (pos.pseudo_legal_s<true>(m) && pos.legal(m))
-				pv.push_back(m);
-		}
-
-		pos.undo_move(pv[0]);
-		return pv.size() > 1;
-	}
+    ASSERT(false);
+    return EnteringKingRule::EKR_NONE;
 }
+
 
 // 引き分け時のスコア(とそのdefault値)
 Value drawValueTable[REPETITION_NB][COLOR_NB] =
@@ -161,8 +130,10 @@ Value drawValueTable[REPETITION_NB][COLOR_NB] =
 	{ -VALUE_SUPERIOR    , -VALUE_SUPERIOR    }, // REPETITION_INFERIOR
 };
 
-Move16 Move::to_move16() const { return Move16(data); }
+Move Move::from_string(const Position& pos, const std::string usi_move) { return USIEngine::to_move(pos, usi_move); }
 
-#if defined(USE_GLOBAL_OPTIONS)
-GlobalOptions_ GlobalOptions;
-#endif
+Move16 Move::to_move16() const { return Move16(data); }
+Move16 Move16::from_string(const std::string usi_move) { return USIEngine::to_move16(usi_move); }
+
+
+} // namespace YaneuraOu

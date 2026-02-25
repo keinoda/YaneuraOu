@@ -74,6 +74,7 @@
 #endif
 
 using namespace std;
+namespace YaneuraOu {
 
 // これは探索部で定義されているものとする。
 extern Book::BookMoveSelector book;
@@ -380,13 +381,13 @@ void MultiThinkGenSfen::thread_worker(size_t thread_id)
 		auto th = Threads[thread_id];
 
 		auto& pos = th->rootPos;
-		pos.set_hirate(&si,th);
+		pos.set_hirate(&si);
 
 		// 自分スレッド用の置換表があるはずなので自分の置換表だけをクリアする。
 		th->tt.clear();
 
 		// 探索部で定義されているBookMoveSelectorのメンバを参照する。
-		auto& book = ::book;
+		auto& book = YaneuraOu::book;
 
 		// 1局分の局面を保存しておき、終局のときに勝敗を含めて書き出す。
 		// 書き出す関数は、この下にあるflush_psv()である。
@@ -1625,7 +1626,7 @@ void LearnerThink::calc_loss(size_t thread_id, u64 done)
 	auto th = Threads[thread_id];
 	auto& pos = th->rootPos;
 	StateInfo si;
-	pos.set_hirate(&si,th);
+	pos.set_hirate(&si);
 	std::cout << "hirate eval = " << Eval::evaluate(pos);
 
 	//Eval::print_eval_stat(pos);
@@ -2927,6 +2928,7 @@ void learn(Position&, istringstream& is)
 
 
 } // namespace Learner
+} // namespace YaneuraOu
 
 #if defined(EVAL_LEARN) && defined(GENSFEN2019)
 
@@ -2940,8 +2942,9 @@ void learn(Position&, istringstream& is)
 
 using namespace std;
 
-namespace
-{
+namespace YaneuraOu {
+namespace {
+
 	// C#のstring.Split()みたいなの
 	vector<string> split(const string &s, char delim) {
 		vector<string> elems;
@@ -2954,7 +2957,7 @@ namespace
 		}
 		return elems;
 	}
-}
+} // namespace
 
 namespace Learner {
 
@@ -3121,7 +3124,7 @@ namespace Learner {
 
 			auto book_moves = split(book_line, ' ');
 
-			pos.set_hirate(&states[0], th);
+			pos.set_hirate(&states[0]);
 
 			// "startpos moves"を読み飛ばしてそこ以降の指し手文字列で指し手を進める
 			for (int book_move_index = 2; book_move_index < (int)book_moves.size()
@@ -3535,7 +3538,9 @@ namespace Learner {
 #endif
 
 	}
-}
+
+} // namespace Learner
+} // namespace YaneuraOu
 
 #endif // defined(EVAL_LEARN) && defined(GENSFEN2019)
 

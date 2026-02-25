@@ -1,8 +1,8 @@
 ﻿// Definition of layer AffineTransform of NNUE evaluation function
 // NNUE評価関数の層AffineTransformの定義
 
-#ifndef NNUE_LAYERS_AFFINE_TRANSFORM_H_INCLUDED
-#define NNUE_LAYERS_AFFINE_TRANSFORM_H_INCLUDED
+#ifndef CLASSIC_NNUE_LAYERS_AFFINE_TRANSFORM_H_INCLUDED
+#define CLASSIC_NNUE_LAYERS_AFFINE_TRANSFORM_H_INCLUDED
 
 #include "../../../config.h"
 
@@ -11,6 +11,7 @@
 #include "../nnue_common.h"
 #include "simd.h"
 
+namespace YaneuraOu {
 namespace Eval::NNUE::Layers {
 
 template<IndexType kInputDimensions, IndexType kPaddedInputDimensions, IndexType kOutputDimensions>
@@ -33,6 +34,7 @@ static void affine_transform_unaligned(std::int32_t*       output,
     constexpr IndexType kNumChunks  = CeilToMultiple<IndexType>(kInputDimensions, 16) / 16;
     const __m128i       kZeros      = _mm_setzero_si128();
     const auto          inputVector = reinterpret_cast<const __m128i*>(input);
+
 #elif defined(USE_NEON)
     constexpr IndexType kNumChunks  = CeilToMultiple<IndexType>(kInputDimensions, 16) / 16;
     const auto          inputVector = reinterpret_cast<const int8x8_t*>(input);
@@ -112,7 +114,6 @@ static void affine_transform_unaligned(std::int32_t*       output,
         __m128i    sumLo = _mm_cvtsi32_si128(biases[i]);
         __m128i    sumHi = kZeros;
         const auto row   = reinterpret_cast<const __m128i*>(&weights[offset]);
-
         for (IndexType j = 0; j < kNumChunks; ++j)
         {
             __m128i row_j           = _mm_load_si128(&row[j]);
@@ -126,7 +127,6 @@ static void affine_transform_unaligned(std::int32_t*       output,
             sumLo                   = _mm_add_epi32(sumLo, productLo);
             sumHi                   = _mm_add_epi32(sumHi, productHi);
         }
-
         __m128i sum           = _mm_add_epi32(sumLo, sumHi);
         __m128i sumHigh_64    = _mm_shuffle_epi32(sum, _MM_SHUFFLE(1, 0, 3, 2));
         sum                   = _mm_add_epi32(sum, sumHigh_64);
@@ -138,7 +138,6 @@ static void affine_transform_unaligned(std::int32_t*       output,
 
         int32x4_t  sum = {biases[i]};
         const auto row = reinterpret_cast<const int8x8_t*>(&weights[offset]);
-
         for (IndexType j = 0; j < kNumChunks; ++j)
         {
             int16x8_t product = vmull_s8(inputVector[j * 2], row[j * 2]);
@@ -198,6 +197,15 @@ class AffineTransform {
 		hash_value += kOutputDimensions;
 		hash_value ^= PreviousLayer::GetHashValue() >> 1;
 		hash_value ^= PreviousLayer::GetHashValue() << 31;
+		return hash_value;
+	}
+
+	// ハッシュ値を前段の値から更新するときのヘルパー
+	static constexpr std::uint32_t GetHashValue(std::uint32_t prevHash) {
+		std::uint32_t hash_value = 0xCC03DAE4u;
+		hash_value += kOutputDimensions;
+		hash_value ^= prevHash >> 1;
+		hash_value ^= prevHash << 31;
 		return hash_value;
 	}
 
@@ -465,7 +473,8 @@ class AffineTransform {
 	alignas(kCacheLineSize) WeightType weights_[kOutputDimensions * kPaddedInputDimensions];
 };
 
-}  // namespace Eval::NNUE::Layers
+} // namespace Eval::NNUE::Layers
+} // namespace YaneuraOu
 
 #endif  // defined(EVAL_NNUE)
 

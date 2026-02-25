@@ -7,15 +7,15 @@
 #include "../../evaluate.h"
 
 // パラメーターの自動調整フレームワーク
-#include "../../engine//yaneuraou-engine/yaneuraou-param-common.h"
 #include <array>
 #include <cmath>
 #include <algorithm> // for std::min()
 #include <numeric>	 // for std::accumulate()
 #define SIZE_OF_ARRAY(array) (sizeof(array)/sizeof(array[0]))
 
-namespace Eval
-{
+namespace YaneuraOu {
+namespace Eval {
+
 	// 駒得のみの評価関数のとき。
 	void load_eval() {}
 	void print_eval_stat(Position& pos) {}
@@ -27,7 +27,7 @@ namespace Eval
 	// これでも3990XだとR2300ぐらいある。
 	// (序盤を定跡などでうまく乗り切れれば)
 
-	void init() {}
+	void add_options(OptionsMap&, ThreadPool&) {}
 	Value compute_eval(const Position& pos) {
 		auto score = pos.state()->materialValue;
 		ASSERT_LV5(pos.state()->materialValue == Eval::material(pos));
@@ -41,7 +41,8 @@ namespace Eval
 	// 盤上の駒は、その価値の1/10ほど減点してやる評価関数。
 	// これだけで+R50ぐらいになる。
 
-	void init() {}
+	void add_options(OptionsMap&, ThreadPool&) {}
+
 	Value compute_eval(const Position& pos) {
 		auto score = pos.state()->materialValue;
 
@@ -56,7 +57,7 @@ namespace Eval
 			// 後手の駒ならマイナスになるが、
 			// いま計算しようとしているのは先手から見た評価値なので
 			// これで辻褄が合う。
-			auto piece_value = PieceValue[pc];
+			auto piece_value = PieceValueM[pc];
 			score -= piece_value * 104 / 1024;
 		}
 
@@ -79,7 +80,7 @@ namespace Eval
 	int our_effect_value[9];
 	int their_effect_value[9];
 
-	void init() {
+	void add_options(OptionsMap&, ThreadPool&) {
 		for (int i = 0; i < 9; ++i)
 		{
 			// 利きには、王様からの距離に反比例する価値がある。(と現段階では考えられる)
@@ -99,7 +100,7 @@ namespace Eval
 			for (auto color : COLOR)
 			{
 				// color側の玉に対して
-				auto king_sq = pos.king_square(color);
+				auto king_sq = pos.square<KING>(color);
 
 				// 筋と段でたくさん離れているほうの数をその距離とする。
 				int d = dist(sq, king_sq);
@@ -116,7 +117,7 @@ namespace Eval
 				continue;
 
 			// 盤上の駒に対しては、その価値を1/10ほど減ずる。
-			auto piece_value = PieceValue[pc];
+			auto piece_value = PieceValueM[pc];
 			score -= piece_value * 104 / 1024;
 		}
 
@@ -138,7 +139,7 @@ namespace Eval
 	//   6365 - pow(0.8525,m-1)*5341 　みたいな感じ？
 	int multi_effect_value[11];
 
-	void init() {
+	void add_options(OptionsMap&, ThreadPool&) {
 
 		for (int d = 0; d < 9; ++d)
 		{
@@ -165,7 +166,7 @@ namespace Eval
 			for (auto color : COLOR)
 			{
 				// color側の玉に対して
-				auto king_sq = pos.king_square(color);
+				auto king_sq = pos.square<KING>(color);
 
 				// 筋と段でたくさん離れているほうの数をその距離とする。
 				int d = dist(sq, king_sq);
@@ -182,7 +183,7 @@ namespace Eval
 				continue;
 
 			// 盤上の駒に対しては、その価値を1/10ほど減ずる。
-			auto piece_value = PieceValue[pc];
+			auto piece_value = PieceValueM[pc];
 			score -= piece_value * 104 / 1024;
 		}
 
@@ -201,7 +202,7 @@ namespace Eval
 	// 81*81*81*11*11*size_of(int16_t) = 128MB
 	int16_t effect_table[SQ_NB][SQ_NB][SQ_NB][11][11];
 
-	void init() {
+	void add_options(OptionsMap&, ThreadPool&) {
 
 		// 王様からの距離に応じたある升の利きの価値。
 
@@ -265,14 +266,14 @@ namespace Eval
 		for (auto sq : SQ)
 		{
 			// 盤上の升の利きの価値
-			score += effect_table[pos.king_square(BLACK)][pos.king_square(WHITE)][sq][pos.board_effect[BLACK].effect(sq)][pos.board_effect[WHITE].effect(sq)];
+			score += effect_table[pos.square<KING>(BLACK)][pos.square<KING>(WHITE)][sq][pos.board_effect[BLACK].effect(sq)][pos.board_effect[WHITE].effect(sq)];
 
 			auto pc = pos.piece_on(sq);
 			if (pc == NO_PIECE)
 				continue;
 
 			// 盤上の駒に対しては、その価値を1/10ほど減ずる。
-			auto piece_value = PieceValue[pc];
+			auto piece_value = PieceValueM[pc];
 			score -= piece_value * 104 / 1024;
 		}
 
@@ -291,7 +292,7 @@ namespace Eval
 	// 1つの升にある利きは、2つ以上の利きは同一視。
 	int16_t KKPEE[SQ_NB][SQ_NB][SQ_NB][3][3][PIECE_NB];
 
-	void init() {
+	void add_options(OptionsMap&, ThreadPool&) {
 
 		// 王様からの距離に応じたある升の利きの価値。
 
@@ -349,7 +350,7 @@ namespace Eval
 								if (pc != NO_PIECE)
 								{
 									// 盤上の駒に対しては、その価値を1/10ほど減ずる。
-									auto piece_value = PieceValue[pc];
+									auto piece_value = PieceValueM[pc];
 									score -= piece_value * 104 / 1024;
 								}
 
@@ -365,7 +366,7 @@ namespace Eval
 		auto score = pos.state()->materialValue;
 
 		for (auto sq : SQ)
-			score += KKPEE[pos.king_square(BLACK)][pos.king_square(WHITE)][sq]
+			score += KKPEE[pos.square<KING>(BLACK)][pos.square<KING>(WHITE)][sq]
 				[std::min(int(pos.board_effect[BLACK].effect(sq)),2)][std::min(int(pos.board_effect[WHITE].effect(sq)),2)][pos.piece_on(sq)];
 
 		return pos.side_to_move() == BLACK ? score : -score;
@@ -388,7 +389,7 @@ namespace Eval
 	// ↑のテーブルに格納されている値の倍率
 	constexpr int FV_SCALE = 32;
 
-	void init() {
+	void add_options(OptionsMap&, ThreadPool&) {
 
 		// 王様からの距離に応じたある升の利きの価値。
 
@@ -466,9 +467,9 @@ namespace Eval
 									// 3) 玉以外の駒がいる対象升
 
 									// 盤上の駒に対しては、その価値を1/10ほど減ずる。
-									// 玉に∞の価値があるので、PieceValueを求めてその何%かを加点しようとすると発散するから玉はここから除く。
+									// 玉に∞の価値があるので、PieceValueMを求めてその何%かを加点しようとすると発散するから玉はここから除く。
 
-									double piece_value = PieceValue[pc];
+									double piece_value = PieceValueM[pc];
 									score -= piece_value * 104 / 1024;
 
 									// さらにこの駒に利きがある時は、その利きの価値を上乗せする。
@@ -494,7 +495,7 @@ namespace Eval
 
 		Value score = VALUE_ZERO;
 		for (auto sq : SQ)
-			score += KKPEE[pos.king_square(BLACK)][pos.king_square(WHITE)][sq]
+			score += KKPEE[pos.square<KING>(BLACK)][pos.square<KING>(WHITE)][sq]
 				[std::min(int(pos.board_effect[BLACK].effect(sq)),2)][std::min(int(pos.board_effect[WHITE].effect(sq)),2)][pos.piece_on(sq)];
 
 		// KKPEE配列はFV_SCALE倍されているのでこれで割ってから駒割を加算する。
@@ -522,7 +523,7 @@ namespace Eval
 	// ↑のテーブルに格納されている値の倍率
 	constexpr int FV_SCALE = 32;
 
-	void init() {
+	void add_options(OptionsMap&, ThreadPool&) {
 
 		// 王様からの距離に応じたある升の利きの価値。
 
@@ -643,9 +644,9 @@ namespace Eval
 									// 3) 玉以外の駒がいる対象升
 									
 									// 盤上の駒に対しては、その価値を1/10ほど減ずる。
-									// 玉に∞の価値があるので、PieceValueを求めてその何%かを加点しようとすると発散するから玉はここから除く。
+									// 玉に∞の価値があるので、PieceValueMを求めてその何%かを加点しようとすると発散するから玉はここから除く。
 
-									double piece_value = PieceValue[pc];
+									double piece_value = PieceValueM[pc];
 									score -= piece_value * 104 / 1024;
 
 									// さらにこの駒に利きがある時は、その利きの価値を上乗せする。
@@ -671,7 +672,7 @@ namespace Eval
 
 		Value score = VALUE_ZERO;
 		for (auto sq : SQ)
-			score += KKPEE[pos.king_square(BLACK)][pos.king_square(WHITE)][sq]
+			score += KKPEE[pos.square<KING>(BLACK)][pos.square<KING>(WHITE)][sq]
 				[std::min(int(pos.board_effect[BLACK].effect(sq)),2)][std::min(int(pos.board_effect[WHITE].effect(sq)),2)][pos.piece_on(sq)];
 
 		// KKPEE配列はFV_SCALE倍されているのでこれで割ってから駒割を加算する。
@@ -736,9 +737,9 @@ namespace Eval
 		// ここには、こないはず。
 		ASSERT(false);
 		return -1;
-								}
+	}
 
-	void init() {
+	void add_options(OptionsMap&, ThreadPool&) {
 
 		// 王様からの距離に応じたある升の利きの価値。
 
@@ -862,9 +863,9 @@ namespace Eval
 									// 3) 玉以外の駒がいる対象升
 
 									// 盤上の駒に対しては、その価値を1/10ほど減ずる。
-									// 玉に∞の価値があるので、PieceValueを求めてその何%かを加点しようとすると発散するから玉はここから除く。
+									// 玉に∞の価値があるので、PieceValueMを求めてその何%かを加点しようとすると発散するから玉はここから除く。
 
-									double piece_value = PieceValue[pc];
+									double piece_value = PieceValueM[pc];
 									score -= piece_value * 104 / 1024;
 
 									// さらにこの駒に利きがある時は、その利きの価値を上乗せする。
@@ -890,7 +891,7 @@ namespace Eval
 
 		Value score = VALUE_ZERO;
 		for (auto sq : SQ)
-			score += KKPEE[pos.king_square(BLACK)][pos.king_square(WHITE)][sq]
+			score += KKPEE[pos.square<KING>(BLACK)][pos.square<KING>(WHITE)][sq]
 				[std::min(int(pos.board_effect[BLACK].effect(sq)),2)][std::min(int(pos.board_effect[WHITE].effect(sq)),2)][pos.piece_on(sq)];
 
 		// KKPEE配列はFV_SCALE倍されているのでこれで割ってから駒割を加算する。
@@ -901,7 +902,8 @@ namespace Eval
 
 #endif // MATERIAL_LEVEL
 
-}
+} // namespace Eval
+} // namespace YaneuraOu
 
 #endif // defined(EVAL_MATERIAL)
 

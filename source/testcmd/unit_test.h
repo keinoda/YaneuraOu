@@ -6,10 +6,9 @@
 #include <sstream>
 #include <functional>
 #include "../usi.h"
-class Position;
 
-namespace Test
-{
+namespace YaneuraOu {
+namespace Test {
 
 	// --------------------
 	//      UnitTest
@@ -62,7 +61,7 @@ namespace Test
 		// 各classに実装されたstatic UnitTest(UnitTest&)を呼び出す時に用いる。
 		// この関数fが呼び出される前にbefore_run()、呼び出された後にafter_run()が呼び出されるので
 		// そこに共通の初期化コードを書いたりできる。(かも)
-		void run(std::function<void(UnitTester&)> f);
+		void run(std::function<void(UnitTester&, IEngine& engine)> f);
 
 		// run()の直前、直後に呼び出されるcallback
 		std::function<void()> before_run;
@@ -73,7 +72,9 @@ namespace Test
 		// string->Variant(何でも取れる型)みたいなものがあれば良いだけなのだが、
 		// C++にそういうのはないし、いまやりたいのは、パラメーター名からu64とstringにmapできる程度で良いので
 		// OptionsMapを流用して用いることにする。
-		USI::OptionsMap options;
+		OptionsMap options;
+
+		IEngine* engine;
 
 	protected:
 		// 現在のsection名。
@@ -94,8 +95,9 @@ namespace Test
 	// UnitTest本体。"unittest"コマンドで呼び出される。
 	// --------------------
 
-	void UnitTest(Position& pos, std::istringstream& is);
+	void UnitTest(std::istringstream& is, IEngine& engine);
 
-}
+} // namespace Test
+} // namespace YaneuraOu
 
 #endif // UNIT_TEST_H_INCLUDED

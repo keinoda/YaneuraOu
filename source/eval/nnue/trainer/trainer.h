@@ -1,7 +1,7 @@
 ﻿// NNUE評価関数の学習用クラステンプレートの共通ヘッダ
 
-#ifndef _NNUE_TRAINER_H_
-#define _NNUE_TRAINER_H_
+#ifndef CLASSIC_NNUE_TRAINER_H
+#define CLASSIC_NNUE_TRAINER_H
 
 #include "../../../config.h"
 
@@ -11,14 +11,14 @@
 #include "../features/index_list.h"
 
 #include <sstream>
+
 #if defined(USE_BLAS)
-static_assert(std::is_same<LearnFloatType, float>::value, "");
+static_assert(std::is_same<YaneuraOu::LearnFloatType, float>::value, "");
 #include <cblas.h>
 #endif
 
-namespace Eval {
-
-namespace NNUE {
+namespace YaneuraOu {
+namespace Eval::NNUE {
 
 // 評価値と勝率の関係式で用いるPonanza定数
 constexpr double kPonanzaConstant = 600.0;
@@ -124,9 +124,8 @@ std::shared_ptr<T> MakeAlignedSharedPtr(ArgumentTypes&&... arguments) {
 
 }
 
-}  // namespace NNUE
-
-}  // namespace Eval
+} // namespace Eval::NNUE
+} // namespace YaneuraOu
 
 #endif  // defined(EVAL_LEARN) && defined(EVAL_NNUE)
 

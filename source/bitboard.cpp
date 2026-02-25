@@ -7,6 +7,7 @@
 #include <sstream>
 
 using namespace std;
+namespace YaneuraOu {
 
 // ----- Bitboard const
 
@@ -940,7 +941,7 @@ Bitboard directEffect(Square sq, Effect8::Direct d, const Bitboard& occupied)
 }
 
 // UnitTest
-void Bitboard::UnitTest(Test::UnitTester& tester)
+void Bitboard::UnitTest(Test::UnitTester& tester, IEngine& engine)
 {
 	//Bitboard b(SQ_75);
 	//cout << lanceEffect<WHITE>(SQ_71, b) << endl;
@@ -1118,7 +1119,7 @@ void Bitboard::UnitTest(Test::UnitTester& tester)
 }
 
 // UnitTest
-void Bitboard256::UnitTest(Test::UnitTester& tester)
+void Bitboard256::UnitTest(Test::UnitTester& tester, IEngine& engine)
 {
 	auto section1 = tester.section("Bitboard256");
 	{
@@ -1153,4 +1154,4 @@ void Bitboard256::UnitTest(Test::UnitTester& tester)
 	}
 }
 
-
+} // namespace YaneuraOu

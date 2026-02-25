@@ -1,7 +1,7 @@
 ﻿// NNUE評価関数の差分計算用のクラス
 
-#ifndef _NNUE_ACCUMULATOR_H_
-#define _NNUE_ACCUMULATOR_H_
+#ifndef CLASSIC_NNUE_ACCUMULATOR_H_
+#define CLASSIC_NNUE_ACCUMULATOR_H_
 
 #include "../../config.h"
 
@@ -9,9 +9,8 @@
 
 #include "nnue_architecture.h"
 
-namespace Eval {
-
-namespace NNUE {
+namespace YaneuraOu {
+namespace Eval::NNUE {
 
 // 入力特徴量をアフィン変換した結果を保持するクラス
 // 最終的な出力である評価値も一緒に持たせておく
@@ -24,9 +23,8 @@ struct alignas(64) Accumulator {
   bool computed_score = false;
 };
 
-}  // namespace NNUE
-
-}  // namespace Eval
+} // namespace Eval::NNUE
+} // namespace YaneuraOu
 
 #endif  // defined(EVAL_NNUE)
 

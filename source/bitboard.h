@@ -3,6 +3,8 @@
 
 #include "types.h"
 
+namespace YaneuraOu {
+
 namespace Bitboards
 {
 	// Bitboard関連のテーブル初期化のための関数
@@ -259,7 +261,7 @@ struct alignas(16) Bitboard
 	}
 
 	// UnitTest
-	static void UnitTest(Test::UnitTester&);
+	static void UnitTest(Test::UnitTester& tester, IEngine& engine);
 };
 
 // 抑制していた警告を元に戻す。
@@ -422,7 +424,7 @@ struct alignas(32) Bitboard256
 	Bitboard merge() const;
 
 	// UnitTest
-	static void UnitTest(Test::UnitTester&);
+	static void UnitTest(Test::UnitTester& tester, IEngine& engine);
 };
 
 inline bool Bitboard256::operator == (const Bitboard256& rhs) const
@@ -497,7 +499,7 @@ static const Bitboard rank_bb(Rank r) { return BB_Table::RANK_BB[r]; }
 namespace BB_Table { extern const Bitboard ForwardRanksBB[COLOR_NB][RANK_NB]; }
 
 // 先手から見て1段目からr段目までを表現するBB(US==WHITEなら、9段目から数える)
-inline const Bitboard rank1_n_bb(Color US, const Rank r)
+static const Bitboard rank1_n_bb(Color US, const Rank r)
 {
 	ASSERT_LV2(is_ok(r));
 	return BB_Table::ForwardRanksBB[US][(US == BLACK ? r + 1 : 7 - r)];
@@ -505,7 +507,7 @@ inline const Bitboard rank1_n_bb(Color US, const Rank r)
 
 // 敵陣を表現するBitboard。
 namespace BB_Table { extern const Bitboard EnemyField[COLOR_NB]; }
-inline const Bitboard enemy_field(Color Us) { return BB_Table::EnemyField[Us]; }
+static const Bitboard enemy_field(Color Us) { return BB_Table::EnemyField[Us]; }
 
 // 2升に挟まれている升を返すためのテーブル(その2升は含まない)
 // この配列には直接アクセスせずにbetween_bb()を使うこと。
@@ -516,7 +518,7 @@ namespace BB_Table {
 }
 
 // 2升に挟まれている升を表すBitboardを返す。sq1とsq2が縦横斜めの関係にないときはBitboard(ZERO)が返る。
-inline const Bitboard between_bb(Square sq1, Square sq2) { return BB_Table::BetweenBB[BB_Table::BetweenIndex[sq1][sq2]]; }
+static const Bitboard between_bb(Square sq1, Square sq2) { return BB_Table::BetweenBB[BB_Table::BetweenIndex[sq1][sq2]]; }
 
 // 2升を通過する直線を返すためのテーブル
 // 2つ目のindexは[0]:右上から左下、[1]:横方向、[2]:左上から右下、[3]:縦方向の直線。
@@ -524,7 +526,7 @@ inline const Bitboard between_bb(Square sq1, Square sq2) { return BB_Table::Betw
 namespace BB_Table { extern Bitboard LineBB[SQ_NB][4]; }
 
 // 2升を通過する直線を返すためのBitboardを返す。sq1とsq2が縦横斜めの関係にないときに呼び出してはならない。
-inline const Bitboard line_bb(Square sq1, Square sq2)
+static const Bitboard line_bb(Square sq1, Square sq2)
 {
 	static_assert(Effect8::DIRECT_RU == 0 && Effect8::DIRECT_LD == 7 , "");
 	auto directions = Effect8::directions_of(sq1, sq2);
@@ -535,7 +537,7 @@ inline const Bitboard line_bb(Square sq1, Square sq2)
 
 #if 0
 // →　高速化のために、Effect8::directions_ofを使って実装しているのでコメントアウト。(shogi.hにおいて)
-inline bool aligned(Square s1, Square s2, Square s3) {
+static bool aligned(Square s1, Square s2, Square s3) {
 	return LineBB[s1][s2] & s3;
 }
 #endif
@@ -547,7 +549,7 @@ namespace BB_Table { extern Bitboard CheckCandidateBB[SQ_NB_PLUS1][KING - 1][COL
 // sqの升にいる敵玉に王手となるus側の駒ptの候補を得る
 // pr == ROOKは無条件全域なので代わりにHORSEで王手になる領域を返す。
 // pr == KINGで呼び出してはならない。それは、around24_bb()のほうを用いる。
-inline const Bitboard check_candidate_bb(Color us, PieceType pr, Square sq)
+static const Bitboard check_candidate_bb(Color us, PieceType pr, Square sq)
 {
 	ASSERT_LV3(PAWN<= pr && pr < KING && sq <= SQ_NB && is_ok(us));
 	return BB_Table::CheckCandidateBB[sq][pr - 1][us];
@@ -558,7 +560,7 @@ inline const Bitboard check_candidate_bb(Color us, PieceType pr, Square sq)
 namespace BB_Table { extern Bitboard CheckCandidateKingBB[SQ_NB_PLUS1]; }
 
 // ある升の24近傍のBitboardを返す。
-inline const Bitboard around24_bb(Square sq)
+static const Bitboard around24_bb(Square sq)
 {
 	ASSERT_LV3(sq <= SQ_NB);
 	return BB_Table::CheckCandidateKingBB[sq];
@@ -572,7 +574,7 @@ inline const Bitboard around24_bb(Square sq)
 // C == BLACKの時は、1段目は0(歩が打てないから)、
 // C == WHITEの時は、9段目は0(歩が打てないから)を保証する。
 template <Color C>
-inline Bitboard pawn_drop_mask(const Bitboard& pawns) {
+static Bitboard pawn_drop_mask(const Bitboard& pawns) {
 	// Quigy[WCSC31]の手法 : cf. https://www.apply.computer-shogi.org/wcsc31/appeal/Qugiy/appeal.pdf
 
 	const Bitboard left(0x4020100804020100ULL, 0x0000000000020100ULL);
@@ -1114,6 +1116,91 @@ inline Bitboard attacks_bb(Square s, Bitboard occupied) {
 	return effects_from(PC, s, occupied);
 }
 
+
+
+
+// Returns the least significant bit in a non-zero bitboard.
+// 0でないビットボードにおける最下位ビットを返す。
+// 📝 Stockfishとの互換性のために用意
+#if STOCKFISH
+inline Square lsb(Bitboard b) {
+#else
+inline int8_t lsb(uint64_t b) {
+#endif
+	assert(b);
+
+#if defined(__GNUC__)  // GCC, Clang, ICX
+
+    return int8_t(__builtin_ctzll(b));
+
+#elif defined(_MSC_VER)
+    #ifdef _WIN64  // MSVC, WIN64
+
+    unsigned long idx;
+    _BitScanForward64(&idx, b);
+    return int8_t(idx);
+
+    #else  // MSVC, WIN32
+    unsigned long idx;
+
+    if (b & 0xffffffff)
+    {
+        _BitScanForward(&idx, int32_t(b));
+        return int8_t(idx);
+    }
+    else
+    {
+        _BitScanForward(&idx, int32_t(b >> 32));
+        return int8_t(idx + 32);
+    }
+    #endif
+#else  // Compiler is neither GCC nor MSVC compatible
+    #error "Compiler not supported."
+#endif
+}
+
+// Returns the most significant bit in a non-zero bitboard.
+// 0でないビットボードにおける最上位ビットを返す。
+// 📝 Stockfishとの互換性のために用意
+#if STOCKFISH
+inline Square msb(Bitboard b) {
+#else
+inline int8_t msb(uint64_t b) {
+#endif
+    assert(b);
+
+#if defined(__GNUC__)  // GCC, Clang, ICX
+
+    return int8_t(63 ^ __builtin_clzll(b));
+
+#elif defined(_MSC_VER)
+    #ifdef _WIN64  // MSVC, WIN64
+
+    unsigned long idx;
+    _BitScanReverse64(&idx, b);
+    return int8_t(idx);
+
+    #else  // MSVC, WIN32
+
+    unsigned long idx;
+
+    if (b >> 32)
+    {
+        _BitScanReverse(&idx, int32_t(b >> 32));
+        return int8_t(idx + 32);
+    }
+    else
+    {
+        _BitScanReverse(&idx, int32_t(b));
+        return int8_t(idx);
+    }
+    #endif
+#else  // Compiler is neither GCC nor MSVC compatible
+    #error "Compiler not supported."
+#endif
+}
+
+
 /// least_significant_square_bb() returns the bitboard of the least significant
 /// square of a non-zero bitboard. It is equivalent to square_bb(lsb(bb)).
 
@@ -1130,5 +1217,6 @@ inline Bitboard least_significant_square_bb(Bitboard b) {
 	return (q0 != 0) ? Bitboard(q0 & -q0 , 0) : Bitboard(0, q1 & -q1);
 }
 
+} // namespace YaneuraOu
 
 #endif // #ifndef _BITBOARD_H_

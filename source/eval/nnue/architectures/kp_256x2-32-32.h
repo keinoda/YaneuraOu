@@ -1,6 +1,6 @@
 ﻿// NNUE評価関数で用いる入力特徴量とネットワーク構造の定義
-#ifndef NNUE_KP_256X2_32_32_H_INCLUDED
-#define NNUE_KP_256X2_32_32_H_INCLUDED
+#ifndef CLASSIC_NNUE_KP_256X2_32_32_H_INCLUDED
+#define CLASSIC_NNUE_KP_256X2_32_32_H_INCLUDED
 
 #include "../features/feature_set.h"
 #include "../features/k.h"
@@ -11,9 +11,8 @@
 #include "../layers/affine_transform_sparse_input.h"
 #include "../layers/clipped_relu.h"
 
-namespace Eval {
-
-namespace NNUE {
+namespace YaneuraOu {
+namespace Eval::NNUE {
 
 // 評価関数で用いる入力特徴量
 using RawFeatures = Features::FeatureSet<Features::K, Features::P>;
@@ -33,8 +32,7 @@ using OutputLayer = AffineTransform<HiddenLayer2, 1>;
 
 using Network = Layers::OutputLayer;
 
-}  // namespace NNUE
-
-}  // namespace Eval
+} // namespace Eval::NNUE
+} // namespace YaneuraOu
 
 #endif // #ifndef NNUE_KP_256X2_32_32_H_INCLUDED

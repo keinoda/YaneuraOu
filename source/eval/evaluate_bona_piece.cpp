@@ -2,13 +2,23 @@
 #include "../position.h"
 
 using namespace std;
+namespace YaneuraOu {
+namespace Eval {
 
-namespace Eval
-{
 #if defined (USE_PIECE_VALUE)
 
-    // 駒の価値
+	// 駒の価値
     int PieceValue[PIECE_NB] =
+    {
+        0, PawnValue, LanceValue, KnightValue, SilverValue, BishopValue, RookValue,GoldValue,
+        KingValue, ProPawnValue, ProLanceValue, ProKnightValue, ProSilverValue, HorseValue, DragonValue,0,
+
+        0, PawnValue, LanceValue, KnightValue, SilverValue, BishopValue, RookValue,GoldValue,
+        KingValue, ProPawnValue, ProLanceValue, ProKnightValue, ProSilverValue, HorseValue, DragonValue,0,
+    };
+
+	// 駒の価値、駒割計算用(後手の駒が負の値)
+    int PieceValueM[PIECE_NB] =
     {
         0, PawnValue, LanceValue, KnightValue, SilverValue, BishopValue, RookValue,GoldValue,
         KingValue, ProPawnValue, ProLanceValue, ProKnightValue, ProSilverValue, HorseValue, DragonValue,0,
@@ -50,11 +60,11 @@ namespace Eval
 			+ (move.is_promote() ? (Value)ProDiffPieceValue[pos.piece_on(move.from_sq())] : VALUE_ZERO);
 	}
 
-#endif
-
+#endif // defined (USE_PIECE_VALUE)
 
 #if defined(USE_EVAL_LIST)
-    ExtBonaPiece kpp_board_index[PIECE_NB] = {
+
+	ExtBonaPiece kpp_board_index[PIECE_NB] = {
         { BONA_PIECE_ZERO, BONA_PIECE_ZERO },
         { f_pawn, e_pawn },
         { f_lance, e_lance },
@@ -176,7 +186,7 @@ namespace Eval
 
         return os;
     }
-
 #endif // defined(USE_EVAL_LIST)
 
 } // namespace Eval
+} // namespace YaneuraOu {

@@ -15,10 +15,11 @@
 # YANEURAOU_ENGINE_NNUE_HALFKP_1024X2_8_32 : NNUE型評価関数(halfkp_1024x2-8-32)
 # YANEURAOU_ENGINE_NNUE_HALFKP_1024X2_8_64 : NNUE型評価関数(halfkp_1024x2-8-64)
 # YANEURAOU_ENGINE_NNUE_HALFKP_VM_256X2_32_32 : NNUE型評価関数(halfkp_vm_256x2-32-32)
+# YANEURAOU_ENGINE_NNUE_SFNNwoP1536 : SFNN without Psqt 1536 (== SFNNwoPSQT_halfkahm_1536_15_32_ls9)
 # // ⇨ 上記以外のアーキテクチャのNNUE評価関数用のやねうら王をビルドしたい時は、
 # //   やねうら王のビルド手順 - やねうら王 Wiki
 # //   https://github.com/yaneurao/YaneuraOu/wiki/%E3%82%84%E3%81%AD%E3%81%86%E3%82%89%E7%8E%8B%E3%81%AE%E3%83%93%E3%83%AB%E3%83%89%E6%89%8B%E9%A0%86
-# // の「NNUEの任意アーキテクチャのビルドについて」をご覧ください。
+# // の「NNUEの任意アーキテクチャのビルドについて」と「SFNNの任意アーキテクチャのビルドについて」をご覧ください。
 # YANEURAOU_ENGINE_KPPT          : KPPT型評価関数
 # YANEURAOU_ENGINE_KPP_KKPT      : KPP_KKPT型評価関数
 # YANEURAOU_ENGINE_MATERIAL      : 駒得のみの評価関数(複数変種あり。MATERIAL_LEVELで選択できる)
@@ -37,6 +38,7 @@ YANEURAOU_EDITION = YANEURAOU_ENGINE_NNUE
 #YANEURAOU_EDITION = YANEURAOU_ENGINE_NNUE_HALFKP_1024X2_8_32
 #YANEURAOU_EDITION = YANEURAOU_ENGINE_NNUE_HALFKP_1024X2_8_64
 #YANEURAOU_EDITION = YANEURAOU_ENGINE_NNUE_HALFKP_VM_256X2_32_32
+#YANEURAOU_EDITION = YANEURAOU_ENGINE_NNUE_SFNNwoP1536
 #YANEURAOU_EDITION = YANEURAOU_ENGINE_KPPT
 #YANEURAOU_EDITION = YANEURAOU_ENGINE_KPP_KKPT
 #YANEURAOU_EDITION = YANEURAOU_ENGINE_MATERIAL
@@ -44,11 +46,6 @@ YANEURAOU_EDITION = YANEURAOU_ENGINE_NNUE
 #YANEURAOU_EDITION = TANUKI_MATE_ENGINE
 #YANEURAOU_EDITION = YANEURAOU_MATE_ENGINE
 #YANEURAOU_EDITION = USER_ENGINE
-
-# やねうら王のcluster機能を使いたいなら、これもdefineする。(define if you want to use YO-cluster)
-YO_CLUSTER = OFF
-#YO_CLUSTER = ON
-
 
 # ターゲットCPU (target cpu)
 
@@ -143,7 +140,7 @@ MATERIAL_LEVEL = 1
 BLAS = OPENBLAS
 # BLAS = BLIS
 
-# NNUE評価関数を実行ファイルに内蔵する。 `eval/nnue/embedded_nnue.cpp` が別途必要。
+# NNUE評価関数を実行ファイルに内蔵する。 ビルドするときにsourceフォルダ直下に"nn.bin"を配置する。
 EVAL_EMBEDDING = OFF
 # EVAL_EMBEDDING = ON
 
@@ -336,19 +333,23 @@ SOURCES  = \
 	movegen.cpp                                                                \
 	position.cpp                                                               \
 	usi.cpp                                                                    \
-	usi_option.cpp                                                             \
+	usioption.cpp                                                              \
 	thread.cpp                                                                 \
 	tt.cpp                                                                     \
 	movepick.cpp                                                               \
 	timeman.cpp                                                                \
 	memory.cpp                                                                 \
+	engine.cpp                                                                 \
+	search.cpp                                                                 \
+	score.cpp                                                                  \
+	benchmark.cpp                                                              \
+	tune.cpp                                                                   \
 	book/book.cpp                                                              \
 	book/apery_book.cpp                                                        \
 	book/policybook.cpp                                                        \
 	extra/bitop.cpp                                                            \
 	extra/long_effect.cpp                                                      \
 	extra/sfen_packer.cpp                                                      \
-	extra/super_sort.cpp                                                       \
 	mate/mate.cpp                                                              \
 	mate/mate1ply_without_effect.cpp                                           \
 	mate/mate1ply_with_effect.cpp                                              \
@@ -360,8 +361,7 @@ SOURCES  = \
 	eval/material/evaluate_material.cpp                                        \
 	testcmd/unit_test.cpp                                                      \
 	testcmd/mate_test_cmd.cpp                                                  \
-	testcmd/normal_test_cmd.cpp                                                \
-	testcmd/benchmark.cpp
+	testcmd/normal_test_cmd.cpp                                                
 
 CUDA_SOURCES =
 
@@ -377,7 +377,7 @@ ifeq (,)
 	SOURCES  +=                                                                \
 		book/makebook.cpp                                                      \
 		book/makebook2015.cpp                                                  \
-		book/makebook2023.cpp                                                  \
+		book/makebook2025.cpp                                                  \
 		learn/learner.cpp                                                      \
 		learn/learning_tools.cpp                                               \
 		learn/multi_think.cpp
@@ -458,7 +458,9 @@ ifneq (,$(findstring YANEURAOU_ENGINE_DEEP,$(YANEURAOU_EDITION)))
 		engine/dlshogi-engine/UctSearch.cpp                             \
 		engine/dlshogi-engine/Node.cpp                                  \
 		engine/dlshogi-engine/PvMateSearch.cpp                          \
-		engine/dlshogi-engine/YaneuraOu_dlshogi_bridge.cpp
+		engine/dlshogi-engine/FukauraOuEngine.cpp                       \
+		engine/dlshogi-engine/SearchOptions.cpp
+
 endif
 
 ifneq (,$(findstring YANEURAOU_ENGINE_NNUE,$(YANEURAOU_EDITION)))
@@ -480,14 +482,25 @@ ifneq (,$(findstring YANEURAOU_ENGINE_NNUE,$(YANEURAOU_EDITION)))
 		else ifeq ($(YANEURAOU_EDITION),YANEURAOU_ENGINE_NNUE_HALFKP_1024X2_8_32)
 			CPPFLAGS += -DEVAL_NNUE_HALFKP_1024X2_8_32
 
+		else ifeq ($(YANEURAOU_EDITION),YANEURAOU_ENGINE_NNUE_HALFKP_1024X2_8_64)
+			CPPFLAGS += -DEVAL_NNUE_HALFKP_1024X2_8_64
+
 		else ifeq ($(YANEURAOU_EDITION),YANEURAOU_ENGINE_NNUE_HALFKP_VM_256X2_32_32)
 			CPPFLAGS += -DEVAL_NNUE_HALFKP_VM_256X2_32_32
 
+		else ifeq ($(YANEURAOU_EDITION),YANEURAOU_ENGINE_NNUE_SFNNwoP1536)
+			CPPFLAGS += -DYANEURAOU_ENGINE_NNUE_SFNNwoP1536
+			CPPFLAGS += -DSFNNwoPSQT
 		else
 			# 知らないNNUEのarchitectureなので、architecture headerを動的に生成する。
 			ARCH_HEADER_FILE = \"architectures/$(subst YANEURAOU_ENGINE_NNUE_,,$(YANEURAOU_EDITION)).h\"
 			CPPFLAGS += -DNNUE_ARCHITECTURE_HEADER=$(ARCH_HEADER_FILE)
 			ARCH_GEN_SCRIPT = $(PYTHON) eval/nnue/architectures/nnue_arch_gen.py $(YANEURAOU_EDITION) eval/nnue/architectures
+
+			# YANEURAOU_EDITIONに SFNNwoPSQT が含まれていたら、シンボル SFNNwoPSQT 定義しておく。
+			ifneq (,$(findstring YANEURAOU_ENGINE_NNUE_SFNNwoPSQT,$(YANEURAOU_EDITION)))
+				CPPFLAGS += -DSFNNwoPSQT
+			endif
 		endif
 	endif
 
@@ -499,6 +512,10 @@ ifneq (,$(findstring YANEURAOU_ENGINE_NNUE,$(YANEURAOU_EDITION)))
 		eval/nnue/features/k.cpp                                        \
 		eval/nnue/features/p.cpp                                        \
 		eval/nnue/features/half_kp.cpp                                  \
+		eval/nnue/features/half_ka1.cpp                                 \
+		eval/nnue/features/half_ka_hm1.cpp                              \
+		eval/nnue/features/half_ka2.cpp                                 \
+		eval/nnue/features/half_ka_hm2.cpp                              \
 		eval/nnue/features/half_kp_vm.cpp                               \
 		eval/nnue/features/half_relative_kp.cpp                         \
 		eval/nnue/features/half_kpe9.cpp                                \
@@ -510,9 +527,7 @@ ifneq (,$(findstring YANEURAOU_ENGINE_NNUE,$(YANEURAOU_EDITION)))
 			eval/nnue/wasm_simd.cpp
 	endif
 	ifeq ($(EVAL_EMBEDDING),ON)
-		SOURCES += \
-			eval/nnue/embedded_nnue.cpp
-		CPPFLAGS += -DEVAL_EMBEDDING
+		CPPFLAGS += -DNNUE_EMBEDDING
 	endif
 endif
 
@@ -538,16 +553,6 @@ ifneq ($(ENGINE_NAME),)
 	CPPFLAGS += -DENGINE_NAME_FROM_MAKEFILE=$(ENGINE_NAME)
 endif
 
-ifeq ($(YO_CLUSTER),ON)
-	SOURCES += \
-		engine/yo-cluster/ClusterCommon.cpp       \
-		engine/yo-cluster/ProcessNegotiator.cpp   \
-		engine/yo-cluster/EngineNegotiator.cpp    \
-		engine/yo-cluster/ClusterObserver.cpp     \
-		engine/yo-cluster/ClusterStrategy.cpp
-	CPPFLAGS += -DUSE_YO_CLUSTER
-endif
-
 
 # 開発用branch
 ifneq (,$(findstring dev,$(ENGINE_BRANCH)))
@@ -557,7 +562,7 @@ endif
 
 # abe
 ifneq (,$(findstring abe,$(ENGINE_BRANCH)))
-	CPPFLAGS += -DPV_OUTPUT_DRAW_ONLY -DFORCE_BIND_THIS_THREAD
+	CPPFLAGS += -DPV_OUTPUT_DRAW_ONLY
 endif
 
 

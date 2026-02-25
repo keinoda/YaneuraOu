@@ -1,6 +1,6 @@
 ﻿#include "../config.h"
 
-#if defined (ENABLE_MAKEBOOK_CMD) && (defined(EVAL_LEARN) || defined(YANEURAOU_ENGINE_DEEP))
+#if defined (ENABLE_MAKEBOOK_CMD)
 
 #include "book.h"
 #include "../position.h"
@@ -17,9 +17,9 @@
 #include <numeric>      // std::accumulate()
 
 using namespace std;
+namespace YaneuraOu {
+namespace Book {
 
-namespace Book
-{
 	// 局面を与えて、その局面で思考させるために、やねうら王探索部が必要。
 #if defined(EVAL_LEARN) && defined(YANEURAOU_ENGINE)
 
@@ -355,13 +355,13 @@ namespace Book
 					{
 						// 駒落ちなどではsfen xxx movesとなるのでこれをfeedしなければならない。
 						auto sfen = feed_sfen(iss);
-						pos.set(sfen,&state,Threads.main());
+						pos.set(sfen,&state);
 						hirate = false;
 					}
 				} while (token == "startpos" || token == "moves" || token == "sfen");
 
 				if (hirate)
-					pos.set_hirate(&state,Threads.main());
+					pos.set_hirate(&state);
 
 				vector<Move> m;				// 初手から(moves+1)手までの指し手格納用
 
@@ -401,7 +401,7 @@ namespace Book
 						break;
 					}
 
-					Move move = USI::to_move(pos, token);
+					Move move = USIEngine::to_move(pos, token);
 					// illigal moveであるとMOVE_NONEが返る。
 					if (move == Move::none())
 					{
@@ -665,5 +665,6 @@ namespace Book
 	}
 
 } // namespace Book
+} // namespace YaneuraOu
 
-#endif // defined(YANEURAOU_ENGINE) && (defined(EVAL_LEARN) || defined(YANEURAOU_ENGINE_DEEP))
+#endif // defined(YANEURAOU_ENGINE)
