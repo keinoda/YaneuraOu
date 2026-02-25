@@ -1,5 +1,5 @@
-﻿#ifndef __MATE_H_INCLUDED__
-#define __MATE_H_INCLUDED__
+﻿#ifndef MATE_H_INCLUDED
+#define MATE_H_INCLUDED
 
 #include "../types.h"
 #if defined (USE_MATE_1PLY)
@@ -8,8 +8,12 @@
 #include <memory> // std::unique_ptr<>
 #include <atomic> // std::atomic<>
 
-namespace Mate
-{
+#include "../thread.h"
+
+namespace YaneuraOu {
+
+namespace Mate {
+
 	// Mate関連で使うテーブルの初期化
 	// ※　Bitboard::init()から呼び出される。
 	void init();
@@ -138,7 +142,7 @@ namespace Mate
 		// 与えられたboard_keyを持つMateHashEntryの先頭アドレスを返す。
 		// (現状、1つしか該当するエントリーはない)
 		// 取得したあと、lock()～unlock()して用いること。
-		MateHashEntry* first_entry(const Key board_key) const;
+		MateHashEntry* first_entry(const Key board_key, Color side_to_move) const;
 
 		// 置換表のサイズを変更する。mbSize == 確保するメモリサイズ。MB単位。
 		// このあと呼び出し側でclear()を呼び出す必要がある。
@@ -146,7 +150,7 @@ namespace Mate
 
 		// 置換表のエントリーの全クリア
 		// 連続対局の時はクリアしなくともいいような気はするが…。
-		void clear();
+		void clear(ThreadPool& threads);
 
 	private:
 		// 置換表の先頭アドレス
@@ -218,7 +222,7 @@ namespace Mate
 		int max_game_ply = 0;
 	};
 
-#endif
+#endif // defined(USE_MATE_SOLVER)
 }
 
 #if defined(USE_MATE_DFPN)
@@ -366,10 +370,9 @@ namespace Mate::Dfpn
 	};
 
 } // namespace Mate::Dfpn
-#endif
+#endif // defined(USE_MATE_DFPN)
 
+} // namespace YaneuraOu
+#endif // defined (USE_MATE_1PLY)
 
-#endif // namespace Mate
-
-#endif // __MATE_H_INCLUDED__
-
+#endif // MATE_H_INCLUDED

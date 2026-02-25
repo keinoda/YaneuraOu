@@ -15,15 +15,12 @@
 #include <cuda_fp16.h>
 #endif
 
-namespace Eval::dlshogi
-{
-	// === GPU関連の設定 ===
+namespace YaneuraOu {
+namespace Eval::dlshogi {
 
-	// GPUの最大数(これ以上のGPUは扱えない)
-#if !defined(MAX_GPU)
-	constexpr int MAX_GPU = 16;
-#endif
-	constexpr int max_gpu = MAX_GPU;
+	// この評価関数で使うテーブルの初期化
+	// 💡 起動時か、"isready"コマンドに対して呼び出して欲しい。
+	void init();
 
 	// === 入出力の特徴量の定義 ===
 
@@ -144,7 +141,7 @@ namespace Eval::dlshogi
 	typedef DType NN_Output_Value;
 
 	// NNの出力特徴量その2 (PolicyNetwork) : それぞれの指し手の実現確率
-	typedef DType NN_Output_Policy[MAX_MOVE_LABEL_NUM*SQ_NB];
+	typedef DType NN_Output_Policy[MAX_MOVE_LABEL_NUM * int(SQ_NB)];
 
 	// 入力特徴量を生成する。
 	//   position  : このあとEvalNode()を呼び出したい局面
@@ -185,10 +182,10 @@ namespace Eval::dlshogi
 	// エンジンオプションで設定されたモデルファイル名。(フォルダ名含む)
 	// このsize() == max_gpuのはず。
 	// "isready"で初期化されている。
-	extern std::vector<std::string> ModelPaths;
+	//extern std::string ModelPath;
 
 } // namespace Eval::dlshogi
+} // namespace YaneuraOu
 
 #endif // defined(YANEURAOU_ENGINE_DEEP)
 #endif // ndef __DLSHOGI_EVALUATE_H_INCLUDED__
-

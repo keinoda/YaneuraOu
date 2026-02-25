@@ -1,8 +1,8 @@
 ﻿// A class template that represents the input feature set of the NNUE evaluation function
 // NNUE評価関数の入力特徴量セットを表すクラステンプレート
 
-#ifndef NNUE_FEATURE_SET_H_INCLUDED
-#define NNUE_FEATURE_SET_H_INCLUDED
+#ifndef CLASSIC_NNUE_FEATURE_SET_H_INCLUDED
+#define CLASSIC_NNUE_FEATURE_SET_H_INCLUDED
 
 #include "../../../config.h"
 
@@ -11,6 +11,7 @@
 #include "features_common.h"
 #include <array>
 
+namespace YaneuraOu {
 namespace Eval::NNUE::Features {
 
 // Class template that represents a list of values
@@ -246,7 +247,8 @@ class FeatureSet<FeatureType> : public FeatureSetBase<FeatureSet<FeatureType>> {
   friend class FeatureSet;
 };
 
-}  // namespace Eval::NNUE::Features
+} // namespace Eval::NNUE::Features
+} // namespace YaneuraOu
 
 #endif  // defined(EVAL_NNUE)
 

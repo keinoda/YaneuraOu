@@ -1,8 +1,8 @@
 ﻿//Common header of input features of NNUE evaluation function
 // NNUE評価関数の入力特徴量の共通ヘッダ
 
-#ifndef NNUE_FEATURES_COMMON_H_INCLUDED
-#define NNUE_FEATURES_COMMON_H_INCLUDED
+#ifndef CLASSIC_NNUE_FEATURES_COMMON_H_INCLUDED
+#define CLASSIC_NNUE_FEATURES_COMMON_H_INCLUDED
 
 #include "../../../config.h"
 
@@ -11,6 +11,7 @@
 #include "../../../evaluate.h"
 #include "../nnue_common.h"
 
+namespace YaneuraOu {
 namespace Eval::NNUE::Features {
 
 // インデックスリストの型
@@ -36,8 +37,8 @@ enum class Side {
   kEnemy,   // 相手側
 };
 
-}  // namespace Eval::NNUE::Features
-
+} // namespace Eval::NNUE::Features
+} // namespace YaneuraOu
 
 #endif  // defined(EVAL_NNUE)
 

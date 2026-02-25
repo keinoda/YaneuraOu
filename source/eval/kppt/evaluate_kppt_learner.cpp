@@ -24,8 +24,9 @@
 
 // --- 以下、定義
 
-namespace Eval
-{
+namespace YaneuraOu {
+namespace Eval {
+
 	using namespace EvalLearningTools;
 
 	// bugなどにより間違って書き込まれた値を補正する。
@@ -140,8 +141,8 @@ namespace Eval
 		// 180度盤面を回転させた位置関係に対する勾配
 		std::array<LearnFloatType,2> g_flip = { -g[0] , g[1] };
 
-		Square sq_bk = pos.king_square(BLACK);
-		Square sq_wk = pos.king_square(WHITE);
+		Square sq_bk = pos.square<KING>(BLACK);
+		Square sq_wk = pos.square<KING>(WHITE);
 
 		auto& pos_ = *const_cast<Position*>(&pos);
 
@@ -391,6 +392,7 @@ namespace Eval
 		return Weight::eta;
 	}
 
-}
+} // namespace Eval
+} // namespace YaneuraOu
 
 #endif // EVAL_LEARN

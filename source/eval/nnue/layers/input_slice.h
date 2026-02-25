@@ -1,8 +1,8 @@
 ﻿// NNUE evaluation function layer InputSlice definition
 // NNUE評価関数の層InputSliceの定義
 
-#ifndef NNUE_LAYERS_INPUT_SLICE_H_INCLUDED
-#define NNUE_LAYERS_INPUT_SLICE_H_INCLUDED
+#ifndef CLASSIC_NNUE_LAYERS_INPUT_SLICE_H_INCLUDED
+#define CLASSIC_NNUE_LAYERS_INPUT_SLICE_H_INCLUDED
 
 #include "../../../config.h"
 
@@ -10,6 +10,7 @@
 
 #include "../nnue_common.h"
 
+namespace YaneuraOu {
 namespace Eval::NNUE::Layers {
 
 // Input layer
@@ -70,7 +71,8 @@ class InputSlice {
  private:
 };
 
-}  // namespace Eval::NNUE::Layers
+} // namespace Eval::NNUE::Layers
+} // namespace YaneuraOu
 
 #endif  // defined(EVAL_NNUE)
 

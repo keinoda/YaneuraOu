@@ -37,13 +37,73 @@
 
 #if defined(EVAL_LEARN)
 #include "../../learn/learning_tools.h"
-using namespace EvalLearningTools;
+using namespace YaneuraOu::EvalLearningTools;
 #endif
 
 using namespace std;
 
-namespace Eval
-{
+
+// ============================================================
+//              旧評価関数のためのヘルパー
+// ============================================================
+
+#if defined(USE_CLASSIC_EVAL)
+using namespace YaneuraOu;
+void add_options_(OptionsMap& options, ThreadPool& threads);
+
+namespace {
+YaneuraOu::OptionsMap* options_ptr;
+YaneuraOu::ThreadPool* threads_ptr;
+}
+
+// 📌 旧Options、旧Threadsとの互換性のための共通のマクロ 📌
+#define Options (*options_ptr)
+#define Threads (*threads_ptr)
+
+namespace YaneuraOu::Eval {
+void add_options(OptionsMap& options, ThreadPool& threads) {
+    options_ptr = &options;
+    threads_ptr = &threads;
+    add_options_(options, threads);
+}
+}
+// ============================================================
+
+// 評価関数を読み込み済みであるか
+bool        eval_loaded   = false;
+std::string last_eval_dir = "None";
+
+// 📌 この評価関数で追加したいエンジンオプションはここで追加する。
+void add_options_(OptionsMap& options, ThreadPool& threads) {
+
+#if defined(EVAL_LEARN)
+    // isreadyタイミングで評価関数を読み込まれると、新しい評価関数の変換のために
+    // test evalconvertコマンドを叩きたいのに、その新しい評価関数がないがために
+    // このコマンドの実行前に異常終了してしまう。
+    // そこでこの隠しオプションでisready時の評価関数の読み込みを抑制して、
+    // test evalconvertコマンドを叩く。
+    Options("SkipLoadingEval", Option(false));
+#endif
+
+    const char* default_eval_dir = "eval";
+    Options.add("EvalDir", Option(default_eval_dir, [](const Option& o) {
+                    std::string eval_dir = std::string(o);
+                    if (last_eval_dir != eval_dir)
+                    {
+                        // 評価関数フォルダ名の変更に際して、評価関数ファイルの読み込みフラグをクリアする。
+                        last_eval_dir = eval_dir;
+                        eval_loaded   = false;
+                    }
+                    return std::nullopt;
+                }));
+
+	Options.add("EvalShare", Option(true));
+}
+#endif
+
+
+namespace YaneuraOu {
+namespace Eval {
 
 	// 評価関数パラメーター
 	// 2GBを超える配列は確保できないようなのでポインターにしておき、動的に確保する。
@@ -58,7 +118,11 @@ namespace Eval
 		// EvalIOを利用して評価関数ファイルを読み込む。
 		// ちなみに、inputのところにあるbasic_kppt32()をbasic_kppt16()に変更するとApery(WCSC27)の評価関数ファイルが読み込める。
 		// また、eval_convert()に渡している引数のinputとoutputを入れ替えるとファイルに書き出すことが出来る。EvalIOマジ、っょぃ。
-		auto make_name = [&](std::string filename) { return Path::Combine((string)Options["EvalDir"], filename); };
+        auto make_name = [&](std::string filename) {
+            auto eval_dir      = Options["EvalDir"];
+            auto abs_eval_path = Path::Combine(Directory::GetBinaryFolder(), eval_dir);
+            return Path::Combine(abs_eval_path, filename);
+        };
 		auto input = EvalIO::EvalInfo::build_kppt32(make_name(KK_BIN), make_name(KKP_BIN), make_name(KPP_BIN));
 		auto output = EvalIO::EvalInfo::build_kppt32((void*)kk, (void*)kkp, (void*)kpp);
 
@@ -156,8 +220,6 @@ namespace Eval
 		return sum;
 	}
 
-	void init(){}
-
 	// 与えられたsize_of_evalサイズの連続したalign 32されているメモリに、kk_,kkp_,kpp_を割り当てる。
 	void eval_assign(void* ptr)
 	{
@@ -187,6 +249,10 @@ namespace Eval
 
 	void load_eval()
 	{
+        if (eval_loaded)
+            return;
+        eval_loaded = true; // 📌 読み込みに失敗したらプロセスが終了するだろうから..
+
 		// 評価関数を共有するのか
 		if (!(bool)Options["EvalShare"])
 		{
@@ -205,7 +271,7 @@ namespace Eval
 		// カレントフォルダに".."みたいなフォルダ駆け上がりが含まれていて、絶対pathは同じなのに同じ文字列にならないかも知れない。
 		// それはPath::Combine()が正規化して欲しい気はするが…面倒なのでやってない。
 
-		auto dir_name = Path::Combine( Directory::GetCurrentFolder(), (std::string)Options["EvalDir"]);
+		auto dir_name = Path::Combine( Directory::GetBinaryFolder(), (std::string)Options["EvalDir"]);
 		sync_cout << "info string EvalDirectory = " << dir_name << sync_endl;
 
 		// Mutex名,MMF(Memory Mapped File)名にbackslash文字は使えないらしいので、escapeする。念のため'/'もescapeする。
@@ -317,8 +383,8 @@ namespace Eval
 		// →　32bit環境だとこの変数、単なるポインタなのでこのassertは意味がないのだが、
 		// とりあえず開発時に早期に気づくようにこのassertを入れておく。
 
-		Square sq_bk = pos.king_square(BLACK);
-		Square sq_wk = pos.king_square(WHITE);
+		Square sq_bk = pos.square<KING>(BLACK);
+		Square sq_wk = pos.square<KING>(WHITE);
 		const auto* ppkppb = kpp[sq_bk];
 		const auto* ppkppw = kpp[Inv(sq_wk)];
 
@@ -413,7 +479,7 @@ namespace Eval
 
 	// 後手玉が移動したときの先手玉に対するの差分
 	std::array<s32, 2> do_a_black(const Position& pos, const ExtBonaPiece ebp) {
-		const Square sq_bk = pos.king_square(BLACK);
+		const Square sq_bk = pos.square<KING>(BLACK);
 		const auto* list0 = pos.eval_list()->piece_list_fb();
 		const int length = pos.eval_list()->length();
 
@@ -426,7 +492,7 @@ namespace Eval
 
 	// 先手玉が移動したときの後手玉に対する差分
 	std::array<s32, 2> do_a_white(const Position& pos, const ExtBonaPiece ebp) {
-		const Square sq_wk = pos.king_square(WHITE);
+		const Square sq_wk = pos.square<KING>(WHITE);
 		const auto* list1 = pos.eval_list()->piece_list_fw();
 		const int length = pos.eval_list()->length();
 
@@ -446,8 +512,8 @@ namespace Eval
 			 みたいなことをすべきだが、mはたかだか2なので、
 			 こうはせずに、引きすぎた重複分(kpp[k][n-1][n-2])をあとで加算している。
 		*/
-		const Square sq_bk = pos.king_square(BLACK);
-		const Square sq_wk = pos.king_square(WHITE);
+		const Square sq_bk = pos.square<KING>(BLACK);
+		const Square sq_wk = pos.square<KING>(WHITE);
 		const auto list0 = pos.eval_list()->piece_list_fb();
 		const auto list1 = pos.eval_list()->piece_list_fw();
 		const int length = pos.eval_list()->length();
@@ -544,13 +610,13 @@ namespace Eval
 	struct EvaluateHashTable : HashTable<EvalSum> {};
 	EvaluateHashTable g_evalTable;
 
-	void EvalHash_Resize(size_t mbSize) { g_evalTable.resize(mbSize); }
-	void EvalHash_Clear() { g_evalTable.clear(); };
+	void EvalHash_Resize(size_t mbSize) { g_evalTable.resize(Threads, mbSize); }
+	void EvalHash_Clear() { g_evalTable.clear(Threads); };
 
 	// prefetchする関数も用意しておく。
 	void prefetch_evalhash(const Key key)
 	{
-		prefetch(g_evalTable[key >> 1]);
+		prefetch(g_evalTable[key]);
 	}
 
 #endif
@@ -605,8 +671,8 @@ namespace Eval
 			// この意味においてdiffという名前は少々不適切ではあるが。
 			EvalSum diff = prev->sum;
 
-			auto sq_bk = pos.king_square(BLACK);
-			auto sq_wk = pos.king_square(WHITE);
+			auto sq_bk = pos.square<KING>(BLACK);
+			auto sq_wk = pos.square<KING>(WHITE);
 
 			// ΣKKPは最初から全計算するしかないので初期化する。
 			diff.p[2] = kk[sq_bk][sq_wk];
@@ -822,8 +888,8 @@ namespace Eval
 
 				// 動いた駒が2つ。
 
-				auto sq_bk = pos.king_square(BLACK);
-				auto sq_wk = pos.king_square(WHITE);
+				auto sq_bk = pos.square<KING>(BLACK);
+				auto sq_wk = pos.square<KING>(WHITE);
 
 				diff += do_a_pc(pos, dp.changed_piece[1].new_piece);
 				diff.p[0] -= kpp[    sq_bk ][dp.changed_piece[0].new_piece.fb][dp.changed_piece[1].new_piece.fb];
@@ -885,15 +951,15 @@ namespace Eval
 #endif
 
 #if defined ( USE_EVAL_HASH )
-		// 手番を消した局面hash key
-		const Key keyExcludeTurn = st->key() >> 1;
+		// 局面のhash key
+		const Key key = pos.key();
 
 		// evaluate hash tableにはあるかも。
 
-		//		cout << "EvalSum " << hex << g_evalTable[keyExcludeTurn] << endl;
-		EvalSum entry = *g_evalTable[keyExcludeTurn];   // atomic にデータを取得する必要がある。
+		//		cout << "EvalSum " << hex << g_evalTable[key] << endl;
+        EvalSum entry = *g_evalTable[key];  // atomic にデータを取得する必要がある。
 		entry.decode();
-		if (entry.key == keyExcludeTurn)
+        if (entry.key == key)
 		{
 			//	dbg_hit_on(true);
 
@@ -910,9 +976,9 @@ namespace Eval
 
 #if defined ( USE_EVAL_HASH )
 		// せっかく計算したのでevaluate hash tableに保存しておく。
-		sum.key = keyExcludeTurn;
+		sum.key = key;
 		sum.encode();
-		*g_evalTable[keyExcludeTurn] = sum;
+		*g_evalTable[key] = sum;
 #endif
 
 		ASSERT_LV5(pos.state()->materialValue == Eval::material(pos));
@@ -1033,8 +1099,8 @@ namespace Eval
 	{
 		cout << "--- EVAL STAT\n";
 
-		Square sq_bk = pos.king_square(BLACK);
-		Square sq_wk = pos.king_square(WHITE);
+		Square sq_bk = pos.square<KING>(BLACK);
+		Square sq_wk = pos.square<KING>(WHITE);
 		const auto* ppkppb = kpp[sq_bk];
 		const auto* ppkppw = kpp[Inv(sq_wk)];
 
@@ -1279,7 +1345,7 @@ namespace Eval
 		}
 	}
 
-
-}
+} // namespace Eval
+} // namespace YaneuraOu
 
 #endif // defined (EVAL_KPPT)

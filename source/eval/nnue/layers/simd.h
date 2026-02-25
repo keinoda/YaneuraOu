@@ -1,5 +1,5 @@
-#ifndef SIMD_H_INCLUDED
-#define SIMD_H_INCLUDED
+﻿#ifndef CLASSIC_SIMD_H_INCLUDED
+#define CLASSIC_SIMD_H_INCLUDED
 
 #if defined(USE_AVX2)
     #include <immintrin.h>
@@ -17,7 +17,7 @@
     #include <arm_neon.h>
 #endif
 
-
+namespace YaneuraOu {
 namespace Simd
 {
 
@@ -113,6 +113,6 @@ namespace Simd
 
 
 } // namespace Simd 
-
+} // namespace YaneuraOu
 
 #endif // ifndef SIMD_H_INCLUDED

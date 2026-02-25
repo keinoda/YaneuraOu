@@ -9,8 +9,8 @@
 #include "dlshogi_searcher.h"
 #include "UctSearch.h"
 
-namespace dlshogi
-{
+namespace dlshogi {
+
 	// ゲーム木
 	//extern std::unique_ptr<NodeTree> tree;
 	//extern const Position* pos_root;
@@ -89,7 +89,7 @@ namespace dlshogi
 
 					for (size_t i = 0; i < uct_node->child_num; ++i)
 						if (child[i].getMove() == mate_move)
-							// Node::Moveは上位8bitを使っているので.moveではなく.getMove()を用いる。
+							// ⚠ 比較するときにgetMove()を使う。
 						{
 							child[i].SetLose();
 							break;
@@ -169,7 +169,7 @@ namespace dlshogi
 			{
 				// 1手進める。
 				StateInfo st;
-				Move m = uct_node->child[next_index].getMove();
+				Move m = uct_node->child[next_index].move;
 				pos.do_move(m, st);
 
 				// 再帰的に子を辿っていく。
@@ -395,8 +395,8 @@ namespace dlshogi
 			th = nullptr; // 二重Term()に対して安全に
 		}
 	}
-}
 
+} // namespace dlshogi
 
 #endif // defined(YANEURAOU_ENGINE_DEEP)
 #endif // ndef __PV_MATE_SEARCH_CPP__

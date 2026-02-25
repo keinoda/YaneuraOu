@@ -1,8 +1,8 @@
 ﻿// Input features and network structure used in NNUE evaluation function
 // NNUE評価関数で用いる入力特徴量とネットワーク構造
 
-#ifndef NNUE_ARCHITECTURE_H_INCLUDED
-#define NNUE_ARCHITECTURE_H_INCLUDED
+#ifndef CLASSIC_NNUE_ARCHITECTURE_H_INCLUDED
+#define CLASSIC_NNUE_ARCHITECTURE_H_INCLUDED
 
 #include "../../config.h"
 
@@ -47,6 +47,10 @@
 // halfkp_1024x2-8-64型
 #include "architectures/halfkp_1024x2-8-64.h"
 
+#elif defined(YANEURAOU_ENGINE_NNUE_SFNNwoP1536)
+
+// SFNN without Psqt 1536型
+#include "architectures/sfnnwop-1536.h"
 
 #elif defined(EVAL_NNUE_HALFKP_VM_256X2_32_32)
 
@@ -60,6 +64,7 @@
 
 #endif
 
+namespace YaneuraOu {
 namespace Eval::NNUE {
 
 	static_assert(kTransformedFeatureDimensions % kMaxSimdWidth == 0, "");
@@ -70,7 +75,8 @@ namespace Eval::NNUE {
 	// 差分計算の代わりに全計算を行うタイミングのリスト
 	constexpr auto kRefreshTriggers = RawFeatures::kRefreshTriggers;
 
-}  // namespace Eval::NNUE
+} // namespace Eval::NNUE
+} // namespace YaneuraOu
 
 #endif  // defined(EVAL_NNUE)
 

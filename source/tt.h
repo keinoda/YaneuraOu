@@ -6,6 +6,9 @@
 #include "types.h"
 #include "misc.h"
 #include "memory.h"
+#include "thread.h"
+
+namespace YaneuraOu {
 
 struct Key128;
 struct Key256;
@@ -59,6 +62,19 @@ struct TTData {
 	Depth  depth;
 	Bound  bound;
 	bool   is_pv;
+
+	TTData() = delete;
+
+	// clang-format off
+	TTData(Move m, Value v, Value ev, Depth d, Bound b, bool pv) :
+		move(m),
+		value(v),
+		eval(ev),
+		depth(d),
+		bound(b),
+		is_pv(pv) {
+	};
+	// clang-format on
 };
 
 // This is used to make racy writes to the global TT.
@@ -67,10 +83,7 @@ struct TTData {
 
 struct TTWriter {
 public:
-	// TTのTTEntryに書き込む。
-	void write(Key    k, Value v, bool pv, Bound b, Depth d, Move m, Value ev, uint8_t generation8);
-	void write(Key128 k, Value v, bool pv, Bound b, Depth d, Move m, Value ev, uint8_t generation8);
-	void write(Key256 k, Value v, bool pv, Bound b, Depth d, Move m, Value ev, uint8_t generation8);
+    void write(Key k, Value v, bool pv, Bound b, Depth d, Move m, Value ev, uint8_t generation8);
 
 private:
 	friend class TranspositionTable;
@@ -104,21 +117,15 @@ public:
 	// Set TT size
 	// 置換表のサイズを変更する。mbSize == 確保するメモリサイズ。[MB]単位。
 
-	void resize(size_t mbSize /*, ThreadPool& threads */);
+	void resize(size_t mbSize,ThreadPool& threads);  // Set TT size
 
 	// Re-initialize memory, multithreaded
 	// メモリを再初期化、マルチスレッド対応
 
 	// 置換表のエントリーの全クリア
 	// 並列化してクリアするので高速。
-	// 備考)
-	// LEARN版のときは、
-	// 単一スレッドでメモリをクリアする。(他のスレッドは仕事をしているので..)
-	// 教師生成を行う時は、対局の最初にスレッドごとのTTに対して、
-	// このclear()が呼び出されるものとする。
-	// 例) th->tt.clear();
 
-	void clear();
+	void clear(ThreadPool& threads);                  // Re-initialize memory, multithreaded
 
 	// Approximate what fraction of entries (permille) have been written to during this root search
 	// このルート探索中に書き込まれたエントリの割合（パーミル単位）を概算します。
@@ -149,47 +156,42 @@ public:
 	// ※ KeyとしてKey(64 bit)以外に 128,256bitのhash keyにも対応。(やねうら王独自拡張)
 	//
 	// ⇨ このprobe()でTTの内部状態が変更されないことは保証されている。(されるようになった)
-	//
-	// ■ 備考
-	//
-	// Stockfishのprobe()を_probe()とrename。
-	// そして、以下の3つのprobe()を用意して、この_probe()を下請けとして呼び出すように変更。
 
-	std::tuple<bool, TTData, TTWriter> probe(const Key     key, const Position& pos) const;
-	std::tuple<bool, TTData, TTWriter> probe(const Key128& key, const Position& pos) const;
-	std::tuple<bool, TTData, TTWriter> probe(const Key256& key, const Position& pos) const;
+#if STOCKFISH
+    std::tuple<bool, TTData, TTWriter> probe(
+          const Key key) const;  // The main method, whose retvals separate local vs global objects
+#else
+	std::tuple<bool, TTData, TTWriter> probe(const Key key, const Position& pos) const;
+#endif
 
 	// This is the hash function; its only external use is memory prefetching.
 	// これはハッシュ関数です。外部での唯一の使用目的はメモリのプリフェッチです。
 
-	// ⇨ keyを元にClusterのindexを求めて、その最初のTTEntry*を返す。
-	// 　ここで渡されるkeyのbit 0は局面の手番フラグ(Position::side_to_move())であると仮定している。
-	// 
-	// ■ 備考
-	//
-	// Stockfishのfirst_entry()を_first_entry()とrename。
-	// そして、以下の3つのfirst_entry()を用意して、この_first_entry()を下請けとして呼び出すように変更。
+	/*
+		📓 first_entry()とは？
 
-	TTEntry* first_entry(const Key     key) const;
-	TTEntry* first_entry(const Key128& key) const;
-	TTEntry* first_entry(const Key256& key) const;
+		keyを元にClusterのindexを求めて、その最初のTTEntry* を返す。
 
-#if defined(EVAL_LEARN)
-	// 学習用の実行ファイルでは、スレッド数が変更になったときに各ThreadごとのTTに
-	// メモリを再割り当てする必要がある。
-	void init_tt_per_thread();
+		Stockfishとは違い、引数にこの局面の手番(side_to_move)を渡しているのは、
+		手番をCluster indexのbit 0に埋めることで、手番が異なれば、異なる
+		TT Clusterになることを保証するため。
+
+		これは、将棋では駒の移動が上下対称ではないので、先手の指し手が(TT raceで)
+		後手番の局面でTT.probeで返ってくると、pseudo-legalの判定で余計なチェックが
+		必要になって嫌だからである。
+	*/ 
+
+#if STOCKFISH
+    TTEntry* first_entry(const Key key)
+      const;  // This is the hash function; its only external use is memory prefetching.
+#else
+	TTEntry* first_entry(const Key& key, Color side_to_move) const;
 #endif
 
-	static void UnitTest(Test::UnitTester& unittest);
+	static void UnitTest(Test::UnitTester& unittest, IEngine& engine);
 
 private:
 	friend struct TTEntry;
-
-	// keyを元にClusterのindexを求めて、その最初のTTEntry*を返す。内部実装用。
-	// ※　ここで渡されるkeyのbit 0は局面の手番フラグ(Position::side_to_move())であると仮定している。
-
-	TTEntry* _first_entry(const Key    key) const;
-	std::tuple<bool, TTData, TTWriter> _probe(const Key key, const TTE_KEY_TYPE key_for_ttentry, const Position& pos) const;
 
 	// この置換表が保持しているクラスター数。
 	// Stockfishはresize()ごとに毎回新しく置換表を確保するが、やねうら王では
@@ -208,6 +210,6 @@ private:
 	uint8_t generation8;
 };
 
-extern TranspositionTable TT;
+} // namespace YaneuraOu
 
 #endif // #ifndef TT_H_INCLUDED

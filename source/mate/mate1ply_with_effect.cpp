@@ -8,9 +8,9 @@
 #include "../position.h"
 #include "../extra/long_effect.h"
 
-using namespace Effect8; // Effect24のほうは必要に応じて書く。
-
+namespace YaneuraOu {
 namespace {
+	using namespace Effect8; // Effect24のほうは必要に応じて書く。
 
 	// 超高速1手詰め判定ライブラリ
 
@@ -102,7 +102,7 @@ namespace Mate
 	{
 		Square from, to;
 		auto them = ~Us;
-		auto themKing = pos.king_square(them);
+		auto themKing = pos.square<KING>(them);
 
 		// --- 1手詰め判定テーブルのlook up
 
@@ -235,7 +235,7 @@ namespace Mate
 			}
 		}
 
-		auto ourKing = pos.king_square(Us);
+		auto ourKing = pos.square<KING>(Us);
 
 		// ---------------------------------------------------------------
 		//     fromをtoに移動させて詰むかどうかを判定する関数
@@ -545,5 +545,7 @@ NextCandidate:;
 // templateの明示的な実体化
 //template Move Mate::mate_1ply_imp<BLACK>(const Position& pos);
 //template Move Mate::mate_1ply_imp<WHITE>(const Position& pos);
+
+} // namespace YaneuraOu
 
 #endif

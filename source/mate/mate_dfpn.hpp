@@ -1,4 +1,5 @@
-﻿#include "mate.h"
+﻿// ⚠ このファイルは、mate.cppからincludeするので、変なnamespaceに入れてはならない。
+
 #if defined(USE_MATE_DFPN)
 
 /*
@@ -42,6 +43,8 @@
 #include "../position.h"
 #include "../thread.h"
 #include "mate_move_picker.h"
+
+namespace YaneuraOu {
 
 #if defined (DFPN64)
 // Node数が64bitで表現できる数まで扱える版
@@ -294,6 +297,8 @@ namespace Mate::Dfpn32
 	};
 
 #endif // defined (DFPN32)
+
+	// 以下、DFPN64,DFPN32の共通コード
 
 	// ===================================
 	// 子ノード、ノードのメモリマネージャー
@@ -747,8 +752,8 @@ namespace Mate::Dfpn32
 				// 千日手が絡まずに詰み or 不詰を証明したので、置換表に保存する。
 				if (WithHash && (node->dn == 0 || node->pn == 0) && !node->repeated)
 				{
-					auto key = pos.state()->board_key();
-					auto entry = hash_table->first_entry(key);
+					Key key = pos.state()->board_key;
+					auto entry = hash_table->first_entry(key, pos.side_to_move());
 
 					// たぶん指し手mでこれを証明したはずなので、これを登録しておく。
 					bool is_mate = node->pn == 0; /* pn == 0はわかったから、その手数(== DNPN_INF - dn)を保存したい */
@@ -985,8 +990,8 @@ namespace Mate::Dfpn32
 			{
 				// 置換表に登録されていれば、その結論を用いる。
 
-				auto key = pos.state()->board_key();
-				auto entry = hash_table->first_entry(key);
+				Key key = pos.state()->board_key;
+				auto entry = hash_table->first_entry(key, pos.side_to_move());
 
 				// 置換表の値で証明されたか？
 				bool proven = false;
@@ -1252,4 +1257,6 @@ namespace Mate::Dfpn32
 
 #endif //defined(DFPN64) || defined(DFPN32)
 
-#endif // defined(USE_DFPN)
+} // namespace YaneuraOu
+
+#endif // defined(USE_MATE_DFPN)

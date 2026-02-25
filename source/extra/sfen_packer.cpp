@@ -10,6 +10,7 @@
 #include <cstring>	// std::memset()
 
 using namespace std;
+namespace YaneuraOu {
 
 // -----------------------------------
 //        局面の圧縮・解凍
@@ -207,7 +208,7 @@ struct SfenPacker
 
 		// 先手玉、後手玉の位置、それぞれ7bit
 		for(auto c : COLOR)
-			stream.write_n_bit(pos.king_square(c), 7);
+			stream.write_n_bit(pos.square<KING>(c), 7);
 
 		// 盤面の駒は王以外はそのまま書き出して良し！
 		for (auto sq : SQ)
@@ -445,14 +446,14 @@ struct SfenPacker
 
 // 高速化のために直接unpackする関数を追加。かなりしんどい。
 // packer::unpack()とPosition::set()とを合体させて書く。
-Tools::Result Position::set_from_packed_sfen(const PackedSfen& sfen , StateInfo * si, Thread* th, bool mirror , int gamePly_ /* = 0 */)
+Tools::Result Position::set_from_packed_sfen(const PackedSfen& sfen , StateInfo * si, bool mirror , int gamePly_ /* = 0 */)
 {
 	SfenPacker packer;
 	auto& stream = packer.stream;
 	stream.set_data((u8*)&sfen);
 
-	std::memset(this, 0, sizeof(Position));
-	std::memset(si, 0, sizeof(StateInfo));
+	std::memset(static_cast<void*>(this), 0, sizeof(Position));
+	std::memset(static_cast<void*>(si), 0, sizeof(StateInfo));
 	st = si;
 
 	// 手番
@@ -506,7 +507,7 @@ Tools::Result Position::set_from_packed_sfen(const PackedSfen& sfen , StateInfo 
 		if (pc == NO_PIECE)
 			continue;
 
-		put_piece(sq, Piece(pc));
+		put_piece(Piece(pc), sq);
 
 	#if defined(USE_EVAL_LIST)
 		// evalListの更新
@@ -583,8 +584,10 @@ Tools::Result Position::set_from_packed_sfen(const PackedSfen& sfen , StateInfo 
 
 	// --- evaluate
 
-	st->materialValue = Eval::material(*this);
+#if defined(USE_CLASSIC_EVAL)
+    st->materialValue = Eval::material(*this);
 	Eval::compute_eval(*this);
+#endif
 
 	// --- 入玉の駒点の設定
 
@@ -596,8 +599,6 @@ Tools::Result Position::set_from_packed_sfen(const PackedSfen& sfen , StateInfo 
 	//if (!is_ok(*this))
 	//	std::cout << "info string Illigal Position?" << endl;
 
-	thisThread = th;
-
 	return Tools::Result::Ok();
 }
 
@@ -608,7 +609,7 @@ std::string Position::sfen_from_rawdata(Piece board[81], Hand hands[2], Color tu
 	// これで正常に変換されるのでは…。
 	Position pos;
 
-	memcpy(pos.board, board, sizeof(Piece) * 81);
+	memcpy(&pos.board, board, sizeof(Piece) * 81);
 	memcpy(pos.hand, hands, sizeof(Hand) * 2);
 	pos.sideToMove = turn;
 	pos.gamePly = gamePly_;
@@ -635,6 +636,7 @@ std::string Position::sfen_unpack(const PackedSfen& sfen)
 	return sp.unpack();
 }
 
+} // namespace YaneuraOu
 
 #endif // USE_SFEN_PACKER
 
