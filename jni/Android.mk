@@ -42,6 +42,10 @@ CPPFLAGS := -DTARGET_ARCH="$(TARGET_ARCH_ABI)"
 # example: EVAL_NNUE_K_P_256x2_32_32
 # $ ndk-build YANEURAOU_EDITION=YANEURAOU_ENGINE_NNUE_KP256
 
+# example: EVAL_NNUE_HALFKP_512X2_8_64 (unknown architecture)
+# $ ndk-build make_nnue_header YANEURAOU_EDITION=YANEURAOU_ENGINE_NNUE_HALFKP_512X2_8_64
+# $ ndk-build YANEURAOU_EDITION=YANEURAOU_ENGINE_NNUE_HALFKP_512X2_8_64
+
 # example: MATE_ENGINE (tanuki_MATE)
 # $ ndk-build YANEURAOU_EDITION=MATE_ENGINE
 
@@ -54,6 +58,10 @@ YANEURAOU_EDITION := YANEURAOU_ENGINE_NNUE
 #YANEURAOU_EDITION := YANEURAOU_ENGINE_MATERIAL
 #YANEURAOU_EDITION := MATE_ENGINE
 #YANEURAOU_EDITION := USER_ENGINE
+
+# Python
+# ※ NNUEの未知なarchitectureの時にarchitecture headerを動的に生成するのに用いる。
+PYTHON = python3
 
 # エンジンの表示名 (engine displayname)
 # ("usi"コマンドに対して出力される)
@@ -97,29 +105,62 @@ endif
 ifeq ($(findstring YANEURAOU_ENGINE_NNUE,$(YANEURAOU_EDITION)),YANEURAOU_ENGINE_NNUE)
   CPPFLAGS += -DUSE_MAKEFILE -DYANEURAOU_ENGINE_NNUE
   ENGINE_NAME := YaneuraOu_NNUE
-  ifeq ($(YANEURAOU_EDITION),YANEURAOU_ENGINE_NNUE_KP256)
-    ENGINE_NAME := YaneuraOu_NNUE_KP256
-    CPPFLAGS += -DEVAL_NNUE_KP256
+
+  ifeq ($(YANEURAOU_EDITION),YANEURAOU_ENGINE_NNUE)
   else
+    # YANEURAOU_EDITIONがYANEURAOU_ENGINE_NNUEの後ろに文字が入っている名前なら、これは
+    # 標準NNUE型の亜種なので、対応するシンボルを追加で定義してビルドする。
+    ifeq ($(YANEURAOU_EDITION),YANEURAOU_ENGINE_NNUE_KP256)
+      ENGINE_NAME := YaneuraOu_NNUE_KP256
+      CPPFLAGS += -DEVAL_NNUE_KP256
+    else ifeq ($(YANEURAOU_EDITION),YANEURAOU_ENGINE_NNUE_HALFKPE9)
+      ENGINE_NAME := YaneuraOu_NNUE_HALFKPE9
+      CPPFLAGS += -DEVAL_NNUE_HALFKPE9
+    else ifeq ($(YANEURAOU_EDITION),YANEURAOU_ENGINE_NNUE_HALFKP_512X2_16_32)
+      ENGINE_NAME := YaneuraOu_NNUE_HALFKP_512X2_16_32
+      CPPFLAGS += -DEVAL_NNUE_HALFKP_512X2_16_32
+    else ifeq ($(YANEURAOU_EDITION),YANEURAOU_ENGINE_NNUE_HALFKP_1024X2_8_32)
+      ENGINE_NAME := YaneuraOu_NNUE_HALFKP_1024X2_8_32
+      CPPFLAGS += -DEVAL_NNUE_HALFKP_1024X2_8_32
+    else ifeq ($(YANEURAOU_EDITION),YANEURAOU_ENGINE_NNUE_HALFKP_1024X2_8_64)
+      ENGINE_NAME := YaneuraOu_NNUE_HALFKP_1024X2_8_64
+      CPPFLAGS += -DEVAL_NNUE_HALFKP_1024X2_8_64
+    else ifeq ($(YANEURAOU_EDITION),YANEURAOU_ENGINE_NNUE_HALFKP_VM_256X2_32_32)
+      ENGINE_NAME := YaneuraOu_NNUE_HALFKP_VM
+      CPPFLAGS += -DEVAL_NNUE_HALFKP_VM_256X2_32_32
+    else ifeq ($(YANEURAOU_EDITION),YANEURAOU_ENGINE_NNUE_SFNNwoP1536)
+      ENGINE_NAME := YaneuraOu_NNUE_SFNNwoP1536
+      CPPFLAGS += -DYANEURAOU_ENGINE_NNUE_SFNNwoP1536 -DSFNNwoPSQT
+    else
+      # 知らないNNUEのarchitectureなので、architecture headerを動的に生成する。
+      ARCH_HEADER_FILE = \"architectures/$(subst YANEURAOU_ENGINE_NNUE_,,$(YANEURAOU_EDITION)).h\"
+      CPPFLAGS += -DNNUE_ARCHITECTURE_HEADER=$(ARCH_HEADER_FILE)
+      ARCH_GEN_SCRIPT = $(PYTHON) source/eval/nnue/architectures/nnue_arch_gen.py $(YANEURAOU_EDITION) source/eval/nnue/architectures
+      ENGINE_NAME := YaneuraOu_NNUE_$(subst YANEURAOU_ENGINE_NNUE_,,$(YANEURAOU_EDITION))
+
+      # YANEURAOU_EDITIONに SFNNwoPSQT が含まれていたらシンボル SFNNwoPSQT を定義する。
+      ifneq (,$(findstring YANEURAOU_ENGINE_NNUE_SFNNwoPSQT,$(YANEURAOU_EDITION)))
+        CPPFLAGS += -DSFNNwoPSQT
+      endif
+    endif
+  endif
+
+  # 後方互換として、YANEURAOU_EDITION=YANEURAOU_ENGINE_NNUE かつ
+  # NNUE_EVAL_ARCH指定時は従来どおりアーキを切り替える。
+  ifeq ($(YANEURAOU_EDITION),YANEURAOU_ENGINE_NNUE)
     ifeq ($(NNUE_EVAL_ARCH),KP256)
       ENGINE_NAME := YaneuraOu_NNUE_KP256
       CPPFLAGS += -DEVAL_NNUE_KP256
     endif
-  endif
-  ifeq ($(YANEURAOU_EDITION),YANEURAOU_ENGINE_NNUE_HALFKPE9)
-    ENGINE_NAME := YaneuraOu_NNUE_HALFKPE9
-    CPPFLAGS += -DEVAL_NNUE_HALFKPE9
-  else
     ifeq ($(NNUE_EVAL_ARCH),HALFKPE9)
       ENGINE_NAME := YaneuraOu_NNUE_HALFKPE9
       CPPFLAGS += -DEVAL_NNUE_HALFKPE9
     endif
-  endif
-  ifeq ($(YANEURAOU_EDITION),YANEURAOU_ENGINE_NNUE_HALFKPE9)
-    ENGINE_NAME := YaneuraOu_NNUE_HALFKP_VM
-    CPPFLAGS += -DEVAL_NNUE_HALFKP_VM_256X2_32_32
-  else
     ifeq ($(NNUE_EVAL_ARCH),EVAL_NNUE_HALFKP_VM_256X2_32_32)
+      ENGINE_NAME := YaneuraOu_NNUE_HALFKP_VM
+      CPPFLAGS += -DEVAL_NNUE_HALFKP_VM_256X2_32_32
+    endif
+    ifeq ($(NNUE_EVAL_ARCH),HALFKP_VM_256X2_32_32)
       ENGINE_NAME := YaneuraOu_NNUE_HALFKP_VM
       CPPFLAGS += -DEVAL_NNUE_HALFKP_VM_256X2_32_32
     endif
@@ -142,7 +183,7 @@ ifeq ($(YANEURAOU_EDITION),USER_ENGINE)
 endif
 
 ifeq ($(TARGET_ARCH_ABI),arm64-v8a)
-  CPPFLAGS += -DIS_64BIT -DUSE_NEON -mfpu=neon
+  CPPFLAGS += -DIS_64BIT -DUSE_NEON
   LOCAL_ARM_NEON := true
 endif
 
@@ -230,6 +271,10 @@ LOCAL_SRC_FILES += \
   ../source/eval/nnue/features/k.cpp                                   \
   ../source/eval/nnue/features/p.cpp                                   \
   ../source/eval/nnue/features/half_kp.cpp                             \
+  ../source/eval/nnue/features/half_ka1.cpp                            \
+  ../source/eval/nnue/features/half_ka_hm1.cpp                         \
+  ../source/eval/nnue/features/half_ka2.cpp                            \
+  ../source/eval/nnue/features/half_ka_hm2.cpp                         \
   ../source/eval/nnue/features/half_kp_vm.cpp                          \
   ../source/eval/nnue/features/half_relative_kp.cpp                    \
   ../source/eval/nnue/features/half_kpe9.cpp                           \
@@ -238,7 +283,7 @@ LOCAL_SRC_FILES += \
 	ifeq ($(EVAL_EMBEDDING),ON)
 		LOCAL_SRC_FILES += \
 			../source/eval/nnue/embedded_nnue.cpp
-		CPPFLAGS += -DEVAL_EMBEDDING
+		CPPFLAGS += -DNNUE_EMBEDDING
 	endif
 endif
 
@@ -280,5 +325,13 @@ LOCAL_LDLIBS =
 LOCAL_C_INCLUDES :=
 #LOCAL_CPP_FEATURES += exceptions rtti
 #LOCAL_STATIC_LIBRARIES    := -lpthread
+
+.PHONY: make_nnue_header
+
+# Pythonスクリプトを実行する共通ターゲット
+make_nnue_header:
+ifneq ($(ARCH_GEN_SCRIPT),)
+	$(ARCH_GEN_SCRIPT)
+endif
 
 include $(BUILD_EXECUTABLE)
