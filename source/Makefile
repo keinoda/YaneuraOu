@@ -461,6 +461,8 @@ ifneq (,$(IS_NNUE_EDITION))
 		eval/nnue/features/half_kp.cpp                                  \
 		eval/nnue/features/half_ka1.cpp                                 \
 		eval/nnue/features/half_ka_hm1.cpp                              \
+		eval/nnue/features/half_ka_hm.cpp                               \
+		tanuki_progress.cpp                                             \
 		eval/nnue/features/half_ka2.cpp                                 \
 		eval/nnue/features/half_ka_hm2.cpp                              \
 		eval/nnue/features/half_kp_vm.cpp                               \

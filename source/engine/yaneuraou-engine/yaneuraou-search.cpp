@@ -20,6 +20,7 @@
 #include <cmath>	// std::log(),std::pow(),std::round()
 #include <cstring>	// memset()
 
+#include "../../tanuki_progress.h"
 #include "yaneuraou-search.h"
 #include "../../position.h"
 #include "../../thread.h"
@@ -157,6 +158,7 @@ void YaneuraOuEngine::add_options() {
 	// 📌 SearchOptionsが用いるオプションの追加
 
 	manager.search_options.add_options(options);
+	Tanuki::Progress::add_options(options);
 
 	// 📌 TimeManagementが用いるオプションの追加
 
@@ -263,6 +265,7 @@ void YaneuraOuEngine::isready() {
 
 	// 定跡の読み込み
     book.read_book();
+	Tanuki::Progress::Load();
 
 	// 🌈 tune.pyによってここ以下に自動的にエンジンオプションが追加される。
     //                      %%TUNE_ISREADY%%
