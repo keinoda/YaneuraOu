@@ -14,6 +14,7 @@
 
 #include "../../search.h"
 
+#include <cctype>
 #include <sstream>
 #include <fstream>
 #include <iomanip>
@@ -45,6 +46,249 @@ using namespace Eval;  // Eval::PieceValue
 // 📝 tune.pyとは、パラメーター自動調整フレームワークのスクリプトである。
 //     https://github.com/yaneurao/YaneuraOu-ScriptCollection/tree/main/SPSA
 //                            %%TUNE_DECLARATION%%
+
+namespace {
+
+const char* opening_target_color_name(Color c) {
+    return c == BLACK ? "Black" : "White";
+}
+
+}
+
+std::optional<std::string> SearchOptions::set_opening_target_sfen(Color c,
+                                                                  const std::string& sfen) {
+    auto clear_target = [&]() {
+        opening_target_enabled[c] = false;
+        for (int sq = 0; sq < SQ_NB; ++sq)
+            opening_target_piece[c][sq] = NO_PIECE_TYPE;
+    };
+
+    auto recompute_salt = [&]() {
+        uint64_t salt = 0;
+        for (int color = 0; color < COLOR_NB; ++color)
+        {
+            if (!opening_target_enabled[color])
+                continue;
+
+            salt ^= make_key(0x6f70656e696e6700ULL + uint64_t(color));
+            for (int sq = 0; sq < SQ_NB; ++sq)
+            {
+                PieceType pt = opening_target_piece[color][sq];
+                if (pt != NO_PIECE_TYPE)
+                    salt ^= make_key(0x7472677400000000ULL + uint64_t(color) * 2048
+                                    + uint64_t(sq) * 16 + uint64_t(pt));
+            }
+        }
+        opening_target_key_salt = salt;
+    };
+
+    clear_target();
+
+    std::istringstream in(sfen);
+    std::string board;
+    if (!(in >> board) || board == "<empty>")
+    {
+        recompute_salt();
+        return std::nullopt;
+    }
+
+    if (board == "sfen" && !(in >> board))
+    {
+        recompute_salt();
+        return std::string("OpeningTargetSfen") + opening_target_color_name(c)
+             + " parse error: missing board part";
+    }
+
+    File f = FILE_9;
+    Rank r = RANK_1;
+    bool promote = false;
+    bool any_piece = false;
+
+    for (char token : board)
+    {
+        if (std::isdigit(static_cast<unsigned char>(token)))
+        {
+            int skip = token - '0';
+            if (skip < 1 || skip > 9)
+            {
+                recompute_salt();
+                return std::string("OpeningTargetSfen") + opening_target_color_name(c)
+                     + " parse error: invalid digit";
+            }
+            if (int(f) - skip < int(FILE_1) - 1)
+            {
+                recompute_salt();
+                return std::string("OpeningTargetSfen") + opening_target_color_name(c)
+                     + " parse error: rank overflow";
+            }
+            if (promote)
+            {
+                recompute_salt();
+                return std::string("OpeningTargetSfen") + opening_target_color_name(c)
+                     + " parse error: dangling promoted marker";
+            }
+            f -= File(skip);
+        }
+        else if (token == '/')
+        {
+            if (f != File(int(FILE_1) - 1) || r == RANK_9 || promote)
+            {
+                recompute_salt();
+                return std::string("OpeningTargetSfen") + opening_target_color_name(c)
+                     + " parse error: invalid rank separator";
+            }
+
+            f = FILE_9;
+            ++r;
+        }
+        else if (token == '+')
+        {
+            if (promote)
+            {
+                recompute_salt();
+                return std::string("OpeningTargetSfen") + opening_target_color_name(c)
+                     + " parse error: duplicated promoted marker";
+            }
+            promote = true;
+        }
+        else
+        {
+            size_t idx = PieceToCharBW.find(token);
+            if (idx == std::string::npos || !is_ok(f) || !is_ok(r))
+            {
+                recompute_salt();
+                return std::string("OpeningTargetSfen") + opening_target_color_name(c)
+                     + " parse error: invalid piece or square";
+            }
+
+            Piece pc = Piece(idx);
+            if (promote)
+            {
+                if (is_non_promotable_piece(pc))
+                {
+                    recompute_salt();
+                    return std::string("OpeningTargetSfen") + opening_target_color_name(c)
+                         + " parse error: invalid promoted piece";
+                }
+                pc = make_promoted_piece(pc);
+            }
+
+            opening_target_piece[c][f | r] = type_of(pc);
+            any_piece = true;
+            --f;
+            promote = false;
+        }
+    }
+
+    if (r != RANK_9 || f != File(int(FILE_1) - 1) || promote)
+    {
+        clear_target();
+        recompute_salt();
+        return std::string("OpeningTargetSfen") + opening_target_color_name(c)
+             + " parse error: board part is incomplete";
+    }
+
+    opening_target_enabled[c] = any_piece;
+    recompute_salt();
+
+    if (!any_piece)
+        return std::string("OpeningTargetSfen") + opening_target_color_name(c)
+             + " cleared: no target pieces in mask";
+
+    return std::nullopt;
+}
+
+bool SearchOptions::opening_target_active() const {
+    return (opening_target_enabled[BLACK] || opening_target_enabled[WHITE])
+        && opening_target_penalty > 0;
+}
+
+bool SearchOptions::opening_target_matches(const Position& pos, Color c) const {
+    if (!opening_target_enabled[c])
+        return true;
+
+    for (int sqi = 0; sqi < SQ_NB; ++sqi)
+    {
+        PieceType pt = opening_target_piece[c][sqi];
+        if (pt == NO_PIECE_TYPE)
+            continue;
+
+        if (pos.piece_on(Square(sqi)) != make_piece(c, pt))
+            return false;
+    }
+
+    return true;
+}
+
+bool SearchOptions::opening_target_reached_by_deadline(const std::string&       root_sfen,
+                                                       const std::vector<Move>& moves,
+                                                       Color                    c) const {
+    if (!opening_target_enabled[c])
+        return true;
+
+    StateList states(1);
+    Position  p;
+    auto err = p.set(root_sfen.empty() ? StartSFEN : root_sfen, &states.back());
+    if (err.has_value())
+        return false;
+
+    auto in_deadline = [&]() { return p.game_ply() <= opening_target_max_ply + 1; };
+
+    if (in_deadline() && opening_target_matches(p, c))
+        return true;
+
+    for (Move m : moves)
+    {
+        states.emplace_back();
+        if (m == Move::null())
+            p.do_null_move(states.back());
+        else
+            p.do_move(m, states.back());
+
+        if (!in_deadline())
+            break;
+
+        if (opening_target_matches(p, c))
+            return true;
+    }
+
+    return false;
+}
+
+Value SearchOptions::apply_opening_target_penalty(const Position& pos,
+                                                  const bool      reached[COLOR_NB],
+                                                  Value           value) const {
+    if (!opening_target_active() || !is_valid(value) || is_decisive(value)
+        || pos.game_ply() <= opening_target_max_ply + 1)
+        return value;
+
+    int adjusted = value;
+    for (int color = 0; color < COLOR_NB; ++color)
+    {
+        if (!opening_target_enabled[color] || reached[color])
+            continue;
+
+        adjusted += pos.side_to_move() == Color(color) ? -opening_target_penalty
+                                                       :  opening_target_penalty;
+    }
+
+    return std::clamp(adjusted, VALUE_MIN_EVAL, VALUE_MAX_EVAL);
+}
+
+uint64_t SearchOptions::opening_target_tt_salt(const bool reached[COLOR_NB]) const {
+    if (!opening_target_active())
+        return 0;
+
+    uint64_t salt = opening_target_key_salt;
+    salt ^= make_key(0x6d6178706c790000ULL + uint64_t(opening_target_max_ply));
+    salt ^= make_key(0x70656e616c747900ULL + uint64_t(opening_target_penalty));
+
+    for (int color = 0; color < COLOR_NB; ++color)
+        if (opening_target_enabled[color] && reached[color])
+            salt ^= make_key(0x7265616368656400ULL + uint64_t(color));
+
+    return salt;
+}
 
 
 // この構造体メンバーに対応するエンジンオプションを生やす
@@ -100,6 +344,24 @@ void SearchOptions::add_options(OptionsMap& options) {
     // すべての合法手を生成するのか
     options.add("GenerateAllLegalMoves", Option(false, [&](const Option& o) {
                     generate_all_legal_moves = o;
+                    return std::nullopt;
+                }));
+
+    options.add("OpeningTargetSfenBlack", Option("", [&](const Option& o) {
+                    return set_opening_target_sfen(BLACK, std::string(o));
+                }));
+
+    options.add("OpeningTargetSfenWhite", Option("", [&](const Option& o) {
+                    return set_opening_target_sfen(WHITE, std::string(o));
+                }));
+
+    options.add("OpeningTargetMaxPly", Option(18, 0, 512, [&](const Option& o) {
+                    opening_target_max_ply = int(o);
+                    return std::nullopt;
+                }));
+
+    options.add("OpeningTargetPenalty", Option(1000, 0, 3000, [&](const Option& o) {
+                    opening_target_penalty = int(o);
                     return std::nullopt;
                 }));
 
@@ -913,6 +1175,16 @@ void Search::YaneuraOuWorker::pre_start_searching() {
     auto& search_options = main_manager()->search_options;
     rootPos.set_ekr(search_options.enteringKingRule);
 
+    for (int color = 0; color < COLOR_NB; ++color)
+    {
+        rootOpeningTargetReached[color] =
+          search_options.opening_target_reached_by_deadline(engine.game_root_sfen,
+                                                            engine.moves_from_game_root,
+                                                            Color(color))
+          || (rootPos.game_ply() <= search_options.opening_target_max_ply + 1
+              && search_options.opening_target_matches(rootPos, Color(color)));
+    }
+
 	// 🌈 入玉宣言ができるならrootMovesに追加する。
 	//    これは、main threadでだけ行えば良い。(main threadに属するWorkerのrootMovesにさえ追加されていれば良いので)
 	if (is_mainthread())
@@ -1464,6 +1736,8 @@ bool Search::YaneuraOuWorker::iterative_deepening() {
 
     // 最善応手列(Principal Variation)
     ss->pv = &pv;
+    for (int color = 0; color < COLOR_NB; ++color)
+        ss->openingTargetReached[color] = rootOpeningTargetReached[color];
 
     if (mainThread)
     {
@@ -2091,6 +2365,12 @@ void YaneuraOuWorker::do_move(
     {
         // currentMove(現在探索中の指し手)の更新
         ss->currentMove = move;
+        auto& search_options = main_manager()->search_options;
+        for (int color = 0; color < COLOR_NB; ++color)
+            (ss + 1)->openingTargetReached[color] =
+              ss->openingTargetReached[color]
+              || (pos.game_ply() <= search_options.opening_target_max_ply + 1
+                  && search_options.opening_target_matches(pos, Color(color)));
 
 #if STOCKFISH
         ss->currentMove = move;
@@ -2201,6 +2481,10 @@ Value YaneuraOuWorker::qsearch_pv(Position& pos, PVMoves& pv) {
     ss->ttHit       = false;
 
     pos.set_ekr(main_manager()->search_options.enteringKingRule);
+    for (int color = 0; color < COLOR_NB; ++color)
+        ss->openingTargetReached[color] =
+          pos.game_ply() <= main_manager()->search_options.opening_target_max_ply + 1
+          && main_manager()->search_options.opening_target_matches(pos, Color(color));
 
     return qsearch<PV, false>(pos, ss, -VALUE_INFINITE, VALUE_INFINITE);
 }
@@ -2602,7 +2886,9 @@ Value YaneuraOuWorker::search(Position& pos, Stack* ss, Value alpha, Value beta,
 			そのどちらが得なのかということのようである。
 	*/
 
-    posKey                         = pos.key();
+    posKey = pos.key();
+    if (search_options.opening_target_active())
+        posKey = posKey ^ Key(search_options.opening_target_tt_salt(ss->openingTargetReached));
     auto [ttHit, ttData, ttWriter] = tt.probe(posKey, pos);
 
     // Need further processing of the saved data
@@ -3054,7 +3340,11 @@ Value YaneuraOuWorker::search(Position& pos, Stack* ss, Value alpha, Value beta,
 #endif
 #endif
 
-        ss->staticEval = eval = to_corrected_static_eval(unadjustedStaticEval, correctionValue);
+        ss->staticEval = eval =
+          search_options.apply_opening_target_penalty(
+            pos,
+            ss->openingTargetReached,
+            to_corrected_static_eval(unadjustedStaticEval, correctionValue));
 
         // ttValue can be used as a better position evaluation
         // ttValue は、より良い局面評価として使用できる
@@ -3077,7 +3367,11 @@ Value YaneuraOuWorker::search(Position& pos, Stack* ss, Value alpha, Value beta,
     {
         unadjustedStaticEval = evaluate(pos);
 
-        ss->staticEval = eval = to_corrected_static_eval(unadjustedStaticEval, correctionValue);
+        ss->staticEval = eval =
+          search_options.apply_opening_target_penalty(
+            pos,
+            ss->openingTargetReached,
+            to_corrected_static_eval(unadjustedStaticEval, correctionValue));
 
         // Static evaluation is saved as it was before adjustment by correction history
         // 静的評価は、補正履歴による調整が行われる前の状態で保存される。
@@ -3251,6 +3545,8 @@ Value YaneuraOuWorker::search(Position& pos, Stack* ss, Value alpha, Value beta,
         //     do_null_move()は、この条件を満たす必要がある。
 
         do_null_move(pos, st);
+        for (int color = 0; color < COLOR_NB; ++color)
+            (ss + 1)->openingTargetReached[color] = ss->openingTargetReached[color];
 
         Value nullValue = -search<NonPV>(pos, ss + 1, -beta, -beta + 1, depth - R, false);
 
@@ -4628,7 +4924,9 @@ Value Search::YaneuraOuWorker::qsearch(Position& pos, Stack* ss, Value alpha, Va
     // Step 3. 置換表のlookup
     // -----------------------
 
-    posKey                         = pos.key();
+    posKey = pos.key();
+    if (search_options.opening_target_active())
+        posKey = posKey ^ Key(search_options.opening_target_tt_salt(ss->openingTargetReached));
     auto [ttHit, ttData, ttWriter] = tt.probe(posKey, pos);
 
 #if !STOCKFISH
@@ -4721,7 +5019,10 @@ Value Search::YaneuraOuWorker::qsearch(Position& pos, Stack* ss, Value alpha, Va
 #endif
 
 			ss->staticEval = bestValue =
-				to_corrected_static_eval(unadjustedStaticEval, correctionValue);
+              search_options.apply_opening_target_penalty(
+                pos,
+                ss->openingTargetReached,
+                to_corrected_static_eval(unadjustedStaticEval, correctionValue));
 
 			// ttValue can be used as a better position evaluation
             // ttValueは、より良い局面評価として使用できる
@@ -4782,7 +5083,10 @@ Value Search::YaneuraOuWorker::qsearch(Position& pos, Stack* ss, Value alpha, Va
             unadjustedStaticEval = evaluate(pos);
 
             ss->staticEval = bestValue =
-				to_corrected_static_eval(unadjustedStaticEval, correctionValue);
+              search_options.apply_opening_target_penalty(
+                pos,
+                ss->openingTargetReached,
+                to_corrected_static_eval(unadjustedStaticEval, correctionValue));
 
 #if 0       // 以前のコード
             unadjustedStaticEval =
