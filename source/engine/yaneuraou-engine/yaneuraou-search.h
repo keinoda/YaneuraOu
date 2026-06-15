@@ -37,7 +37,7 @@ struct SearchOptions
         {
             opening_target_enabled[c] = false;
             for (int sq = 0; sq < SQ_NB; ++sq)
-                opening_target_piece[c][sq] = NO_PIECE_TYPE;
+                opening_target_piece[c][sq] = NO_PIECE;
         }
     }
 
@@ -52,9 +52,15 @@ struct SearchOptions
                                             Color                    c) const;
     Value apply_opening_target_penalty(const Position& pos,
                                        const bool      reached[COLOR_NB],
+                                       const bool      hidden[COLOR_NB],
                                        Value           value) const;
+    Value apply_opening_target_root_move_bias(const Position& root_pos,
+                                              const bool      reached[COLOR_NB],
+                                              Value           value) const;
     uint64_t opening_target_color_salt(Color c) const;
-    uint64_t opening_target_tt_salt(const bool reached[COLOR_NB]) const;
+    uint64_t opening_target_tt_salt(const bool reached[COLOR_NB],
+                                    const bool hidden[COLOR_NB],
+                                    Color      side_to_move) const;
 
     // この手数で引き分けとなる。256なら256手目を指したあとに引き分け。
     // 📝 options["MaxMovesToDraw"]の設定値。
@@ -84,7 +90,7 @@ struct SearchOptions
 
     // 指定局面AI : 盤面マスクSFENで指定された自駒配置を序盤中に目指す。
     bool      opening_target_enabled[COLOR_NB];
-    PieceType opening_target_piece[COLOR_NB][SQ_NB];
+    Piece     opening_target_piece[COLOR_NB][SQ_NB];
     int       opening_target_max_ply;
     int       opening_target_penalty;
 
@@ -333,8 +339,11 @@ struct Stack {
     int reduction;
 
     // 指定局面AIの目標マスクに、このnodeまでの手順で到達済みか。
-    // root局面が期限後のとき、およびroot手番側でない色は制約対象外としてtrueにする。
+    // 入力されたSFENの駒色を含めて照合する。
     bool openingTargetReached[COLOR_NB];
+
+    // このnode以下では、相手がtargetを知らない自然応手を選ぶものとしてtarget biasを隠す。
+    bool openingTargetHidden[COLOR_NB];
 };
 
 
@@ -593,6 +602,7 @@ class YaneuraOuWorker: public Worker {
     Value rootDelta;
 
     bool rootOpeningTargetReached[COLOR_NB];
+    bool rootOpeningTargetHidden[COLOR_NB];
 
     // 前回の反復深化で確定したPV。
     // 次の反復深化でこのPV lineを辿っている間は、IIRとquiet shallow pruningを抑制する。

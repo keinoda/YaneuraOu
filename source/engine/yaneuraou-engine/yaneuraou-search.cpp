@@ -60,7 +60,7 @@ std::optional<std::string> SearchOptions::set_opening_target_sfen(Color c,
     auto clear_target = [&]() {
         opening_target_enabled[c] = false;
         for (int sq = 0; sq < SQ_NB; ++sq)
-            opening_target_piece[c][sq] = NO_PIECE_TYPE;
+            opening_target_piece[c][sq] = NO_PIECE;
     };
 
     clear_target();
@@ -145,7 +145,7 @@ std::optional<std::string> SearchOptions::set_opening_target_sfen(Color c,
                 pc = make_promoted_piece(pc);
             }
 
-            opening_target_piece[c][f | r] = type_of(pc);
+            opening_target_piece[c][f | r] = pc;
             any_piece = true;
             --f;
             promote = false;
@@ -179,11 +179,11 @@ bool SearchOptions::opening_target_matches(const Position& pos, Color c) const {
 
     for (int sqi = 0; sqi < SQ_NB; ++sqi)
     {
-        PieceType pt = opening_target_piece[c][sqi];
-        if (pt == NO_PIECE_TYPE)
+        Piece pc = opening_target_piece[c][sqi];
+        if (pc == NO_PIECE)
             continue;
 
-        if (pos.piece_on(Square(sqi)) != make_piece(c, pt))
+        if (pos.piece_on(Square(sqi)) != pc)
             return false;
     }
 
@@ -227,6 +227,7 @@ bool SearchOptions::opening_target_reached_by_deadline(const std::string&       
 
 Value SearchOptions::apply_opening_target_penalty(const Position& pos,
                                                   const bool      reached[COLOR_NB],
+                                                  const bool      hidden[COLOR_NB],
                                                   Value           value) const {
     if (!opening_target_active() || !is_valid(value) || is_decisive(value)
         || pos.game_ply() <= opening_target_max_ply + 1)
@@ -235,13 +236,28 @@ Value SearchOptions::apply_opening_target_penalty(const Position& pos,
     int adjusted = value;
     for (int color = 0; color < COLOR_NB; ++color)
     {
-        if (!opening_target_enabled[color] || reached[color])
+        if (!opening_target_enabled[color] || reached[color] || hidden[color]
+            || pos.side_to_move() != Color(color))
             continue;
 
-        adjusted += pos.side_to_move() == Color(color) ? -opening_target_penalty
-                                                       :  opening_target_penalty;
+        adjusted -= opening_target_penalty;
     }
 
+    return std::clamp(adjusted, VALUE_MIN_EVAL, VALUE_MAX_EVAL);
+}
+
+Value SearchOptions::apply_opening_target_root_move_bias(const Position& root_pos,
+                                                         const bool      reached[COLOR_NB],
+                                                         Value           value) const {
+    if (!opening_target_active() || !is_valid(value) || is_decisive(value))
+        return value;
+
+    Color c = root_pos.side_to_move();
+    if (!opening_target_enabled[c] || reached[c]
+        || root_pos.game_ply() + 1 <= opening_target_max_ply + 1)
+        return value;
+
+    int adjusted = int(value) - opening_target_penalty;
     return std::clamp(adjusted, VALUE_MIN_EVAL, VALUE_MAX_EVAL);
 }
 
@@ -252,16 +268,18 @@ uint64_t SearchOptions::opening_target_color_salt(Color c) const {
     uint64_t salt = make_key(0x6f70656e696e6700ULL + uint64_t(c));
     for (int sq = 0; sq < SQ_NB; ++sq)
     {
-        PieceType pt = opening_target_piece[c][sq];
-        if (pt != NO_PIECE_TYPE)
+        Piece pc = opening_target_piece[c][sq];
+        if (pc != NO_PIECE)
             salt ^= make_key(0x7472677400000000ULL + uint64_t(c) * 2048
-                            + uint64_t(sq) * 16 + uint64_t(pt));
+                            + uint64_t(sq) * 32 + uint64_t(pc));
     }
 
     return salt;
 }
 
-uint64_t SearchOptions::opening_target_tt_salt(const bool reached[COLOR_NB]) const {
+uint64_t SearchOptions::opening_target_tt_salt(const bool reached[COLOR_NB],
+                                               const bool hidden[COLOR_NB],
+                                               Color      side_to_move) const {
     if (!opening_target_active())
         return 0;
 
@@ -270,7 +288,8 @@ uint64_t SearchOptions::opening_target_tt_salt(const bool reached[COLOR_NB]) con
 
     for (int color = 0; color < COLOR_NB; ++color)
     {
-        if (!opening_target_enabled[color] || reached[color])
+        if (!opening_target_enabled[color] || reached[color] || hidden[color]
+            || side_to_move != Color(color))
             continue;
 
         has_unreached = true;
@@ -1177,10 +1196,10 @@ void Search::YaneuraOuWorker::pre_start_searching() {
 
     for (int color = 0; color < COLOR_NB; ++color)
     {
+        rootOpeningTargetHidden[color] =
+          !openingTargetApplies || Color(color) != openingTargetColor;
         rootOpeningTargetReached[color] =
-          !openingTargetApplies
-          || Color(color) != openingTargetColor
-          || search_options.opening_target_reached_by_deadline(engine.game_root_sfen,
+          search_options.opening_target_reached_by_deadline(engine.game_root_sfen,
                                                               engine.moves_from_game_root,
                                                               Color(color))
           || search_options.opening_target_matches(rootPos, Color(color));
@@ -1738,7 +1757,10 @@ bool Search::YaneuraOuWorker::iterative_deepening() {
     // 最善応手列(Principal Variation)
     ss->pv = &pv;
     for (int color = 0; color < COLOR_NB; ++color)
+    {
         ss->openingTargetReached[color] = rootOpeningTargetReached[color];
+        ss->openingTargetHidden[color]  = rootOpeningTargetHidden[color];
+    }
 
     if (mainThread)
     {
@@ -2367,11 +2389,16 @@ void YaneuraOuWorker::do_move(
         // currentMove(現在探索中の指し手)の更新
         ss->currentMove = move;
         auto& search_options = main_manager()->search_options;
+        Color mover = ~pos.side_to_move();
         for (int color = 0; color < COLOR_NB; ++color)
+        {
             (ss + 1)->openingTargetReached[color] =
               ss->openingTargetReached[color]
               || (pos.game_ply() <= search_options.opening_target_max_ply + 1
                   && search_options.opening_target_matches(pos, Color(color)));
+            (ss + 1)->openingTargetHidden[color] =
+              ss->openingTargetHidden[color] || mover != Color(color);
+        }
 
 #if STOCKFISH
         ss->currentMove = move;
@@ -2487,10 +2514,12 @@ Value YaneuraOuWorker::qsearch_pv(Position& pos, PVMoves& pv) {
     const Color openingTargetColor = pos.side_to_move();
 
     for (int color = 0; color < COLOR_NB; ++color)
+    {
+        ss->openingTargetHidden[color] =
+          !openingTargetApplies || Color(color) != openingTargetColor;
         ss->openingTargetReached[color] =
-          !openingTargetApplies
-          || Color(color) != openingTargetColor
-          || main_manager()->search_options.opening_target_matches(pos, Color(color));
+          main_manager()->search_options.opening_target_matches(pos, Color(color));
+    }
 
     return qsearch<PV, false>(pos, ss, -VALUE_INFINITE, VALUE_INFINITE);
 }
@@ -2894,7 +2923,8 @@ Value YaneuraOuWorker::search(Position& pos, Stack* ss, Value alpha, Value beta,
 
     posKey = pos.key();
     if (search_options.opening_target_active())
-        posKey = posKey ^ Key(search_options.opening_target_tt_salt(ss->openingTargetReached));
+        posKey = posKey ^ Key(search_options.opening_target_tt_salt(
+                            ss->openingTargetReached, ss->openingTargetHidden, pos.side_to_move()));
     auto [ttHit, ttData, ttWriter] = tt.probe(posKey, pos);
 
     // Need further processing of the saved data
@@ -3350,6 +3380,7 @@ Value YaneuraOuWorker::search(Position& pos, Stack* ss, Value alpha, Value beta,
           search_options.apply_opening_target_penalty(
             pos,
             ss->openingTargetReached,
+            ss->openingTargetHidden,
             to_corrected_static_eval(unadjustedStaticEval, correctionValue));
 
         // ttValue can be used as a better position evaluation
@@ -3377,6 +3408,7 @@ Value YaneuraOuWorker::search(Position& pos, Stack* ss, Value alpha, Value beta,
           search_options.apply_opening_target_penalty(
             pos,
             ss->openingTargetReached,
+            ss->openingTargetHidden,
             to_corrected_static_eval(unadjustedStaticEval, correctionValue));
 
         // Static evaluation is saved as it was before adjustment by correction history
@@ -3551,8 +3583,13 @@ Value YaneuraOuWorker::search(Position& pos, Stack* ss, Value alpha, Value beta,
         //     do_null_move()は、この条件を満たす必要がある。
 
         do_null_move(pos, st);
+        Color nullMover = ~pos.side_to_move();
         for (int color = 0; color < COLOR_NB; ++color)
+        {
             (ss + 1)->openingTargetReached[color] = ss->openingTargetReached[color];
+            (ss + 1)->openingTargetHidden[color] =
+              ss->openingTargetHidden[color] || nullMover != Color(color);
+        }
 
         Value nullValue = -search<NonPV>(pos, ss + 1, -beta, -beta + 1, depth - R, false);
 
@@ -4365,6 +4402,11 @@ moves_loop:  // When in check, search starts here
 
 		ASSERT_LV3(-VALUE_INFINITE < value && value < VALUE_INFINITE);
 
+        Value uciValue = value;
+        if (rootNode)
+            value = search_options.apply_opening_target_root_move_bias(
+              rootPos, (ss + 1)->openingTargetReached, value);
+
 		// -----------------------
         // Step 20. Check for a new best move
         // -----------------------
@@ -4413,19 +4455,18 @@ moves_loop:  // When in check, search starts here
                 // 💡 root nodeにおいてPVの指し手または、α値を更新した場合、スコアをセットしておく。
                 //    (iterationの終わりでsortするのでそのときに指し手が入れ替わる。)
 
-                rm.score = rm.uciScore = value;
+                rm.score               = value;
+                rm.uciScore            = uciValue;
                 rm.selDepth            = selDepth;
                 rm.scoreLowerbound = rm.scoreUpperbound = false;
 
                 if (value >= beta)
                 {
                     rm.scoreLowerbound = true;
-                    rm.uciScore        = beta;
                 }
                 else if (value <= alpha)
                 {
                     rm.scoreUpperbound = true;
-                    rm.uciScore        = alpha;
                 }
 
 				// 📝 PVは変化するはずなのでいったんリセットしている。
@@ -4932,7 +4973,8 @@ Value Search::YaneuraOuWorker::qsearch(Position& pos, Stack* ss, Value alpha, Va
 
     posKey = pos.key();
     if (search_options.opening_target_active())
-        posKey = posKey ^ Key(search_options.opening_target_tt_salt(ss->openingTargetReached));
+        posKey = posKey ^ Key(search_options.opening_target_tt_salt(
+                            ss->openingTargetReached, ss->openingTargetHidden, pos.side_to_move()));
     auto [ttHit, ttData, ttWriter] = tt.probe(posKey, pos);
 
 #if !STOCKFISH
@@ -5028,6 +5070,7 @@ Value Search::YaneuraOuWorker::qsearch(Position& pos, Stack* ss, Value alpha, Va
               search_options.apply_opening_target_penalty(
                 pos,
                 ss->openingTargetReached,
+                ss->openingTargetHidden,
                 to_corrected_static_eval(unadjustedStaticEval, correctionValue));
 
 			// ttValue can be used as a better position evaluation
@@ -5092,6 +5135,7 @@ Value Search::YaneuraOuWorker::qsearch(Position& pos, Stack* ss, Value alpha, Va
               search_options.apply_opening_target_penalty(
                 pos,
                 ss->openingTargetReached,
+                ss->openingTargetHidden,
                 to_corrected_static_eval(unadjustedStaticEval, correctionValue));
 
 #if 0       // 以前のコード
