@@ -54,13 +54,9 @@ struct SearchOptions
                                        const bool      reached[COLOR_NB],
                                        const bool      hidden[COLOR_NB],
                                        Value           value) const;
-    Value apply_opening_target_root_move_bias(const Position& root_pos,
-                                              const bool      reached[COLOR_NB],
-                                              Value           value) const;
     uint64_t opening_target_color_salt(Color c) const;
     uint64_t opening_target_tt_salt(const bool reached[COLOR_NB],
-                                    const bool hidden[COLOR_NB],
-                                    Color      side_to_move) const;
+                                    const bool hidden[COLOR_NB]) const;
 
     // この手数で引き分けとなる。256なら256手目を指したあとに引き分け。
     // 📝 options["MaxMovesToDraw"]の設定値。
@@ -342,7 +338,8 @@ struct Stack {
     // 入力されたSFENの駒色を含めて照合する。
     bool openingTargetReached[COLOR_NB];
 
-    // このnode以下では、相手がtargetを知らない自然応手を選ぶものとしてtarget biasを隠す。
+    // このroot探索では対象外のtargetならtrue。
+    // root手番側でないtargetや、締切後rootから始まった探索ではペナルティを無効化する。
     bool openingTargetHidden[COLOR_NB];
 };
 

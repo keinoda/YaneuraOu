@@ -645,6 +645,8 @@ void USIEngine::go(std::istringstream& is)
 		if (limits.ponderMode && engine.get_options().count("Stochastic_Ponder")
 			&& engine.get_options()["Stochastic_Ponder"])
 		{
+            limits.ignoreOpeningTarget = true;
+
             auto s = last_position_cmd_string;
 			// 最初("position")と最後(最後の指し手)のtokenを捨てる。
 

@@ -186,6 +186,7 @@ struct LimitsType {
         rtime                           = 0;
 #if !STOCKFISH
         disablePvInterval               = false;
+        ignoreOpeningTarget             = false;
 #endif
     }
 
@@ -253,6 +254,9 @@ struct LimitsType {
 
     // benchコマンド中はPV出力間隔の抑制を無効化して、最終info nodesを安定して取得する。
     bool disablePvInterval;
+
+    // Stochastic Ponderでは相手番に立って探索するので、エンジン利用者側のOpeningTargetを参照しない。
+    bool ignoreOpeningTarget;
 #endif
 };
 
@@ -596,4 +600,3 @@ protected:
 
 
 #endif // SEARCH_H_INCLUDED
-
