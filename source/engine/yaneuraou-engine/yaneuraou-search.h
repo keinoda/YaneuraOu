@@ -30,7 +30,6 @@ struct SearchOptions
         enteringKingRule         = EKR_27_POINT;
         opening_target_max_ply   = 18;
         opening_target_penalty   = 1000;
-        opening_target_key_salt  = 0;
         lastPvInfoTime           = 0;
         computed_pv_interval     = 0;
 
@@ -54,6 +53,7 @@ struct SearchOptions
     Value apply_opening_target_penalty(const Position& pos,
                                        const bool      reached[COLOR_NB],
                                        Value           value) const;
+    uint64_t opening_target_color_salt(Color c) const;
     uint64_t opening_target_tt_salt(const bool reached[COLOR_NB]) const;
 
     // この手数で引き分けとなる。256なら256手目を指したあとに引き分け。
@@ -87,7 +87,6 @@ struct SearchOptions
     PieceType opening_target_piece[COLOR_NB][SQ_NB];
     int       opening_target_max_ply;
     int       opening_target_penalty;
-    uint64_t  opening_target_key_salt;
 
     // 📌 ここ以降は、SearchManagerで用いるメンバ変数 📌
 
@@ -334,6 +333,7 @@ struct Stack {
     int reduction;
 
     // 指定局面AIの目標マスクに、このnodeまでの手順で到達済みか。
+    // root局面が期限後のとき、およびroot手番側でない色は制約対象外としてtrueにする。
     bool openingTargetReached[COLOR_NB];
 };
 

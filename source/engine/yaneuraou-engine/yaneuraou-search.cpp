@@ -63,38 +63,17 @@ std::optional<std::string> SearchOptions::set_opening_target_sfen(Color c,
             opening_target_piece[c][sq] = NO_PIECE_TYPE;
     };
 
-    auto recompute_salt = [&]() {
-        uint64_t salt = 0;
-        for (int color = 0; color < COLOR_NB; ++color)
-        {
-            if (!opening_target_enabled[color])
-                continue;
-
-            salt ^= make_key(0x6f70656e696e6700ULL + uint64_t(color));
-            for (int sq = 0; sq < SQ_NB; ++sq)
-            {
-                PieceType pt = opening_target_piece[color][sq];
-                if (pt != NO_PIECE_TYPE)
-                    salt ^= make_key(0x7472677400000000ULL + uint64_t(color) * 2048
-                                    + uint64_t(sq) * 16 + uint64_t(pt));
-            }
-        }
-        opening_target_key_salt = salt;
-    };
-
     clear_target();
 
     std::istringstream in(sfen);
     std::string board;
     if (!(in >> board) || board == "<empty>")
     {
-        recompute_salt();
         return std::nullopt;
     }
 
     if (board == "sfen" && !(in >> board))
     {
-        recompute_salt();
         return std::string("OpeningTargetSfen") + opening_target_color_name(c)
              + " parse error: missing board part";
     }
@@ -111,19 +90,16 @@ std::optional<std::string> SearchOptions::set_opening_target_sfen(Color c,
             int skip = token - '0';
             if (skip < 1 || skip > 9)
             {
-                recompute_salt();
                 return std::string("OpeningTargetSfen") + opening_target_color_name(c)
                      + " parse error: invalid digit";
             }
             if (int(f) - skip < int(FILE_1) - 1)
             {
-                recompute_salt();
                 return std::string("OpeningTargetSfen") + opening_target_color_name(c)
                      + " parse error: rank overflow";
             }
             if (promote)
             {
-                recompute_salt();
                 return std::string("OpeningTargetSfen") + opening_target_color_name(c)
                      + " parse error: dangling promoted marker";
             }
@@ -133,7 +109,6 @@ std::optional<std::string> SearchOptions::set_opening_target_sfen(Color c,
         {
             if (f != File(int(FILE_1) - 1) || r == RANK_9 || promote)
             {
-                recompute_salt();
                 return std::string("OpeningTargetSfen") + opening_target_color_name(c)
                      + " parse error: invalid rank separator";
             }
@@ -145,7 +120,6 @@ std::optional<std::string> SearchOptions::set_opening_target_sfen(Color c,
         {
             if (promote)
             {
-                recompute_salt();
                 return std::string("OpeningTargetSfen") + opening_target_color_name(c)
                      + " parse error: duplicated promoted marker";
             }
@@ -156,7 +130,6 @@ std::optional<std::string> SearchOptions::set_opening_target_sfen(Color c,
             size_t idx = PieceToCharBW.find(token);
             if (idx == std::string::npos || !is_ok(f) || !is_ok(r))
             {
-                recompute_salt();
                 return std::string("OpeningTargetSfen") + opening_target_color_name(c)
                      + " parse error: invalid piece or square";
             }
@@ -166,7 +139,6 @@ std::optional<std::string> SearchOptions::set_opening_target_sfen(Color c,
             {
                 if (is_non_promotable_piece(pc))
                 {
-                    recompute_salt();
                     return std::string("OpeningTargetSfen") + opening_target_color_name(c)
                          + " parse error: invalid promoted piece";
                 }
@@ -183,13 +155,11 @@ std::optional<std::string> SearchOptions::set_opening_target_sfen(Color c,
     if (r != RANK_9 || f != File(int(FILE_1) - 1) || promote)
     {
         clear_target();
-        recompute_salt();
         return std::string("OpeningTargetSfen") + opening_target_color_name(c)
              + " parse error: board part is incomplete";
     }
 
     opening_target_enabled[c] = any_piece;
-    recompute_salt();
 
     if (!any_piece)
         return std::string("OpeningTargetSfen") + opening_target_color_name(c)
@@ -275,17 +245,43 @@ Value SearchOptions::apply_opening_target_penalty(const Position& pos,
     return std::clamp(adjusted, VALUE_MIN_EVAL, VALUE_MAX_EVAL);
 }
 
+uint64_t SearchOptions::opening_target_color_salt(Color c) const {
+    if (!opening_target_enabled[c])
+        return 0;
+
+    uint64_t salt = make_key(0x6f70656e696e6700ULL + uint64_t(c));
+    for (int sq = 0; sq < SQ_NB; ++sq)
+    {
+        PieceType pt = opening_target_piece[c][sq];
+        if (pt != NO_PIECE_TYPE)
+            salt ^= make_key(0x7472677400000000ULL + uint64_t(c) * 2048
+                            + uint64_t(sq) * 16 + uint64_t(pt));
+    }
+
+    return salt;
+}
+
 uint64_t SearchOptions::opening_target_tt_salt(const bool reached[COLOR_NB]) const {
     if (!opening_target_active())
         return 0;
 
-    uint64_t salt = opening_target_key_salt;
-    salt ^= make_key(0x6d6178706c790000ULL + uint64_t(opening_target_max_ply));
-    salt ^= make_key(0x70656e616c747900ULL + uint64_t(opening_target_penalty));
+    uint64_t salt          = 0;
+    bool     has_unreached = false;
 
     for (int color = 0; color < COLOR_NB; ++color)
-        if (opening_target_enabled[color] && reached[color])
-            salt ^= make_key(0x7265616368656400ULL + uint64_t(color));
+    {
+        if (!opening_target_enabled[color] || reached[color])
+            continue;
+
+        has_unreached = true;
+        salt ^= opening_target_color_salt(Color(color));
+    }
+
+    if (!has_unreached)
+        return 0;
+
+    salt ^= make_key(0x6d6178706c790000ULL + uint64_t(opening_target_max_ply));
+    salt ^= make_key(0x70656e616c747900ULL + uint64_t(opening_target_penalty));
 
     return salt;
 }
@@ -1175,14 +1171,19 @@ void Search::YaneuraOuWorker::pre_start_searching() {
     auto& search_options = main_manager()->search_options;
     rootPos.set_ekr(search_options.enteringKingRule);
 
+    const bool  openingTargetApplies =
+      rootPos.game_ply() <= search_options.opening_target_max_ply + 1;
+    const Color openingTargetColor = rootPos.side_to_move();
+
     for (int color = 0; color < COLOR_NB; ++color)
     {
         rootOpeningTargetReached[color] =
-          search_options.opening_target_reached_by_deadline(engine.game_root_sfen,
-                                                            engine.moves_from_game_root,
-                                                            Color(color))
-          || (rootPos.game_ply() <= search_options.opening_target_max_ply + 1
-              && search_options.opening_target_matches(rootPos, Color(color)));
+          !openingTargetApplies
+          || Color(color) != openingTargetColor
+          || search_options.opening_target_reached_by_deadline(engine.game_root_sfen,
+                                                              engine.moves_from_game_root,
+                                                              Color(color))
+          || search_options.opening_target_matches(rootPos, Color(color));
     }
 
 	// 🌈 入玉宣言ができるならrootMovesに追加する。
@@ -2481,10 +2482,15 @@ Value YaneuraOuWorker::qsearch_pv(Position& pos, PVMoves& pv) {
     ss->ttHit       = false;
 
     pos.set_ekr(main_manager()->search_options.enteringKingRule);
+    const bool  openingTargetApplies =
+      pos.game_ply() <= main_manager()->search_options.opening_target_max_ply + 1;
+    const Color openingTargetColor = pos.side_to_move();
+
     for (int color = 0; color < COLOR_NB; ++color)
         ss->openingTargetReached[color] =
-          pos.game_ply() <= main_manager()->search_options.opening_target_max_ply + 1
-          && main_manager()->search_options.opening_target_matches(pos, Color(color));
+          !openingTargetApplies
+          || Color(color) != openingTargetColor
+          || main_manager()->search_options.opening_target_matches(pos, Color(color));
 
     return qsearch<PV, false>(pos, ss, -VALUE_INFINITE, VALUE_INFINITE);
 }
