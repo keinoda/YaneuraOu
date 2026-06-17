@@ -279,10 +279,6 @@ std::string engine_info(const std::string& engine_name,
 #if defined(FOR_TOURNAMENT)
 			+" TOURNAMENT"
 #endif
-
-#if defined(EVAL_LEARN)
-			+" EVAL_LEARN"
-#endif
 			;
 			engine_author_ = engine_author;
                 // やねうら王 "yaneurao";
@@ -449,8 +445,8 @@ string config_info()
 		"halfkp_1024x2_8_32";
 	#elif defined(YANEURAOU_ENGINE_NNUE_HALFKP_1024X2_8_64)
 		"halfkp_1024x2_8_64";
-	#elif defined(YANEURAOU_ENGINE_NNUE_SFNNwoP1536)
-		"sfnnwop-1536";
+	#elif defined(YANEURAOU_ENGINE_SFNN1536)
+		"sfnn-1536";
 	#elif defined(EVAL_NNUE_HALFKP_VM_256X2_32_32)
 		"halfkpvm_256x2_32_32";
 	#else
@@ -494,14 +490,6 @@ string config_info()
 		false;
 #endif
 
-
-	bool eval_learn =
-#if defined(EVAL_LEARN)
-		true;
-#else
-		false;
-#endif
-
 	bool use_mate_dfpn =
 #if defined(USE_MATE_DFPN)
 		true;
@@ -513,7 +501,6 @@ string config_info()
 	config += o2("FOR_TOURNAMENT"           , for_tournament     );
 	config += o2("ENABLE_TEST_CMD"          , test_cmd           );
 	config += o2("ENABLE_MAKEBOOK_CMD"      , make_book_cmd      );
-	config += o2("EVAL_LEARN"               , eval_learn         );
 	config += o2("USE_MATE_DFPN"            , use_mate_dfpn      );
 
 	// コンパイラ情報もついでに出力する。
@@ -672,7 +659,7 @@ namespace Tools {
 	// ※ Stockfishのtt.cppのTranspositionTable::clear()にあるコードと同等のコード。
 	void memclear(ThreadPool& threads, const char* name_, void* table, size_t size)
 	{
-#if !defined(EVAL_LEARN) && !defined(__EMSCRIPTEN__)
+#if !defined(__EMSCRIPTEN__)
 
 		// Windows10では、このゼロクリアには非常に時間がかかる。
 		// malloc()時点ではメモリを実メモリに割り当てられておらず、
@@ -714,11 +701,6 @@ namespace Tools {
 		// yaneuraou.wasm
 		// pthread_joinによってブラウザのメインスレッドがブロックされるため、単一スレッドでメモリをクリアする処理に変更
 
-		// LEARN版のときは、
-		// 単一スレッドでメモリをクリアする。(他のスレッドは仕事をしているので..)
-		// 教師生成を行う時は、対局の最初にスレッドごとのTTに対して、
-		// このclear()が呼び出されるものとする。
-		// 例) th->tt.clear();
 		memset(table, 0, size);
 #endif
 

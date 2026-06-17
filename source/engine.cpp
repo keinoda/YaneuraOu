@@ -1,4 +1,6 @@
-﻿#include "engine.h"
+﻿#include <atomic>
+
+#include "engine.h"
 #include "thread.h"
 #include "perft.h"
 #include "usioption.h"
@@ -203,13 +205,16 @@ void Engine::wait_for_search_finished() {
 
 // "position"コマンドの下請け。
 // sfen文字列 + movesのあとに書かれていた(USIの)指し手文字列から、現在の局面を設定する。
-void Engine::set_position(const std::string& sfen, const std::vector<std::string>& moves) {
+std::optional<PositionSetError> Engine::set_position(const std::string&              sfen,
+                                                     const std::vector<std::string>& moves) {
 
 	// Drop the old state and create a new one
 	// 古い状態を破棄して新しい状態を作成する
 
 	states = StateListPtr(new std::deque<StateInfo>(1));
-	pos.set(sfen /*, options["UCI_Chess960"]*/ , &states->back());
+	auto err = pos.set(sfen /*, options["UCI_Chess960"]*/ , &states->back());
+	if (err.has_value())
+		return err;
 
 #if !STOCKFISH
     std::vector<Move> moves0;
@@ -220,10 +225,13 @@ void Engine::set_position(const std::string& sfen, const std::vector<std::string
 		auto m = USIEngine::to_move(pos, move);
 
 		if (m == Move::none())
-			break;
+			return PositionSetError("Illegal move: " + move);
 
 		states->emplace_back();
-		pos.do_move(m, states->back());
+		if (m == Move::null())
+			pos.do_null_move(states->back());
+		else
+			pos.do_move(m, states->back());
 
 #if !STOCKFISH
 		moves0.emplace_back(m);
@@ -236,6 +244,7 @@ void Engine::set_position(const std::string& sfen, const std::vector<std::string
 	moves_from_game_root = std::move(moves0);
 #endif
 
+	return std::nullopt;
 }
 
 
@@ -512,18 +521,18 @@ void Engine::run_heavy_job(std::function<void()> job) {
     // 確認してから処理を行う。
 
     // スレッドが起動したことを通知するためのフラグ
-    auto thread_started = false;
+    std::atomic_bool thread_started{ false };
 
     // この関数を抜ける時に立つフラグ(スレッドを停止させる用)
-    auto thread_end = false;
+    std::atomic_bool thread_end{ false };
 
     // 定期的な改行送信用のスレッド
     auto th = std::thread([&] {
         // スレッドが起動した
-        thread_started = true;
+        thread_started.store(true, std::memory_order_release);
 
         int count = 0;
-        while (!thread_end)
+        while (!thread_end.load(std::memory_order_acquire))
         {
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
             if (++count >= 50 /* 5秒 */)
@@ -538,12 +547,12 @@ void Engine::run_heavy_job(std::function<void()> job) {
         }
     });
     SCOPE_EXIT({
-        thread_end = true;
+        thread_end.store(true, std::memory_order_release);
         th.join();
     });
 
     // スレッド起動待ち
-    while (!thread_started)
+    while (!thread_started.load(std::memory_order_acquire))
         Tools::sleep(100);
 
     // --- Keep Alive的な処理ここまで ---

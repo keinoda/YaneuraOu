@@ -14,7 +14,7 @@
 // ただし、この値を数値として使用することがあるので数値化できる文字列にしておく必要がある。
 #if !defined(ENGINE_VERSION)
 
-#define ENGINE_VERSION "9.21git"
+#define ENGINE_VERSION "9.41git"
 
 #endif
 // --------------------
@@ -159,12 +159,6 @@
 //#define USE_EVAL_LIST
 
 
-// 評価関数パラメーターを共有メモリを用いて他プロセスのものと共有する。
-// 少ないメモリのマシンで思考エンジンを何十個も立ち上げようとしたときにメモリ不足になるので
-// 評価関数をshared memoryを用いて他のプロセスと共有する機能。(対応しているのはいまのところKPPT評価関数のみ。かつWindows限定)
-// #define USE_SHARED_MEMORY_IN_EVAL
-
-
 // 評価関数で金と小駒の成りを区別する
 // 駒の特徴量はBonaPiece。これはBonanzaに倣っている。
 // このオプションを有効化すると、金と小駒の成りを区別する。(Bonanzaとは異なる特徴量になる)
@@ -194,28 +188,6 @@
 // これを4にすると、1つのTTEntryが64byteになる。いまどきのPCならCPUのcache line sizeが64byteであるため、
 // 速度低下はほぼないはず。
 //#define TT_CLUSTER_SIZE 3
-
-// ---------------------
-//  機械学習関連の設定
-// ---------------------
-
-// 評価関数を教師局面から学習させるときに使うときのモード
-// "learn"コマンドが使えるようになる。(教師局面からの評価関数パラメーターの学習ができるようになる。)
-// "gensfen"コマンドも使えるようになる。(教師局面の生成もできるようになる。)
-//#define EVAL_LEARN
-
-
-// sfenを256bitにpackする機能、unpackする機能を有効にする。
-// これをdefineするとPosition::packe_sfen(),unpack_sfen()が使えるようになる。
-// ※　機械学習関連で局面の読み書きをする時に使う。
-// #define USE_SFEN_PACKER
-
-
-// 置換表のprobeに必ず失敗する設定
-// ※　 自己生成棋譜からの学習でqsearch()のPVが欲しいときに
-// 置換表にhitして枝刈りされたときにPVが得られないの悔しいので。
-// #define USE_FALSE_PROBE_IN_TT
-
 
 // ---------------------
 //  詰将棋ルーチン関係の設定
@@ -252,7 +224,7 @@
 //  高速化に関する設定
 // ---------------------
 
-// トーナメント(大会)用のビルド。最新CPU(いまはAVX2)用でEVAL_HASH大きめ。EVAL_LEARN、TEST_CMD使用不可。ASSERTなし。
+// トーナメント(大会)用のビルド。最新CPU(いまはAVX2)用でEVAL_HASH大きめ。TEST_CMD使用不可。ASSERTなし。
 // #define FOR_TOURNAMENT
 
 // ---------------------
@@ -400,11 +372,8 @@ constexpr int MAX_PLY_NUM = 246;
 	#define USE_MOVE_PICKER
 	#define USE_EVAL
 
-	#if defined(YANEURAOU_ENGINE_KPPT) || defined(YANEURAOU_ENGINE_KPP_KKPT)
-
-		// 評価関数を共用して複数プロセス立ち上げたときのメモリを節約。(いまのところWindows限定)
-		#define USE_SHARED_MEMORY_IN_EVAL
-	#endif
+	// 定跡関連コマンド
+	#define ENABLE_MAKEBOOK_CMD
 
 	#if defined(YANEURAOU_ENGINE_KPPT) || defined(YANEURAOU_ENGINE_KPP_KKPT) || defined(YANEURAOU_ENGINE_NNUE)
 		#define USE_DIFF_EVAL
@@ -419,18 +388,11 @@ constexpr int MAX_PLY_NUM = 246;
 		#define NNUE_EMBEDDING_OFF
 	#endif
 
-	// 学習機能を有効にするオプション。
-	// 教師局面の生成、定跡コマンド(makebook thinkなど)を用いる時には、これを
-	// 有効化してコンパイルしなければならない。
-	//#define EVAL_LEARN
-
 	// デバッグ絡み
 	//#define ASSERT_LV 3
 	//#define USE_DEBUG_ASSERT
 
 	#define ENABLE_TEST_CMD
-	// 学習絡みのオプション
-	#define USE_SFEN_PACKER
 
 	// 定跡生成絡み
 	#define ENABLE_MAKEBOOK_CMD
@@ -440,10 +402,7 @@ constexpr int MAX_PLY_NUM = 246;
 	// -- 各評価関数ごとのconfiguration
 
 	#if defined(YANEURAOU_ENGINE_MATERIAL)
-
 		#define EVAL_MATERIAL
-		// 駒割のみの評価関数ではサポートされていない機能をundefする。
-		#undef EVAL_LEARN
 
 		#if !defined(MATERIAL_LEVEL)
 			#define MATERIAL_LEVEL 001
@@ -467,10 +426,6 @@ constexpr int MAX_PLY_NUM = 246;
 
 	#if defined(YANEURAOU_ENGINE_NNUE)
 		#define EVAL_NNUE
-
-		// 学習のためにOpenBLASを使う
-		// "../openblas/lib/libopenblas.dll.a"をlibとして追加すること。
-		//#define USE_BLAS
 
 		// NNUEの使いたい評価関数アーキテクチャの選択
 		//
@@ -503,11 +458,6 @@ constexpr int MAX_PLY_NUM = 246;
 
 	// 勝率の集計を行う型としてdouble型を用いる。
 	#define WIN_TYPE_DOUBLE
-
-	// ふかうら王ではEVAL_LEARNみたいなのがない(実装していない)ので
-	// 定跡生成関係のコマンドは常にオンにしておく。
-	#define ENABLE_MAKEBOOK_CMD
-	#define USE_SFEN_PACKER
 
 	 //#define ASSERT_LV 3
 #endif
@@ -559,23 +509,11 @@ constexpr int MAX_PLY_NUM = 246;
 // トーナメント(大会)用に、対局に不要なものをすべて削ぎ落とす。
 #if defined(FOR_TOURNAMENT)
 	#undef ASSERT_LV
-	#undef EVAL_LEARN
 	#undef ENABLE_TEST_CMD
-	#undef USE_GLOBAL_OPTIONS
 	#undef KEEP_LAST_MOVE
 
 	// 千日手検出を簡略化する
 	#define ENABLE_QUICK_DRAW
-#endif
-
-// --------------------
-//   for learner
-// --------------------
-
-// 学習時にはEVAL_HASHを無効化しておかないと、rmseの計算のときなどにeval hashにhitしてしまい、
-// 正しく計算できない。そのため、EVAL_HASHを動的に無効化するためのオプションを用意する。
-#if defined(EVAL_LEARN)
-	#define USE_GLOBAL_OPTIONS
 #endif
 
 // --------------------
@@ -675,13 +613,6 @@ constexpr bool pretty_jp = false;
 #define TT_CLUSTER_SIZE 3
 #endif
 
-
-// --- gensfen
-
-// LEARN版では"gensfen"コマンドが使えるようになる。
-#if defined(EVAL_LEARN)
-#define GENSFEN2019
-#endif
 
 // --- lastMove
 
@@ -791,13 +722,10 @@ constexpr bool pretty_jp = false;
 			#define EVAL_TYPE_NAME "ORT_CPU-" EVAL_DEEP
 		#elif defined(ORT_DML)
 			#define EVAL_TYPE_NAME "ORT_DML-" EVAL_DEEP
-		#elif defined(ORT_TRT)
-			#define EVAL_TYPE_NAME "ORT_TRT-" EVAL_DEEP
 		#else
 			#define EVAL_TYPE_NAME "ORT-" EVAL_DEEP
 		#endif
 	#elif defined(TENSOR_RT)
-		#include "NvInferRuntimeCommon.h"
 		// TensorRT、長いのでTRTにしておく。TRTのバージョン、長いのでくっつけるのやめておく。
 		// #define EVAL_TYPE_NAME "TRT" + std::to_string(getInferLibVersion()) + "-" EVAL_DEEP
 		#define EVAL_TYPE_NAME "TRT-" EVAL_DEEP

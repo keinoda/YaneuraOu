@@ -104,6 +104,22 @@ static constexpr IndexType kNumRegs = 16;
 
 #endif
 
+/*
+ 例) SFNN1536のときのkNumChunksの計算
+
+┌─────────┬───────────────┬─────────────────┬────────────┐
+│  SIMD            │ sizeof(vec_t)                │ / sizeof(int16)                  │ kNumChunks             │
+├─────────┼───────────────┼─────────────────┼────────────┤
+│ AVX-512          │ 64                           │ 32                               │ 1536/32=48             │
+├─────────┼───────────────┼─────────────────┼────────────┤
+│ AVX2             │ 32                           │ 16                               │ 1536/16=96             │
+├─────────┼───────────────┼─────────────────┼────────────┤
+│ SSE2             │ 16                           │ 8                                │ 1536/8=192             │
+├─────────┼───────────────┼─────────────────┼────────────┤
+│ NEON             │ 16                           │ 8                                │ 1536/8=192             │
+└─────────┴───────────────┴─────────────────┴────────────┘
+*/
+
 constexpr IndexType MaxChunkSize = 16;
 
 // Input feature converter
@@ -211,8 +227,12 @@ class FeatureTransformer {
 #if defined(USE_ELEMENT_WISE_MULTIPLY)
 
 #if defined(VECTOR)
-			// Packed output is kSimdWidth bytes for each SIMD register
+			// Packed output is sizeof(vec_t) bytes for each SIMD register
+#if defined(USE_AVX512)
+			constexpr IndexType OutputChunkSize = 64;
+#else
 			constexpr IndexType OutputChunkSize = kSimdWidth;
+#endif
 		static_assert((kHalfDimensions / 2) % OutputChunkSize == 0);
 		constexpr IndexType NumOutputChunks = kHalfDimensions / 2 / OutputChunkSize;
 
@@ -269,6 +289,10 @@ class FeatureTransformer {
 #endif
 
 #else
+
+		// 以下は旧NNUEのコード。
+		// ループ本体がx86とNEONで異なる（2入力→1出力 vs 1入力→1出力）ため、
+		// kNumChunksの意味自体がアーキテクチャごとに違うため、共通化しにくい。触らないことにする。
 
 #if defined(USE_AVX512)
 		constexpr IndexType kNumChunks = kHalfDimensions / (kSimdWidth * 2);
@@ -486,11 +510,7 @@ class FeatureTransformer {
 					const IndexType offset = kHalfDimensions * index;
 					auto accumulation      = reinterpret_cast<vec_t*>(&accumulator.accumulation[perspective][i][0]);
 					auto column            = reinterpret_cast<const vec_t*>(&weights_[offset]);
-#if defined(USE_AVX512)
-					constexpr IndexType kNumChunks = kHalfDimensions / kSimdWidth;
-#else
-					constexpr IndexType kNumChunks = kHalfDimensions / (kSimdWidth / 2);
-#endif
+					constexpr IndexType kNumChunks = kHalfDimensions / (sizeof(vec_t) / sizeof(BiasType));
 					for (IndexType j = 0; j < kNumChunks; ++j) {
 						accumulation[j] = vec_add_16(accumulation[j], column[j]);
 					}
@@ -528,11 +548,7 @@ class FeatureTransformer {
 			RawFeatures::AppendChangedIndices(pos, kRefreshTriggers[i], removed_indices, added_indices, reset);
 			for (Color perspective : {BLACK, WHITE}) {
 #if defined(VECTOR)
-#if defined(USE_AVX512)
-				constexpr IndexType kNumChunks = kHalfDimensions / kSimdWidth;
-#else
-				constexpr IndexType kNumChunks = kHalfDimensions / (kSimdWidth / 2);
-#endif
+				constexpr IndexType kNumChunks = kHalfDimensions / (sizeof(vec_t) / sizeof(BiasType));
 				auto accumulation              = reinterpret_cast<vec_t*>(&accumulator.accumulation[perspective][i][0]);
 #endif
 				if (reset[perspective]) {
@@ -588,10 +604,6 @@ class FeatureTransformer {
 
 	// parameter type
 	// パラメータの型
-
-	// Make the learning class a friend
-	// 学習用クラスをfriendにする
-	friend class Trainer<FeatureTransformer>;
 
 	// parameter
 	// パラメータ

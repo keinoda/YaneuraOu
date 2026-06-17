@@ -1,7 +1,10 @@
 ﻿#include "../config.h"
 
-#include <unordered_set>
+#include <array>
+#include <cstring>
+#include <fstream>
 #include <iomanip>		// std::setprecision()
+#include <limits>
 #include <numeric>      // std::accumulate()
 
 #include "book.h"
@@ -10,7 +13,6 @@
 #include "../misc.h"
 #include "../search.h"
 #include "../thread.h"
-#include "../learn/multi_think.h"
 #include "../usi.h"
 #include "../movegen.h"
 
@@ -45,17 +47,6 @@ namespace Book
 
 		return Move16(m);
 	};
-
-	// Aperyの指し手の変換。
-	uint16_t convert_move_to_apery(Move16 m) {
-		const uint16_t ispromote = m.is_promote() ? (1 << 14) : 0;
-		const uint16_t from      = ((m.is_drop()?
-			(static_cast<uint16_t>(m.move_dropped_piece()) + SQ_NB - 1):
-			 static_cast<uint16_t>(m.from_sq())
-		) & 0x7f) << 7;
-		const uint16_t to = static_cast<uint16_t>(m.to_sq()) & 0x7f;
-		return (ispromote | from | to);
-	}
 
 	// BookMoveを一つ追加する。
 	// 動作はinsert()とほぼ同じだが、この局面に同じ指し手は存在しないことがわかっている時に用いる。
@@ -210,7 +201,265 @@ namespace Book
 
 	static std::unique_ptr<AperyBook> apery_book;
 	static const constexpr char* kAperyBookName = "book.bin";
+	static constexpr std::array<char, 16> YbbMagic = {
+		'Y', 'A', 'N', 'E', '-', 'B', 'I', 'N',
+		'B', 'O', 'O', 'K', '-', 'V', '1', '\0',
+	};
+	static constexpr uint64_t YbbHeaderSize = 32;
+	static constexpr uint64_t YbbIndexRecordSize = 44;
+	static constexpr uint64_t YbbFlagMoveDepth = 1;
+	static constexpr uint64_t YbbKnownFlags = YbbFlagMoveDepth;
 
+	static bool ends_with(const std::string& text, const std::string& suffix)
+	{
+		return text.size() >= suffix.size() && text.compare(text.size() - suffix.size(), suffix.size(), suffix) == 0;
+	}
+
+	static bool is_ybb_book(const std::string& filename)
+	{
+		return ends_with(filename, ".ybb");
+	}
+
+	static std::string ybb_book_name_from_db_name(const std::string& db_filename)
+	{
+		if (!ends_with(db_filename, ".db"))
+			return std::string();
+		std::string ybb_filename = db_filename;
+		ybb_filename.resize(ybb_filename.size() - std::string(".db").size());
+		ybb_filename += ".ybb";
+		return ybb_filename;
+	}
+
+	static std::string resolve_book_filename_with_ybb_fallback(const std::string& filename)
+	{
+		if (Path::Exists(filename))
+			return filename;
+
+		const auto ybb_filename = ybb_book_name_from_db_name(filename);
+		if (!ybb_filename.empty() && Path::Exists(ybb_filename))
+			return ybb_filename;
+
+		return filename;
+	}
+
+	static bool read_u16_le(std::istream& is, uint16_t& value)
+	{
+		std::array<unsigned char, 2> bytes{};
+		is.read(reinterpret_cast<char*>(bytes.data()), bytes.size());
+		if (!is)
+			return false;
+		value = uint16_t(bytes[0] | (bytes[1] << 8));
+		return true;
+	}
+
+	static bool read_u64_le(std::istream& is, uint64_t& value)
+	{
+		std::array<unsigned char, 8> bytes{};
+		is.read(reinterpret_cast<char*>(bytes.data()), bytes.size());
+		if (!is)
+			return false;
+		value = 0;
+		for (int i = 7; i >= 0; --i)
+		{
+			value <<= 8;
+			value |= bytes[size_t(i)];
+		}
+		return true;
+	}
+
+	static bool read_file_to_memory(const std::string& filename, std::vector<unsigned char>& data)
+	{
+		std::ifstream file(filename, std::ios::in | std::ios::binary | std::ios::ate);
+		if (!file)
+			return false;
+
+		const auto size = file.tellg();
+		if (size < std::streampos(0))
+			return false;
+
+		data.resize(static_cast<size_t>(size));
+		file.seekg(0, std::ios::beg);
+		if (!data.empty())
+			file.read(reinterpret_cast<char*>(data.data()), data.size());
+		return bool(file) || data.empty();
+	}
+
+	static bool read_u16_le_from_memory(const std::vector<unsigned char>& data, uint64_t offset, uint16_t& value)
+	{
+		if (offset > data.size() || data.size() - offset < 2)
+			return false;
+		value = uint16_t(data[size_t(offset)] | (data[size_t(offset + 1)] << 8));
+		return true;
+	}
+
+	static bool read_u64_le_from_memory(const std::vector<unsigned char>& data, uint64_t offset, uint64_t& value)
+	{
+		if (offset > data.size() || data.size() - offset < 8)
+			return false;
+
+		value = 0;
+		for (int i = 7; i >= 0; --i)
+		{
+			value <<= 8;
+			value |= data[size_t(offset + i)];
+		}
+		return true;
+	}
+
+	struct YbbIndexEntry
+	{
+		PackedSfen packed_sfen{};
+		uint64_t moves_offset = 0;
+		uint16_t ply = 0;
+		uint16_t move_count = 0;
+	};
+
+	static uint64_t ybb_move_record_size(uint64_t flags)
+	{
+		return (flags & YbbFlagMoveDepth) ? 6 : 4;
+	}
+
+	static bool ybb_index_size(uint64_t record_count, uint64_t& index_size)
+	{
+		if (record_count > (std::numeric_limits<uint64_t>::max() - YbbHeaderSize) / YbbIndexRecordSize)
+			return false;
+		index_size = YbbHeaderSize + record_count * YbbIndexRecordSize;
+		return true;
+	}
+
+	static bool read_ybb_header(std::istream& is, uint64_t& record_count, uint64_t& flags)
+	{
+		std::array<char, 16> magic{};
+		is.read(magic.data(), magic.size());
+		if (!is || magic != YbbMagic)
+			return false;
+		if (!read_u64_le(is, record_count))
+			return false;
+		if (!read_u64_le(is, flags))
+			return false;
+		return (flags & ~YbbKnownFlags) == 0;
+	}
+
+	static bool read_ybb_index_entry(std::istream& is, YbbIndexEntry& entry)
+	{
+		is.read(reinterpret_cast<char*>(entry.packed_sfen.data), 32);
+		if (!is)
+			return false;
+		if (!read_u64_le(is, entry.moves_offset))
+			return false;
+		if (!read_u16_le(is, entry.ply))
+			return false;
+		if (!read_u16_le(is, entry.move_count))
+			return false;
+		return true;
+	}
+
+	static bool read_ybb_header_from_memory(const std::vector<unsigned char>& data, uint64_t& record_count, uint64_t& flags)
+	{
+		if (data.size() < YbbHeaderSize)
+			return false;
+		if (std::memcmp(data.data(), YbbMagic.data(), YbbMagic.size()) != 0)
+			return false;
+		if (!read_u64_le_from_memory(data, 16, record_count))
+			return false;
+		if (!read_u64_le_from_memory(data, 24, flags))
+			return false;
+		if ((flags & ~YbbKnownFlags) != 0)
+			return false;
+		uint64_t index_size = 0;
+		if (!ybb_index_size(record_count, index_size))
+			return false;
+		if (data.size() < index_size)
+			return false;
+		return true;
+	}
+
+	static bool read_ybb_index_entry_from_memory(const std::vector<unsigned char>& data, uint64_t record_index, YbbIndexEntry& entry)
+	{
+		if (record_index > (std::numeric_limits<uint64_t>::max() - YbbHeaderSize) / YbbIndexRecordSize)
+			return false;
+		const uint64_t offset = YbbHeaderSize + record_index * YbbIndexRecordSize;
+		if (offset > data.size() || data.size() - offset < YbbIndexRecordSize)
+			return false;
+
+		std::memcpy(entry.packed_sfen.data, data.data() + size_t(offset), 32);
+		if (!read_u64_le_from_memory(data, offset + 32, entry.moves_offset))
+			return false;
+		if (!read_u16_le_from_memory(data, offset + 40, entry.ply))
+			return false;
+		if (!read_u16_le_from_memory(data, offset + 42, entry.move_count))
+			return false;
+		return true;
+	}
+
+	static bool read_ybb_index_entry_at(std::fstream& index_fs, uint64_t record_index, YbbIndexEntry& entry)
+	{
+		index_fs.clear();
+		index_fs.seekg(std::streamoff(YbbHeaderSize + record_index * YbbIndexRecordSize), std::ios::beg);
+		if (!index_fs)
+			return false;
+		return read_ybb_index_entry(index_fs, entry);
+	}
+
+	static int compare_packed_sfen(const PackedSfen& lhs, const PackedSfen& rhs)
+	{
+		return std::memcmp(lhs.data, rhs.data, 32);
+	}
+
+	static BookMovesPtr read_ybb_moves(std::istream& moves_fs, const YbbIndexEntry& entry, uint64_t flags, uint64_t moves_base)
+	{
+		BookMovesPtr book_moves(new BookMoves());
+		moves_fs.clear();
+		moves_fs.seekg(std::streamoff(moves_base + entry.moves_offset), std::ios::beg);
+		if (!moves_fs)
+			return BookMovesPtr();
+		for (uint16_t i = 0; i < entry.move_count; ++i)
+		{
+			uint16_t move16_value = 0;
+			uint16_t eval_value = 0;
+			uint16_t depth_value = 0;
+			if (!read_u16_le(moves_fs, move16_value) || !read_u16_le(moves_fs, eval_value))
+				return BookMovesPtr();
+			if ((flags & YbbFlagMoveDepth) && !read_u16_le(moves_fs, depth_value))
+				return BookMovesPtr();
+			auto move16 = Move16(move16_value);
+			auto value = int(int16_t(eval_value));
+			auto depth = int(depth_value);
+			book_moves->push_back(BookMove(move16, Move16::none(), value, depth, 0));
+		}
+		book_moves->sort_moves();
+		return book_moves;
+	}
+
+	static BookMovesPtr read_ybb_moves_from_memory(const std::vector<unsigned char>& moves_data, const YbbIndexEntry& entry, uint64_t flags, uint64_t moves_base)
+	{
+		if (moves_base > moves_data.size() || entry.moves_offset > moves_data.size() - moves_base)
+			return BookMovesPtr();
+		const uint64_t move_record_size = ybb_move_record_size(flags);
+		const uint64_t moves_size = uint64_t(entry.move_count) * move_record_size;
+		const uint64_t absolute_moves_offset = moves_base + entry.moves_offset;
+		if (moves_data.size() - absolute_moves_offset < moves_size)
+			return BookMovesPtr();
+
+		BookMovesPtr book_moves(new BookMoves());
+		for (uint16_t i = 0; i < entry.move_count; ++i)
+		{
+			const uint64_t offset = absolute_moves_offset + uint64_t(i) * move_record_size;
+			uint16_t move16_value = 0;
+			uint16_t eval_value = 0;
+			uint16_t depth_value = 0;
+			if (!read_u16_le_from_memory(moves_data, offset, move16_value) || !read_u16_le_from_memory(moves_data, offset + 2, eval_value))
+				return BookMovesPtr();
+			if ((flags & YbbFlagMoveDepth) && !read_u16_le_from_memory(moves_data, offset + 4, depth_value))
+				return BookMovesPtr();
+			auto move16 = Move16(move16_value);
+			auto value = int(int16_t(eval_value));
+			auto depth = int(depth_value);
+			book_moves->push_back(BookMove(move16, Move16::none(), value, depth, 0));
+		}
+		book_moves->sort_moves();
+		return book_moves;
+	}
 	void MemoryBook::set_options(OptionsMap& options)
 	{
 		this->options.set_ref(options);
@@ -245,10 +494,23 @@ namespace Book
 		// 別のファイルを開こうとしているので前回メモリに丸読みした定跡をクリアしておかないといけない。
 		book_body.clear();
 		this->on_the_fly = false;
+		this->ybb_book = false;
+		this->ybb_memory_book = false;
+		this->ybb_record_count = 0;
+		this->ybb_flags = 0;
+		this->ybb_moves_base = 0;
+		this->ybb_moves_name.clear();
+		this->ybb_index_data.clear();
+		if (ybb_index_fs.is_open())
+			ybb_index_fs.close();
+		if (ybb_moves_fs.is_open())
+			ybb_moves_fs.close();
 		this->ignoreBookPly = ignore_book_ply_;
 
 		// フォルダ名を取り去ったものが"no_book"(定跡なし)もしくは"book.bin"(Aperyの定跡ファイル)であるかを判定する。
 		auto pure_filename = Path::GetFileName(filename);
+		auto actual_filename = filename;
+		auto actual_pure_filename = pure_filename;
 
 		// 読み込み済み、もしくは定跡を用いない(no_book)であるなら正常終了。
 		if (pure_filename == "no_book")
@@ -265,18 +527,59 @@ namespace Book
 			apery_book = std::unique_ptr<AperyBook>(new AperyBook(filename));
 		}
 		else {
+			actual_filename = resolve_book_filename_with_ybb_fallback(filename);
+			actual_pure_filename = Path::GetFileName(actual_filename);
+			if (actual_filename != filename)
+				sync_cout << "info string book file fallback : " << filename << " -> " << actual_filename << sync_endl;
+
 			// やねうら王定跡データベースを読み込む
+			const bool ybb_book_file = is_ybb_book(actual_pure_filename);
 
 			// ファイルだけオープンして読み込んだことにする。
 			if (on_the_fly_)
 			{
+				if (ybb_book_file)
+				{
+					ybb_index_fs.open(actual_filename, std::ios::in | std::ios::binary);
+					if (ybb_index_fs.fail())
+					{
+						sync_cout << "info string Error! : can't read file : " + actual_filename << sync_endl;
+						return Tools::Result(Tools::ResultCode::FileNotFound);
+					}
+					ybb_moves_fs.open(actual_filename, std::ios::in | std::ios::binary);
+					if (ybb_moves_fs.fail())
+					{
+						sync_cout << "info string Error! : can't read file : " + actual_filename << sync_endl;
+						return Tools::Result(Tools::ResultCode::FileNotFound);
+					}
+
+					if (!read_ybb_header(ybb_index_fs, ybb_record_count, ybb_flags))
+					{
+						sync_cout << "info string Error! : invalid ybb file : " << actual_filename << sync_endl;
+						return Tools::Result(Tools::ResultCode::FileReadError);
+					}
+
+					if (!ybb_index_size(ybb_record_count, ybb_moves_base))
+					{
+						sync_cout << "info string Error! : invalid ybb file : " << actual_filename << sync_endl;
+						return Tools::Result(Tools::ResultCode::FileReadError);
+					}
+
+					this->ybb_book = true;
+					this->ybb_moves_name = actual_filename;
+					this->on_the_fly = true;
+					this->book_name = filename;
+					this->pure_book_name = actual_pure_filename;
+					return Tools::Result::Ok();
+				}
+
 				if (fs.is_open())
 					fs.close();
 
-				fs.open(filename, std::ios::in);
+				fs.open(actual_filename, std::ios::in);
 				if (fs.fail())
 				{
-					sync_cout << "info string Error! : can't read file : " + filename << sync_endl;
+					sync_cout << "info string Error! : can't read file : " + actual_filename << sync_endl;
 					return Tools::Result(Tools::ResultCode::FileNotFound);
 				}
 
@@ -287,17 +590,51 @@ namespace Book
 				return Tools::Result::Ok();
 			}
 
-			sync_cout << "info string read book file : " << filename << sync_endl;
+			sync_cout << "info string read book file : " << actual_filename << sync_endl;
+
+			if (ybb_book_file)
+			{
+				if (!read_file_to_memory(actual_filename, ybb_index_data))
+				{
+					sync_cout << "info string Error! : can't read file : " + actual_filename << sync_endl;
+					return Tools::Result(Tools::ResultCode::FileNotFound);
+				}
+
+				uint64_t record_count = 0;
+				uint64_t flags = 0;
+				if (!read_ybb_header_from_memory(ybb_index_data, record_count, flags))
+				{
+					sync_cout << "info string Error! : invalid ybb file : " << actual_filename << sync_endl;
+					return Tools::Result(Tools::ResultCode::FileReadError);
+				}
+
+				if (!ybb_index_size(record_count, ybb_moves_base))
+				{
+					sync_cout << "info string Error! : invalid ybb file : " << actual_filename << sync_endl;
+					return Tools::Result(Tools::ResultCode::FileReadError);
+				}
+
+				this->ybb_memory_book = true;
+				this->ybb_record_count = record_count;
+				this->ybb_flags = flags;
+				this->ybb_moves_name = actual_filename;
+				this->book_name = filename;
+				this->pure_book_name = actual_pure_filename;
+
+				sync_cout << "info string read book done. number of positions = " << size() << sync_endl;
+
+				return Tools::Result::Ok();
+			}
 
 			SystemIO::TextReader reader;
 			// ReadLine()の時に行の末尾のスペース、タブを自動トリム。空行は自動スキップ。
 			reader.SetTrim(true);
 			reader.SkipEmptyLine(true);
 
-			auto result = reader.Open(filename);
+			auto result = reader.Open(actual_filename);
 			if (result.is_not_ok())
 			{
-				sync_cout << "info string Error! : can't read file : " + filename << sync_endl;
+				sync_cout << "info string Error! : can't read file : " + actual_filename << sync_endl;
 				//      exit(EXIT_FAILURE);
 				return result; // 読み込み失敗
 			}
@@ -387,7 +724,7 @@ namespace Book
 
 		// 読み込んだファイル名を保存しておく。二度目のread_book()はskipする。
 		this->book_name = filename;
-		this->pure_book_name = pure_filename;
+		this->pure_book_name = actual_pure_filename;
 
 		sync_cout << "info string read book done. number of positions = " << size() << sync_endl;
 
@@ -398,6 +735,12 @@ namespace Book
 	Tools::Result MemoryBook::write_book(const std::string& filename /*, bool sort*/) const
 	{
 		std::lock_guard<std::recursive_mutex> lock(const_cast<MemoryBook*>(this)->mutex_);
+
+		if (ybb_memory_book)
+		{
+			sync_cout << "info string Error! : ybb memory book cannot be written by MemoryBook::write_book(). use convert_ybb_to_db.py." << sync_endl;
+			return Tools::Result(Tools::ResultCode::FileWriteError);
+		}
 
 		// Position::set()で評価関数の読み込みが必要。
 		//is_ready();
@@ -691,6 +1034,73 @@ namespace Book
 		return pml_entry;
 	}
 
+	BookMovesPtr MemoryBook::find_ybb_bookmoves_on_the_fly(const Position& pos)
+	{
+		PackedSfen target{};
+		const_cast<Position&>(pos).sfen_pack(target);
+		return find_ybb_bookmoves_on_the_fly(target, uint16_t(pos.game_ply()));
+	}
+
+	BookMovesPtr MemoryBook::find_ybb_bookmoves_on_the_fly(const PackedSfen& target, uint16_t game_ply)
+	{
+		if (!ybb_book || !ybb_index_fs.is_open() || !ybb_moves_fs.is_open())
+			return BookMovesPtr();
+
+		uint64_t left  = 0;
+		uint64_t right = ybb_record_count;
+		while (left < right)
+		{
+			const uint64_t middle = left + (right - left) / 2;
+			YbbIndexEntry entry;
+			if (!read_ybb_index_entry_at(ybb_index_fs, middle, entry))
+				return BookMovesPtr();
+
+			const int compare = compare_packed_sfen(target, entry.packed_sfen);
+			if (compare < 0)
+				right = middle;
+			else if (compare > 0)
+				left = middle + 1;
+			else
+			{
+				if (!ignoreBookPly && entry.ply != game_ply)
+					return BookMovesPtr();
+				return read_ybb_moves(ybb_moves_fs, entry, ybb_flags, ybb_moves_base);
+			}
+		}
+
+		return BookMovesPtr();
+	}
+
+	BookMovesPtr MemoryBook::find_ybb_bookmoves_in_memory(const PackedSfen& target, uint16_t game_ply)
+	{
+		if (!ybb_memory_book)
+			return BookMovesPtr();
+
+		uint64_t left  = 0;
+		uint64_t right = ybb_record_count;
+		while (left < right)
+		{
+			const uint64_t middle = left + (right - left) / 2;
+			YbbIndexEntry entry;
+			if (!read_ybb_index_entry_from_memory(ybb_index_data, middle, entry))
+				return BookMovesPtr();
+
+			const int compare = compare_packed_sfen(target, entry.packed_sfen);
+			if (compare < 0)
+				right = middle;
+			else if (compare > 0)
+				left = middle + 1;
+			else
+			{
+				if (!ignoreBookPly && entry.ply != game_ply)
+					return BookMovesPtr();
+				return read_ybb_moves_from_memory(ybb_index_data, entry, ybb_flags, ybb_moves_base);
+			}
+		}
+
+		return BookMovesPtr();
+	}
+
 	BookMovesPtr MemoryBook::find(const Position& pos)
 	{
 		std::lock_guard<std::recursive_mutex> lock(mutex_);
@@ -744,10 +1154,8 @@ namespace Book
 			// やねうら王定跡データベースを用いて指し手を選択する
 
 			// 定跡がないならこのまま返る。(sfen()を呼び出すコストの節約)
-			if (!on_the_fly && book_body.size() == 0)
+			if (!on_the_fly && !ybb_memory_book && book_body.size() == 0)
 				return BookMovesPtr();
-
-			auto sfen = pos.sfen();
 
 			BookType::iterator it;
 
@@ -758,6 +1166,22 @@ namespace Book
 
 			if (on_the_fly)
 			{
+				if (ybb_book)
+				{
+					PackedSfen target{};
+					const_cast<Position&>(pos).sfen_pack(target);
+					auto entry = find_ybb_bookmoves_on_the_fly(target, uint16_t(pos.game_ply()));
+					if (entry == nullptr && options["FlippedBook"])
+					{
+						target.flip();
+						entry = find_ybb_bookmoves_on_the_fly(target, uint16_t(pos.game_ply()));
+						if (entry != nullptr)
+							entry = make_flipped_bookmoves(entry);
+					}
+					return entry;
+				}
+
+				auto sfen = pos.sfen();
 				auto entry = find_bookmoves_on_the_fly(sfen);
 				if (entry == nullptr)
 				{
@@ -775,6 +1199,22 @@ namespace Book
 			} else {
 
 				// on the flyではない場合
+				if (ybb_memory_book)
+				{
+					PackedSfen target{};
+					const_cast<Position&>(pos).sfen_pack(target);
+					auto entry = find_ybb_bookmoves_in_memory(target, uint16_t(pos.game_ply()));
+					if (entry == nullptr && options["FlippedBook"])
+					{
+						target.flip();
+						entry = find_ybb_bookmoves_in_memory(target, uint16_t(pos.game_ply()));
+						if (entry != nullptr)
+							entry = make_flipped_bookmoves(entry);
+					}
+					return entry;
+				}
+
+				auto sfen = pos.sfen();
 				it = book_body.find(trim(sfen));
 				if (it != book_body.end())
 				{
@@ -798,188 +1238,6 @@ namespace Book
 				return BookMovesPtr();
 			}
 		}
-	}
-
-	// Apery用定跡ファイルの読み込み（定跡コンバート用）
-	// ・Aperyの定跡ファイルはAperyBookで別途読み込んでいるため、read_apery_bookは定跡のコンバート専用。
-	// ・unreg_depth は定跡未登録の局面を再探索する深さ。デフォルト値1。
-	Tools::Result MemoryBook::read_apery_book(const std::string& filename, const int unreg_depth)
-	{
-		std::lock_guard<std::recursive_mutex> lock(mutex_);
-
-		/*
-		// 読み込み済であるかの判定
-		if (book_name == filename)
-			return Tools::Result::Ok();
-		*/
-
-		AperyBook apery_book(filename.c_str());
-		std::cout << "size of apery book = " << apery_book.size() << std::endl;
-		std::unordered_set<std::string> seen;
-		uint64_t collisions = 0;
-
-		auto report = [&]() {
-			std::cout
-				<< "# seen positions = " << seen.size()
-				<< ", size of converted book = " << book_body.size()
-				<< ", # hash collisions detected = " << collisions
-				<< std::endl;
-		};
-
-		std::function<void(Position&, int)> search = [&](Position& pos, int unreg_depth_current) {
-			const std::string sfen = pos.sfen();
-			if (unreg_depth == unreg_depth_current) {
-				// 探索済みチェック: 未登録局面の深掘り時は探索済みセットのメモリ消費量が溢れるのを防ぐため、ここではチェックしない
-				const std::string sfen_for_key = StringExtension::trim_number(sfen);
-				if (seen.count(sfen_for_key)) return;
-				seen.insert(sfen_for_key);
-
-				if (seen.size() % 100000 == 0) report();
-			}
-
-			const auto& entries = apery_book.get_entries(pos);
-			if (entries.empty()) {
-				if (unreg_depth_current < 1) return;
-			} else {
-				if (unreg_depth != unreg_depth_current) {
-					// 探索済みチェック: 未登録局面の深堀り時は、登録局面にヒットした時のみここでチェックする
-					const std::string sfen_for_key = StringExtension::trim_number(sfen);
-
-					if (seen.count(sfen_for_key))
-						return;
-
-					seen.insert(sfen_for_key);
-
-					if (seen.size() % 100000 == 0)
-						report();
-				}
-				bool has_illegal_move = false;
-				for (const auto& entry : entries) {
-					const Move move = pos.to_move(convert_move_from_apery(entry.fromToPro));
-					has_illegal_move |= !pos.legal(move);
-				}
-				if (has_illegal_move) {
-					++collisions;
-					return;
-				}
-			}
-
-			StateInfo st;
-			for (const auto move : MoveList<LEGAL_ALL>(pos)) {
-				pos.do_move(move, st);
-				search(pos, entries.empty() ? unreg_depth_current - 1 : unreg_depth);
-				pos.undo_move(move);
-			}
-
-			if (entries.empty()) return;
-			for (const auto& entry : entries) {
-				const Move16 move = convert_move_from_apery(entry.fromToPro);
-				BookMove bp(move, Move16::none(), entry.score, 256, entry.count);
-				insert(sfen, bp);
-			}
-
-			auto& move_list = *book_body[sfen];
-			move_list.sort_moves();
-
-			for (auto& bp : move_list) {
-				Move move = pos.to_move(bp.move);
-				pos.do_move(move, st);
-				auto it = find(pos);
-				if (it != nullptr && it->size()) {
-					// Aperyの定跡DBではponderの指し手を持っていないので、
-					// 次の局面での定跡のbestmoveをponderとしてやる。
-					bp.ponder = (*it)[0].move;
-				}
-				pos.undo_move(move);
-			}
-		};
-
-		Position pos;
-		StateInfo si;
-		pos.set_hirate(&si);
-		search(pos, unreg_depth);
-		report();
-
-		/*
-		// 読み込んだファイル名を保存しておく。二度目のread_book()はskipする。
-		book_name = filename;
-		*/
-
-		return Tools::Result::Ok();
-	}
-
-	// Apery用定跡ファイルの書き出し（定跡コンバート用）
-	Tools::Result MemoryBook::write_apery_book(const std::string& filename)
-	{
-		std::lock_guard<std::recursive_mutex> lock(mutex_);
-
-		std::ofstream fs(filename, std::ios::binary);
-
-		if (fs.fail())
-			return Tools::Result(Tools::ResultCode::FileOpenError);
-
-		std::cout << std::endl << "write " + filename;
-
-		std::vector<std::pair<Key, BookMovesPtr> > vectored_book;
-
-		{
-			// 検索キー生成
-
-			// ZobristHash初期化
-			AperyBook::init();
-
-			Position pos;
-
-			for (auto& it : book_body)
-			{
-				std::string sfen = it.first;
-				BookMovesPtr movesptr = it.second;
-
-				StateInfo si;
-				pos.set(sfen, &si);
-				Key key = AperyBook::bookKey(pos);
-
-				vectored_book.emplace_back(key, movesptr);
-			}
-		}
-
-		// key順でsort
-		std::sort(vectored_book.begin(), vectored_book.end(),
-			[](const std::pair<Key, BookMovesPtr>&lhs, const std::pair<Key, BookMovesPtr>&rhs) {
-			return lhs.first < rhs.first;
-		});
-
-		for (auto& it : vectored_book)
-		{
-			Key key = it.first;
-			BookMoves& move_list = *it.second;
-
-			// 何らかsortしておく。
-			move_list.sort_moves();
-
-			for (auto& bp : move_list)
-			{
-				AperyBookEntry entry = {
-					key,
-					convert_move_to_apery(bp.move),
-					static_cast<uint16_t>(std::min(bp.move_count, static_cast<uint64_t>(UINT16_MAX))),
-					bp.value
-				};
-				fs.write(reinterpret_cast<char*>(&entry), sizeof(entry));
-			}
-
-			if (fs.fail())
-				return Tools::Result(Tools::ResultCode::FileWriteError);
-		}
-
-		fs.close();
-
-		if (fs.fail())
-			return Tools::Result(Tools::ResultCode::FileCloseError);
-
-		std::cout << std::endl << "done!" << std::endl;
-
-		return Tools::Result::Ok();
 	}
 
 	// ----------------------------------
@@ -1239,9 +1497,10 @@ namespace Book
 			move_list.erase(it_end, move_list.end());
 		}
 
-		// 出現回数のトータル(このあと出現頻度を求めるのに使う)
-		u64 move_count_total = std::accumulate(move_list.begin(), move_list.end(), (u64)0, [](u64 acc, BookMove& b) { return acc + b.move_count; });
-		move_count_total = std::max(move_count_total, (u64)1); // ゼロ除算対策
+		// 出現回数のトータル(このあと出現頻度を求めるのに使う)。
+		// .ybbはmove_countを持たないので、この値が0なら頻度情報なしとして扱う。
+		const u64 move_count_total = std::accumulate(move_list.begin(), move_list.end(), (u64)0, [](u64 acc, BookMove& b) { return acc + b.move_count; });
+		const bool has_move_count = move_count_total != 0;
 
 		// "info ..."と出力するのは、rootでだけ。
         if (isRoot)
@@ -1261,7 +1520,7 @@ namespace Book
 
                 // 採択確率
                 std::string prob_str;
-                if (move_count_total)
+                if (has_move_count)
                 {
                     double             prob = 100 * it.move_count / double(move_count_total);
                     std::ostringstream oss;
@@ -1308,7 +1567,7 @@ namespace Book
 			bool narrowBook = options["NarrowBook"];
 
 			// この局面における定跡の指し手のうち、条件に合わないものを取り除いたあとの指し手の数
-			if (narrowBook)
+			if (narrowBook && has_move_count)
 			{
 				auto n = move_list.size();
 

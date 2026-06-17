@@ -194,14 +194,6 @@ struct MemoryBook
 	// また、事前にis_ready()は呼び出されているものとする。
 	Tools::Result write_book(const std::string& filename /*, bool sort = false*/) const;
 
-	// [ASYNC] Aperyの定跡ファイルを読み込む（定跡コンバート用）
-	// ・Aperyの定跡ファイルはAperyBookで別途読み込んでいるため、read_apery_bookは定跡のコンバート専用。
-	// ・unreg_depth は定跡未登録の局面を再探索する深さ。デフォルト値1。
-	Tools::Result read_apery_book(const std::string& filename, int unreg_depth = 1);
-
-	// [ASYNC] Aperyの定跡ファイルに書き出す（定跡コンバート用）
-	Tools::Result write_apery_book(const std::string& filename);
-
 	// --------------------------------------------------------------------------
 	//   以下のメンバは、普段は外部から普段は直接アクセスすべきではない。
 	//
@@ -229,7 +221,7 @@ struct MemoryBook
 	void foreach(std::function<void(const std::string& /*sfen*/, const Book::BookMovesPtr)> f);
 
 	// 保持している局面数を返す。これは、on the flyではない状態でread_book()した時にのみ有効。
-	size_t size() const { return book_body.size(); }
+	size_t size() const { return ybb_memory_book ? static_cast<size_t>(ybb_record_count) : book_body.size(); }
 
 protected:
 
@@ -249,6 +241,9 @@ protected:
 
 	// sfenで指定された局面の情報を定跡DBファイルにon the flyで探して、それを返すヘルパー関数。
 	BookMovesPtr find_bookmoves_on_the_fly(std::string sfen);
+	BookMovesPtr find_ybb_bookmoves_on_the_fly(const Position& pos);
+	BookMovesPtr find_ybb_bookmoves_on_the_fly(const PackedSfen& target, uint16_t game_ply);
+	BookMovesPtr find_ybb_bookmoves_in_memory(const PackedSfen& target, uint16_t game_ply);
 
 	// メモリに丸読みせずにfind()のごとにファイルを調べにいくのか。
 	// これは思考エンジン設定のOptions["BookOnTheFly"]の値を反映したもの。
@@ -260,8 +255,39 @@ protected:
 	// これが異なるならファイルの読み直しが必要になる。
 	bool ignoreBookPly = false;
 
-	// 上のon_the_fly == trueのときに、開いている定跡ファイルのファイルハンドル
+	// 上のon_the_fly == trueのときに、開いている従来形式(.db)の定跡ファイルハンドル。
 	std::fstream fs;
+
+	// ybb_book == trueのときに開いている、やねうら王 バイナリ定跡DBのindex領域読み込み用file。
+	// 同じ .ybb を index / moves 用に2つ開く。
+	std::fstream ybb_index_fs;
+
+	// ybb_book == trueのときに開いている、やねうら王 バイナリ定跡DBのmoves領域読み込み用file。
+	// 同じ .ybb を index / moves 用に2つ開く。
+	std::fstream ybb_moves_fs;
+
+	// ybb_memory_book == trueのときに、.ybb 全体を丸読みして保持するバッファ。
+	std::vector<unsigned char> ybb_index_data;
+
+	// moves record の先頭位置。
+	// .ybb の index 領域の直後。
+	uint64_t ybb_moves_base = 0;
+
+	// .ybbのindex file headerに書かれている局面レコード数。
+	uint64_t ybb_record_count = 0;
+
+	// .ybbのindex file headerに書かれているflags。
+	// bit0が立っているなら、moves fileの各指し手recordにdepth(uint16)が含まれる。
+	uint64_t ybb_flags = 0;
+
+	// BookOnTheFly=trueで.ybbを開いている状態ならtrue。
+	bool ybb_book = false;
+
+	// BookOnTheFly=falseで.ybbをメモリに丸読みしている状態ならtrue。
+	bool ybb_memory_book = false;
+
+	// 開いている/丸読みしている.ybb名。エラー表示やデバッグ用。
+	std::string ybb_moves_name;
 
 	// read_book()のときに読み込んだbookの名前
 	// ・on_the_fly == trueのときは、読み込む予定のファイルの名前。
@@ -273,12 +299,6 @@ protected:
 	// init()で渡されたOptionsMap
 	OptionsMapRef options;
 };
-
-#if defined (ENABLE_MAKEBOOK_CMD)
-// USI拡張コマンド。"makebook"。定跡ファイルを作成する。
-// フォーマット等についてはdoc/解説.txt を見ること。
-void makebook_cmd(Position& pos, std::istringstream& is);
-#endif
 
 // 思考エンジンにおいて定跡の指し手の選択をする部分を切り出したもの。
 struct BookMoveSelector

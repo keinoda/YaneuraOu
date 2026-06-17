@@ -4,6 +4,8 @@
 #include <array>
 #include <deque>
 #include <memory> // For std::unique_ptr
+#include <optional>
+#include <stdexcept>
 
 #include "bitboard.h"
 #include "evaluate.h"
@@ -230,15 +232,24 @@ struct StateInfo {
 using StateList    = std::deque<StateInfo>;
 using StateListPtr = std::unique_ptr<StateList>;
 
+// このエラーは、局面設定時にエンジンが扱えない局面・指し手を検出した時に返す。
+// 特に不正な指し手を通常手として進めて盤面を壊すようなケースを避けるために用いる。
+struct PositionSetError : std::runtime_error {
+	using std::runtime_error::runtime_error;
+};
+
 // --------------------
 //       盤面
 // --------------------
 
-#if defined(USE_SFEN_PACKER)
-
 // packされたsfen
 struct PackedSfen {
 	u8 data[32];
+
+	// 盤面を180度回転し、先後と手番を入れ替える。
+	// SFEN文字列やPosition::set()を経由せず、packed sfen上で変換する。
+	void flip();
+	PackedSfen flipped() const;
 
 	// 手番を返す。
 	Color color() const {
@@ -265,6 +276,19 @@ struct PackedSfen {
 	}
 };
 
+// PSV形式(.psv)の1レコード。
+// PackedSfenに、手番側視点のscoreなどを付与した40 bytes固定長形式。
+struct PsvRecord {
+	PackedSfen sfen;
+	s16        score;
+	u16        move;
+	u16        gamePly;
+	s8         game_result;
+	u8         padding;
+};
+
+static_assert(sizeof(PsvRecord) == 40, "PsvRecord must be 40 bytes");
+
 // std::unordered_mapで使用できるようにhash関数を定義しておく。
 // std::unordered_map<PackedSfen,int,PackedSfenHash> packed_sfen_to_int;のようにtemplateの第3引数に指定する。
 struct PackedSfenHash {
@@ -281,7 +305,6 @@ struct PackedSfenHash {
 		return s;
 	}
 };
-#endif
 
 // 盤面
 class Position
@@ -315,11 +338,11 @@ public:
 	Position& set(const std::string& fenStr,bool isChess960, StateInfo* si);
     Position& set(const std::string& code, Color c, StateInfo* si);
 #else
-    Position& set(const std::string& sfenStr, StateInfo* si);
+    std::optional<PositionSetError> set(const std::string& sfenStr, StateInfo* si);
 
 	// 平手の初期盤面を設定する。
     // siについては、上記のset()にある説明を読むこと。
-    void set_hirate(StateInfo* si) { set(StartSFEN, si); }
+    std::optional<PositionSetError> set_hirate(StateInfo* si) { return set(StartSFEN, si); }
 #endif
 
 	// 局面のsfen文字列を取得する
@@ -949,7 +972,6 @@ public:
     }
 
 	// -- sfen化ヘルパ
-#if defined(USE_SFEN_PACKER)
   // packされたsfenを得る。引数に指定したバッファに返す。
   // gamePlyはpackに含めない。
 	void sfen_pack(PackedSfen& sfen);
@@ -966,7 +988,6 @@ public:
 
 	// 盤面と手駒、手番を与えて、そのsfenを返す。
 	static std::string sfen_from_rawdata(Piece board[81], Hand hands[2], Color turn, int gamePly);
-#endif
 
 	// -- 利き
 #if defined(LONG_EFFECT_LIBRARY)
