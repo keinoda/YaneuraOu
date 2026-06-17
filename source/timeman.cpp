@@ -2,6 +2,8 @@
 
 #if defined(USE_TIME_MANAGEMENT)
 
+#include <algorithm>
+
 #include "misc.h"
 #include "search.h"
 #include "thread.h"
@@ -18,6 +20,15 @@ const int MoveHorizon = 160;
 
 // 思考時間のrtimeが指定されたときに用いる乱数
 PRNG prng;
+
+// progress bucket 0..7 を、SlowMoverに掛ける百分率へ変換する。
+// 1始まりで見ると1..4で増加、5..8で減少する形で線形補間する。
+int progress_slow_mover_scale(int bucket, int opening, int middle, int endgame) {
+    bucket = std::clamp(bucket, 0, 7);
+    if (bucket <= 3)
+        return opening + (middle - opening) * bucket / 3;
+    return middle + (endgame - middle) * (bucket - 4) / 3;
+}
 
 } // namespace
 
@@ -51,6 +62,13 @@ void TimeManagement::add_options(OptionsMap& options) {
     // 対人のときに短めに設定して強制的に早指しにすることが出来る。
     options.add("SlowMover", Option(100, 1, 1000));
 
+    // progress.bin由来の進行度でSlowMoverを間接的に補正する。
+    // デフォルトでは無効。実棋譜サンプルで平均がおよそ100%になる程度に傾斜させる。
+    options.add("ProgressSlowMover", Option(false));
+    options.add("ProgressSlowMoverOpeningScale", Option(65, 1, 1000));
+    options.add("ProgressSlowMoverMiddleScale", Option(140, 1, 1000));
+    options.add("ProgressSlowMoverEndgameScale", Option(70, 1, 1000));
+
 	// 持ち時間、各秒のギリギリまで使うか。
     options.add("RoundUpToFullSecond", true);
 
@@ -66,7 +84,8 @@ void TimeManagement::init(const Search::LimitsType& limits,
 // 💡 やねうら王では使わないことにする。
 #else
                           ,
-                          int max_moves_to_draw
+                          int max_moves_to_draw,
+                          int progress_bucket
 #endif
 
 ) {
@@ -84,7 +103,7 @@ void TimeManagement::init(const Search::LimitsType& limits,
     lastcall_Opt    = const_cast<OptionsMap*>(&options);
 #endif
 
-    init_(limits, us, ply, options, max_moves_to_draw);
+    init_(limits, us, ply, options, max_moves_to_draw, progress_bucket);
 }
 
 // 今回の思考時間を計算して、optimum(),maximum()が値をきちんと返せるようにする。
@@ -94,7 +113,9 @@ void TimeManagement::init(const Search::LimitsType& limits,
 void TimeManagement::init_(const Search::LimitsType& limits,
                            Color               us,
                            int                 ply,
-                           const OptionsMap&   options, int max_moves_to_draw) {
+                           const OptionsMap&   options,
+                           int                 max_moves_to_draw,
+                           int                 progress_bucket) {
 
 #if STOCKFISH
 	TimePoint npmsec = TimePoint(options["nodestime"]);
@@ -164,6 +185,18 @@ void TimeManagement::init_(const Search::LimitsType& limits,
 	// 　これはこんなパラメーターとして手で調整するべきではなく、探索パラメーターの一種として
 	//   別の方法で調整すべき。ただ、対人でソフトに早指ししたいときには意味があるような…。
 	int slowMover = (int)options["SlowMover"];
+	if ((bool)options["ProgressSlowMover"] && 0 <= progress_bucket && progress_bucket < 8)
+	{
+	    const int scale = progress_slow_mover_scale(
+	      progress_bucket,
+	      (int)options["ProgressSlowMoverOpeningScale"],
+	      (int)options["ProgressSlowMoverMiddleScale"],
+	      (int)options["ProgressSlowMoverEndgameScale"]);
+	    slowMover = std::clamp(slowMover * scale / 100, 1, 1000);
+	    sync_cout << "info string ProgressSlowMover bucket=" << progress_bucket
+	              << " scale=" << scale
+	              << " effective_slow_mover=" << slowMover << sync_endl;
+	}
 
 	if (limits.rtime)
 	{

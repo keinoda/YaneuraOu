@@ -1247,9 +1247,12 @@ void Search::YaneuraOuWorker::start_searching() {
                             main_manager()->originalTimeAdjust);
 #else
     auto& mainManager = *main_manager();
+    int progressBucket = -1;
+    if ((bool)options["ProgressSlowMover"])
+        progressBucket = Tanuki::Progress::LayerStackIndex(rootPos);
 
     mainManager.tm.init(limits, rootPos.side_to_move(), rootPos.game_ply(), options,
-                        mainManager.search_options.max_moves_to_draw);
+                        mainManager.search_options.max_moves_to_draw, progressBucket);
 #endif
 
     // 📌 置換表のTTEntryの世代を進める。
