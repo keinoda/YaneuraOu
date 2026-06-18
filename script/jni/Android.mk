@@ -126,6 +126,11 @@ ifeq ($(findstring YANEURAOU_ENGINE_NNUE,$(YANEURAOU_EDITION)),YANEURAOU_ENGINE_
   endif
 endif
 
+ifeq ($(YANEURAOU_EDITION),YANEURAOU_ENGINE_SFNN1536)
+  CPPFLAGS += -DUSE_MAKEFILE -DYANEURAOU_ENGINE_NNUE -DYANEURAOU_ENGINE_SFNN1536 -DSFNNwoPSQT
+  ENGINE_NAME := YaneuraOu_SFNN1536
+endif
+
 ifeq ($(YANEURAOU_EDITION),YANEURAOU_MATE_ENGINE)
   CPPFLAGS += -DUSE_MAKEFILE -DYANEURAOU_MATE_ENGINE
   ENGINE_NAME := YaneuraOu_MATE
@@ -142,7 +147,7 @@ ifeq ($(YANEURAOU_EDITION),USER_ENGINE)
 endif
 
 ifeq ($(TARGET_ARCH_ABI),arm64-v8a)
-  CPPFLAGS += -DIS_64BIT -DUSE_NEON -mfpu=neon
+  CPPFLAGS += -DIS_64BIT -DUSE_NEON
   LOCAL_ARM_NEON := true
 endif
 
@@ -236,6 +241,25 @@ LOCAL_SRC_FILES += \
 			../../source/eval/nnue/embedded_nnue.cpp
 		CPPFLAGS += -DEVAL_EMBEDDING
 	endif
+endif
+
+ifeq ($(YANEURAOU_EDITION),YANEURAOU_ENGINE_SFNN1536)
+LOCAL_SRC_FILES += \
+  ../../source/eval/nnue/evaluate_nnue.cpp                                \
+  ../../source/eval/nnue/nnue_test_command.cpp                            \
+  ../../source/eval/nnue/features/k.cpp                                   \
+  ../../source/eval/nnue/features/p.cpp                                   \
+  ../../source/eval/nnue/features/a2.cpp                                  \
+  ../../source/eval/nnue/features/half_kp.cpp                             \
+  ../../source/eval/nnue/features/half_ka1.cpp                            \
+  ../../source/eval/nnue/features/half_ka_hm1.cpp                         \
+  ../../source/eval/nnue/features/half_ka2.cpp                            \
+  ../../source/eval/nnue/features/half_ka_hm2.cpp                         \
+  ../../source/eval/nnue/features/half_kp_vm.cpp                          \
+  ../../source/eval/nnue/features/half_relative_kp.cpp                    \
+  ../../source/eval/nnue/features/half_kpe9.cpp                           \
+  ../../source/eval/nnue/features/pe9.cpp                                 \
+  ../../source/engine/yaneuraou-engine/yaneuraou-search.cpp
 endif
 
 ifeq ($(YANEURAOU_EDITION),TANUKI_MATE_ENGINE)
