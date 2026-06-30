@@ -24,7 +24,21 @@ namespace dlshogi {
 	class UctSearcherGroup;
 	class SearchInterruptionChecker;
 	class DlshogiSearcher;
-    class FukauraOuEngine;
+	class FukauraOuEngine;
+
+	struct PolicyValueMove
+	{
+		Move move;
+		int label;
+		float logit;
+		float policy;
+	};
+
+	struct PolicyValueResult
+	{
+		float value;
+		std::vector<PolicyValueMove> moves;
+	};
 
 	// 探索したノード数など探索打ち切り条件を保持している。
 	// ※　dlshogiのstruct po_info_t。
@@ -221,6 +235,12 @@ namespace dlshogi {
 		//   返し値 : この局面でのbestな指し手
 		// ponderの場合は、呼び出し元で待機すること。
 		Move UctSearchGenmove(Position& pos, const std::string& game_root_sfen , const std::vector<Move>& moves, Move& ponderMove);
+
+		// 現局面群をNNへ直接渡し、dlshogi policy/valueを取得する。
+		bool EvaluatePolicyValueBatch(const std::vector<const Position*>& positions,
+		                              std::vector<PolicyValueResult>& results,
+		                              std::string& error,
+		                              int topn = 0);
 
 		// NNに渡すモデルPathの設定。
 		//void SetModelPaths(const std::vector<std::string>& paths);

@@ -70,6 +70,9 @@ class FukauraOuEngine: public YaneuraOu::Engine {
     // エンジン作者名の変更。
     virtual std::string get_engine_author() const override;
 
+	// 実験用USI拡張コマンド。
+	virtual void user(std::istringstream& is) override;
+
 	// dlshogiの探索部本体
     DlshogiSearcher searcher;
 

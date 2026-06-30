@@ -5,6 +5,7 @@
 #include <sstream> // stringstream
 #include <cstring> // memcpy
 #include <numeric> // accumulate
+#include <algorithm>
 
 #include "dlshogi_types.h"
 #include "UctSearch.h"
@@ -15,6 +16,7 @@
 #include "../../thread.h"
 #include "../../mate/mate.h"
 #include "../../engine.h"
+#include "../../movegen.h"
 
 namespace dlshogi {
 
@@ -324,6 +326,108 @@ void DlshogiSearcher::FinalizeUctSearch() {
 //   ponderMove     : [Out] ponderの指し手(ないときはMove::none()が代入される)
 //   返し値 : この局面でのbestな指し手
 // ponderの場合は、呼び出し元で待機すること。
+bool DlshogiSearcher::EvaluatePolicyValueBatch(const std::vector<const Position*>& positions,
+                                               std::vector<PolicyValueResult>& results,
+                                               std::string& error,
+                                               int topn)
+{
+	if (positions.empty())
+	{
+		results.clear();
+		return true;
+	}
+
+	if (search_groups_size == 0 || !search_groups)
+	{
+		error = "NN is not initialized. Send isready before user policyvalue.";
+		return false;
+	}
+
+	UctSearcherGroup* group = nullptr;
+	for (size_t i = 0; i < search_groups_size; ++i)
+	{
+		if (search_groups[i].is_ready())
+		{
+			group = &search_groups[i];
+			break;
+		}
+	}
+
+	if (group == nullptr)
+	{
+		error = "No initialized NN search group.";
+		return false;
+	}
+
+	const int batch_size = (int)positions.size();
+
+	PType* packed_features1 = group->gpu_memalloc<PType>(packed_input1_byte_count(batch_size));
+	PType* packed_features2 = group->gpu_memalloc<PType>(packed_input2_byte_count(batch_size));
+	NN_Input1* features1 = group->gpu_memalloc<NN_Input1>(input1_element_count(batch_size));
+	NN_Input2* features2 = group->gpu_memalloc<NN_Input2>(input2_element_count(batch_size));
+	NN_Output_Policy* y1 = group->gpu_memalloc<NN_Output_Policy>(batch_size);
+	NN_Output_Value* y2 = group->gpu_memalloc<NN_Output_Value>(batch_size);
+
+	for (int i = 0; i < batch_size; ++i)
+		make_input_features(*positions[i], i, packed_features1, packed_features2);
+
+	group->set_device();
+	group->nn_forward(0, batch_size, packed_features1, packed_features2, features1, features2, y1, y2);
+
+	results.clear();
+	results.resize(batch_size);
+
+	for (int i = 0; i < batch_size; ++i)
+	{
+		const Position& pos = *positions[i];
+		const Color color = pos.side_to_move();
+		auto& result = results[i];
+		result.value = to_float(y2[i]);
+
+		std::vector<Move> legal_moves;
+		if (search_options.generate_all_legal_moves)
+			for (auto move : MoveList<LEGAL_ALL>(pos))
+				legal_moves.push_back(move);
+		else
+			for (auto move : MoveList<LEGAL>(pos))
+				legal_moves.push_back(move);
+
+		std::vector<float> probabilities;
+		probabilities.reserve(legal_moves.size());
+		result.moves.reserve(legal_moves.size());
+
+		for (auto move : legal_moves)
+		{
+			const int label = make_move_label(move, color);
+			probabilities.push_back(to_float(y1[i][label]));
+			result.moves.push_back(PolicyValueMove{move, label, probabilities.back(), 0.0f});
+		}
+
+		softmax_temperature_with_normalize(probabilities);
+		for (size_t j = 0; j < result.moves.size(); ++j)
+			result.moves[j].policy = probabilities[j];
+
+		std::sort(result.moves.begin(), result.moves.end(),
+		          [](const PolicyValueMove& a, const PolicyValueMove& b) {
+			          if (a.policy != b.policy)
+				          return a.policy > b.policy;
+			          return a.label < b.label;
+		          });
+
+		if (topn > 0 && result.moves.size() > (size_t)topn)
+			result.moves.resize((size_t)topn);
+	}
+
+	group->gpu_memfree<PType>(packed_features1);
+	group->gpu_memfree<PType>(packed_features2);
+	group->gpu_memfree<NN_Input1>(features1);
+	group->gpu_memfree<NN_Input2>(features2);
+	group->gpu_memfree<NN_Output_Policy>(y1);
+	group->gpu_memfree<NN_Output_Value>(y2);
+
+	return true;
+}
+
 Move DlshogiSearcher::UctSearchGenmove(Position&                pos,
                                        const std::string&       game_root_sfen,
                                        const std::vector<Move>& moves,

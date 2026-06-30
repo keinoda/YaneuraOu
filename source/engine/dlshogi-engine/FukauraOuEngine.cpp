@@ -15,9 +15,56 @@
 #include "../../eval/deep/nn.h"
 #include "../../eval/deep/nn_types.h"
 
+#include <algorithm>
+#include <fstream>
+#include <iomanip>
+#include <iostream>
+#include <memory>
+#include <sstream>
+
 using namespace YaneuraOu;
 
 namespace dlshogi {
+
+namespace {
+
+std::string json_escape(const std::string& input)
+{
+	std::ostringstream out;
+	for (char c : input)
+	{
+		switch (c)
+		{
+		case '\\': out << "\\\\"; break;
+		case '"':  out << "\\\""; break;
+		case '\n': out << "\\n"; break;
+		case '\r': out << "\\r"; break;
+		case '\t': out << "\\t"; break;
+		default:   out << c; break;
+		}
+	}
+	return out.str();
+}
+
+void write_policy_value_jsonl(std::ostream& os, const Position& pos, const PolicyValueResult& result)
+{
+	os << std::setprecision(9);
+	os << "{\"sfen\":\"" << json_escape(pos.sfen()) << "\",\"value\":" << result.value << ",\"moves\":[";
+	for (size_t i = 0; i < result.moves.size(); ++i)
+	{
+		const auto& move = result.moves[i];
+		if (i)
+			os << ',';
+		os << "{\"move\":\"" << move.move
+		   << "\",\"label\":" << move.label
+		   << ",\"logit\":" << move.logit
+		   << ",\"policy\":" << move.policy
+		   << '}';
+	}
+	os << "]}\n";
+}
+
+} // namespace
 
 
 FukauraOuEngine::FukauraOuEngine() :
@@ -214,6 +261,125 @@ std::string FukauraOuEngine::get_engine_name() const { return "FukauraOu"; }
 
 // エンジン作者名の変更
 std::string FukauraOuEngine::get_engine_author() const { return "Tadao Yamaoka , yaneurao"; }
+
+void FukauraOuEngine::user(std::istringstream& is)
+{
+	std::string token;
+	is >> token;
+
+	if (token == "policyvalue")
+	{
+		int topn = 0;
+		std::string topn_text;
+		if (is >> topn_text)
+			topn = StringExtension::to_int(topn_text, 0);
+
+		Position& pos = get_position();
+		std::vector<const Position*> positions{&pos};
+		std::vector<PolicyValueResult> results;
+		std::string error;
+		if (!searcher.EvaluatePolicyValueBatch(positions, results, error, topn))
+		{
+			sync_cout << "info string Error! : " << error << sync_endl;
+			return;
+		}
+
+		write_policy_value_jsonl(std::cout, pos, results[0]);
+		return;
+	}
+
+	if (token == "policyvalue_file")
+	{
+		std::string input_path, output_path, topn_text;
+		is >> input_path >> output_path;
+		int topn = 0;
+		if (is >> topn_text)
+			topn = StringExtension::to_int(topn_text, 0);
+
+		if (input_path.empty() || output_path.empty())
+		{
+			sync_cout << "info string Error! : usage: user policyvalue_file <input_sfen> <output_jsonl> [topn]" << sync_endl;
+			return;
+		}
+
+		std::ifstream input(input_path);
+		if (!input)
+		{
+			sync_cout << "info string Error! : cannot open input file: " << input_path << sync_endl;
+			return;
+		}
+
+		std::ofstream output(output_path);
+		if (!output)
+		{
+			sync_cout << "info string Error! : cannot open output file: " << output_path << sync_endl;
+			return;
+		}
+
+		const int batch_max = std::max(1, int(options["DNN_Batch_Size"]));
+		std::vector<std::unique_ptr<Position>> positions_storage;
+		std::vector<std::unique_ptr<StateInfo>> states_storage;
+		std::vector<const Position*> positions;
+		std::string line;
+		size_t line_number = 0;
+		size_t written = 0;
+
+		auto flush_batch = [&]() -> bool {
+			if (positions.empty())
+				return true;
+
+			std::vector<PolicyValueResult> results;
+			std::string error;
+			if (!searcher.EvaluatePolicyValueBatch(positions, results, error, topn))
+			{
+				sync_cout << "info string Error! : " << error << sync_endl;
+				return false;
+			}
+
+			for (size_t i = 0; i < positions.size(); ++i)
+			{
+				write_policy_value_jsonl(output, *positions[i], results[i]);
+				++written;
+			}
+
+			positions_storage.clear();
+			states_storage.clear();
+			positions.clear();
+			return true;
+		};
+
+		while (std::getline(input, line))
+		{
+			++line_number;
+			if (line.empty() || line[0] == '#')
+				continue;
+
+			auto state = std::make_unique<StateInfo>();
+			auto pos = std::make_unique<Position>();
+			auto err = pos->set(line, state.get());
+			if (err.has_value())
+			{
+				sync_cout << "info string Error! : invalid SFEN at line " << line_number << " : " << err->what() << sync_endl;
+				return;
+			}
+
+			positions.push_back(pos.get());
+			states_storage.emplace_back(std::move(state));
+			positions_storage.emplace_back(std::move(pos));
+
+			if ((int)positions.size() >= batch_max && !flush_batch())
+				return;
+		}
+
+		if (!flush_batch())
+			return;
+
+		sync_cout << "info string policyvalue_file done. positions = " << written << sync_endl;
+		return;
+	}
+
+	sync_cout << "info string unknown user command: " << token << sync_endl;
+}
 
 
 // 🌈 やねうら王フレームワークと、dlshogiの橋渡しを行うコード 🌈

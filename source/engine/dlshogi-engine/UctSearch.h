@@ -87,6 +87,9 @@ public:
 	// 保持しているn番目のUctSearcherを返す。
 	UctSearcher* get_uct_searcher(int n) { return &searchers[n]; }
 
+	// NNが初期化済みか。
+	bool is_ready() const { return nn != nullptr; }
+
 private:
 
 	// dlshogiではglobalだった変数
