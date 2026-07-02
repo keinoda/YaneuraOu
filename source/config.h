@@ -14,7 +14,7 @@
 // ただし、この値を数値として使用することがあるので数値化できる文字列にしておく必要がある。
 #if !defined(ENGINE_VERSION)
 
-#define ENGINE_VERSION "9.41git"
+#define ENGINE_VERSION "9.60git"
 
 #endif
 // --------------------
@@ -659,6 +659,10 @@ constexpr bool pretty_jp = false;
 	#define TARGET_CPU "SSSE3"
 	#elif defined(USE_SSE2)
 	#define TARGET_CPU "SSE2"
+	#elif defined(USE_NEON_DOTPROD)
+	#define TARGET_CPU "ARMV8_DOTPROD"
+	#elif defined(USE_NEON)
+	#define TARGET_CPU "ARMV8"
 	#else
 	#define TARGET_CPU "noSSE"
 	#endif
