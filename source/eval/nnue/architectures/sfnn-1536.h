@@ -4,7 +4,7 @@
 #define CLASSIC_NNUE_SFNN_1536_H_INCLUDED
 
 #include "../features/feature_set.h"
-#include "../features/half_ka_hm2.h"
+#include "../features/half_ka_hm.h"
 
 #include <cstring>
 
@@ -19,18 +19,18 @@ namespace Eval::NNUE {
 // Input features used in evaluation function
 // 評価関数で用いる入力特徴量
 using RawFeatures = Features::FeatureSet<
-    Features::HalfKA_hm2<Features::Side::kFriend>>;
+    Features::HalfKA_hm<Features::Side::kFriend>>;
 
 // Number of input feature dimensions after conversion
 // 変換後の入力特徴量の次元数
-constexpr IndexType kTransformedFeatureDimensions = 1536;
+constexpr IndexType kTransformedFeatureDimensions = 768;
 
 // Number of networks stored in the evaluation file
-constexpr int LayerStacks = 9;
+constexpr int LayerStacks = 8;
 
 // 各層の次元数
 constexpr IndexType kInputDims   = kTransformedFeatureDimensions;
-constexpr IndexType kHidden1Dims = 15;
+constexpr IndexType kHidden1Dims = 7;
 constexpr IndexType kHidden2Dims = 32;
 
 struct Network {

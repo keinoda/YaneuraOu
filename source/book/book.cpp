@@ -1280,11 +1280,15 @@ namespace Book
 		//  user_book1.db    ユーザー定跡1
 		//  user_book2.db    ユーザー定跡2
 		//  user_book3.db    ユーザー定跡3
+		//  *.ybb            やねうら王 バイナリ定跡DB
 		//  book.bin         Apery型の定跡DB
 
 		std::vector<std::string> book_list = { "no_book" , "standard_book.db"
 			, "yaneura_book1.db" , "yaneura_book2.db" , "yaneura_book3.db", "yaneura_book4.db"
-			, "user_book1.db", "user_book2.db", "user_book3.db", "book.bin" };
+			, "user_book1.db", "user_book2.db", "user_book3.db"
+			, "standard_book.ybb"
+			, "yaneura_book1.ybb", "yaneura_book2.ybb", "yaneura_book3.ybb", "yaneura_book4.ybb"
+			, "user_book1.ybb", "user_book2.ybb", "user_book3.ybb", "book.bin" };
 
 #if !defined(__EMSCRIPTEN__)
 		options.add("BookFile", Option(book_list, book_list[1]));
@@ -1502,6 +1506,72 @@ namespace Book
 		const u64 move_count_total = std::accumulate(move_list.begin(), move_list.end(), (u64)0, [](u64 acc, BookMove& b) { return acc + b.move_count; });
 		const bool has_move_count = move_count_total != 0;
 
+		// 各候補について、現在の対局履歴に照らしたrepetition種別を判定する。
+		// - 反則負け(連続王手の千日手)・劣等局面になる指し手は無条件に除外する。
+		// - それ以外のrepetition(千日手・勝ち・優等)になる指し手は、bm.value を通常探索側と
+		//   同じ実効スコア(drawValueTable。DrawValue設定反映済み)へ置き換え、元の定跡値は
+		//   orig_values に退避する。
+		// 役割分担:
+		//   品質フィルタ(BookEvalDiff)は「元の定跡値」で行う(千日手化による繰り上がりで
+		//   質の低い定跡手が採用されるのを防ぐ)。
+		//   下限(BookEvalLimit)判定と最終選択・表示は「実効値」で行う(定跡が高評価を主張する
+		//   手でも、この対局履歴では千日手にしかならないなら千日手の値として扱う)。
+		// is_repetition()はdo_move後の局面の手番(相手側)視点を返すため、root側視点へ読み替える。
+		std::unordered_map<uint16_t, int> orig_values; // 置換が起きた手: move16 -> 元の定跡値
+		{
+			Color us = rootPos.side_to_move();
+			auto it_end = std::remove_if(move_list.begin(), move_list.end(), [&](Book::BookMove& bm) {
+				Move m = rootPos.to_move(bm.move);
+				StateInfo si;
+				rootPos.do_move(m, si);
+				auto rep = rootPos.is_repetition(MAX_PLY);
+				rootPos.undo_move(m);
+
+				if (rep == REPETITION_NONE)
+					return false;
+
+				// 相手番視点 → root側視点へ反転
+				RepetitionState rep_us;
+				const char* rep_name;
+				switch (rep) {
+				case REPETITION_WIN:      rep_us = REPETITION_LOSE;     rep_name = "lose";     break;
+				case REPETITION_LOSE:     rep_us = REPETITION_WIN;      rep_name = "win";      break;
+				case REPETITION_SUPERIOR: rep_us = REPETITION_INFERIOR; rep_name = "inferior"; break;
+				case REPETITION_INFERIOR: rep_us = REPETITION_SUPERIOR; rep_name = "superior"; break;
+				default:                  rep_us = REPETITION_DRAW;     rep_name = "draw";     break;
+				}
+
+				if (rep_us == REPETITION_LOSE || rep_us == REPETITION_INFERIOR)
+				{
+					// 反則負け・劣等局面になる指し手は指さない。
+					if (isRoot)
+						updates.onUpdateString(std::string_view(
+							"BookRepetition : " + bm.move.to_usi_string()
+							+ " excluded (" + rep_name + ")"));
+					return true;
+				}
+
+				int effective = (int)draw_value(rep_us, us);
+				if (isRoot && effective != bm.value)
+					updates.onUpdateString(std::string_view(
+						"BookRepetition : " + bm.move.to_usi_string()
+						+ " book_value " + std::to_string(bm.value)
+						+ " -> " + std::to_string(effective) + " (" + rep_name + ")"));
+				orig_values[bm.move.to_u16()] = bm.value;
+				bm.value = effective;
+				return false;
+			});
+			move_list.erase(it_end, move_list.end());
+		}
+		if (move_list.size() == 0)
+			return false;
+
+		// 品質フィルタ用: 元の定跡値(置換が起きていない手は bm.value のまま)。
+		auto book_value_of = [&orig_values](const Book::BookMove& bm) {
+			auto it_ov = orig_values.find(bm.move.to_u16());
+			return it_ov != orig_values.end() ? it_ov->second : bm.value;
+		};
+
 		// "info ..."と出力するのは、rootでだけ。
         if (isRoot)
         {
@@ -1554,11 +1624,11 @@ namespace Book
 
 		if (forceHit)
 		{
-			// ベストな評価値のもののみを残す
-			auto value_limit = move_list[0].value;
+			// ベストな評価値のもののみを残す(品質判定は元の定跡値で行う)
+			auto value_limit = book_value_of(move_list[0]);
 
 			// 評価値がvalue_limitを下回るものを削除
-			auto it_end = std::remove_if(move_list.begin(), move_list.end(), [&](Book::BookMove & m) { return m.value < value_limit; });
+			auto it_end = std::remove_if(move_list.begin(), move_list.end(), [&](Book::BookMove & m) { return book_value_of(m) < value_limit; });
 			move_list.erase(it_end, move_list.end());
 
 		} else {
@@ -1606,17 +1676,24 @@ namespace Book
 			}
 			else {
 				// ベストな評価値の候補手から、この差に収まって欲しい。
+				// 品質判定(EvalDiff)は「元の定跡値」で行う。repetitionで実効値に置換された手が
+				// 消えた結果、元のbestから大きく劣る手が繰り上がって採用されるのを防ぐ。
+				// DB仕様により move_list[0] の元の定跡値がベスト。
 				auto eval_diff = int(options["BookEvalDiff"]);
-				auto value_limit1 = move_list[0].value - eval_diff;
+				auto value_limit1 = book_value_of(move_list[0]) - eval_diff;
 				// 先手・後手の評価値下限の指し手を採用するわけにはいかない。
+				// 下限(EvalLimit)は「実効値」で判定する。千日手等への置換で価値が下限を
+				// 割った手は指さない(定跡不採用となれば通常探索へフォールバックする)。
 				auto stm_string = (rootPos.side_to_move() == BLACK) ? "BookEvalBlackLimit" : "BookEvalWhiteLimit";
 				auto value_limit2 = (int)options[stm_string];
-				auto value_limit = std::max(value_limit1, value_limit2);
+				// 置換の起きていない手では book_value_of(m) == m.value なので、この条件は
+				// 従来の「m.value < max(value_limit1, value_limit2)」と完全に一致する。
 
 				auto n = move_list.size();
 
-				// 評価値がvalue_limitを下回るものを削除
-				auto it_end = std::remove_if(move_list.begin(), move_list.end(), [&](Book::BookMove & m) { return m.value < value_limit; });
+				// 評価値が下限を下回るものを削除
+				auto it_end = std::remove_if(move_list.begin(), move_list.end(), [&](Book::BookMove & m)
+					{ return book_value_of(m) < value_limit1 || m.value < value_limit2; });
 				move_list.erase(it_end, move_list.end());
 
 				// これを出力するとShogiGUIの棋譜解析で読み筋として表示されてしまう…。
@@ -1634,13 +1711,46 @@ namespace Book
 		if (move_list.size() == 0)
 			return false;
 
+		// repetitionで実効値に置換された手の選択規則:
+		// 残候補中の実効値最大が置換手なら、その手を採用する(千日手等がこの局面の最善)。
+		// そうでなければ置換手を抽選対象から外す(より良い通常の定跡手があるのに、
+		// 抽選で千日手手を引いてしまうのを防ぐ)。実効値が同じ場合は通常の定跡手を優先する。
+		const Book::BookMove* forced_rep_move = nullptr;
+		if (!orig_values.empty())
+		{
+			int max_eff = INT_MIN;
+			int max_eff_normal = INT_MIN;
+			for (auto& m : move_list)
+			{
+				max_eff = std::max(max_eff, m.value);
+				if (!orig_values.count(m.move.to_u16()))
+					max_eff_normal = std::max(max_eff_normal, m.value);
+			}
+			if (max_eff_normal < max_eff)
+			{
+				// 置換手が単独で実効ベスト
+				for (auto& m : move_list)
+					if (m.value == max_eff) { forced_rep_move = &m; break; }
+			}
+			else
+			{
+				// 通常手で足りるので置換手は抽選から外す
+				auto it_end = std::remove_if(move_list.begin(), move_list.end(),
+					[&](Book::BookMove& m) { return orig_values.count(m.move.to_u16()) != 0; });
+				move_list.erase(it_end, move_list.end());
+				if (move_list.size() == 0)
+					return false;
+			}
+		}
+
 		{
 			// move_list[0]～move_list[book_move_max-1]までのなかからまずはランダムに選ぶ。
 
-			auto bestBookMove = move_list[prng.rand(move_list.size())];
+			auto bestBookMove = forced_rep_move ? *forced_rep_move : move_list[prng.rand(move_list.size())];
 
 			// 定跡ファイルの採択率に応じて指し手を選択するか
-			if (forceHit || options["ConsiderBookMoveCount"])
+			// (置換手が実効ベストとして確定している場合は抽選しない)
+			if (!forced_rep_move && (forceHit || options["ConsiderBookMoveCount"]))
 			{
 				// 1-passで採択率に従って指し手を決めるオンラインアルゴリズム
 				// http://yaneuraou.yaneu.com/2015/01/03/stockfish-dd-book-%E5%AE%9A%E8%B7%A1%E9%83%A8/

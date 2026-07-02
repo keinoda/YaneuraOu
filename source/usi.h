@@ -5,6 +5,7 @@
 #include <iosfwd>
 #include <map>
 #include <string>
+#include <vector>
 
 #include "types.h"
 #include "engine.h"
@@ -174,6 +175,12 @@ private:
 	std::uint64_t perft(const Search::LimitsType&);
 
 #if !STOCKFISH
+    void remember_position_moves(const std::string& cmd);
+    void remember_bestmove(std::string_view bestmove, std::string_view ponder);
+    bool consume_ponder_miss(const Search::LimitsType& limits);
+#endif
+
+#if !STOCKFISH
 	// 🌈 やねうら王独自拡張 🌈
 
 	void isready();
@@ -237,6 +244,14 @@ private:
 
 	// 上記2.
 	std::string last_go_cmd_string;
+
+    // Ponder miss判定用。前回bestmoveとponder、および直近positionの指し手列。
+    std::string              last_bestmove_string;
+    std::string              last_ponder_string;
+    std::vector<std::string> last_position_moves;
+    bool                     last_ponder_hit             = false;
+    bool                     last_ponder_search_started  = false;
+    bool                     current_search_is_ponder    = false;
 
 #endif
 };

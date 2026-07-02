@@ -145,7 +145,10 @@ void USIEngine::init_search_update_listeners() {
     engine.set_on_update_no_moves([](const auto& i) { on_update_no_moves(i); });
     engine.set_on_update_full(
       [this](const auto& i) { on_update_full(i /*, engine.get_options()["UCI_ShowWDL"] */); });
-    engine.set_on_bestmove([](const auto& bm, const auto& p) { on_bestmove(bm, p); });
+    engine.set_on_bestmove([this](const auto& bm, const auto& p) {
+        remember_bestmove(bm, p);
+        on_bestmove(bm, p);
+    });
     engine.set_on_update_string([](const auto& i) { on_update_string(i); });
     engine.set_on_verify_networks([](const auto& s) { print_info_string(s); });
 }
@@ -238,6 +241,9 @@ bool USIEngine::usi_cmdexec(const std::string& cmd) {
         engine.set_ponderhit(false);
 #else
     {
+        last_ponder_hit = true;
+        current_search_is_ponder = false;
+
         // Stochastic Ponder中にhitした。
         if (engine.get_options().count("Stochastic_Ponder")
             && engine.get_options()["Stochastic_Ponder"])
@@ -309,6 +315,7 @@ bool USIEngine::usi_cmdexec(const std::string& cmd) {
     {
 		// Stochastic Ponderのために保存しておく。
         last_position_cmd_string = cmd;
+        remember_position_moves(cmd);
         position(is);
     }
 #endif
@@ -644,6 +651,63 @@ Search::LimitsType USIEngine::parse_limits(std::istream& is) {
 	return limits;
 }
 
+#if !STOCKFISH
+void USIEngine::remember_position_moves(const std::string& cmd) {
+    last_position_moves.clear();
+
+    std::istringstream is(cmd);
+    std::string        token;
+    while (is >> token)
+    {
+        if (token != "moves")
+            continue;
+
+        while (is >> token)
+            last_position_moves.push_back(token);
+        return;
+    }
+}
+
+void USIEngine::remember_bestmove(std::string_view bestmove, std::string_view ponder) {
+    if (current_search_is_ponder)
+    {
+        current_search_is_ponder = false;
+        return;
+    }
+
+    last_bestmove_string = std::string(bestmove);
+    last_ponder_string   = std::string(ponder);
+    last_ponder_hit            = false;
+    last_ponder_search_started = false;
+}
+
+bool USIEngine::consume_ponder_miss(const Search::LimitsType& limits) {
+    const auto clear = [&]() {
+        last_bestmove_string.clear();
+        last_ponder_string.clear();
+        last_ponder_hit            = false;
+        last_ponder_search_started = false;
+        current_search_is_ponder   = false;
+    };
+
+    bool miss = false;
+    if (!limits.ponderMode && last_ponder_search_started && !last_ponder_hit
+        && !last_bestmove_string.empty() && !last_ponder_string.empty()
+        && last_position_moves.size() >= 2
+        && engine.get_options().count("USI_Ponder") && (bool)engine.get_options()["USI_Ponder"])
+    {
+        const std::string& previous_own_move = last_position_moves[last_position_moves.size() - 2];
+        const std::string& actual_reply      = last_position_moves.back();
+        miss = previous_own_move == last_bestmove_string && actual_reply != last_ponder_string;
+    }
+
+    if (!limits.ponderMode)
+        clear();
+
+    return miss;
+}
+#endif
+
 // --------------------
 // USI関係のコマンド処理
 // --------------------
@@ -657,6 +721,15 @@ Search::LimitsType USIEngine::parse_limits(std::istream& is) {
 void USIEngine::go(std::istringstream& is)
 {
     Search::LimitsType limits = parse_limits(is);
+#if !STOCKFISH
+    limits.ponderMiss = consume_ponder_miss(limits);
+    current_search_is_ponder = limits.ponderMode;
+    if (limits.ponderMode)
+    {
+        last_ponder_hit = false;
+        last_ponder_search_started = true;
+    }
+#endif
 
 	if (limits.perft)
 		perft(limits);
@@ -670,6 +743,8 @@ void USIEngine::go(std::istringstream& is)
 		if (limits.ponderMode && engine.get_options().count("Stochastic_Ponder")
 			&& engine.get_options()["Stochastic_Ponder"])
 		{
+            limits.ignoreOpeningTarget = true;
+
             auto s = last_position_cmd_string;
 			// 最初("position")と最後(最後の指し手)のtokenを捨てる。
 

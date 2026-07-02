@@ -146,8 +146,9 @@ ifneq (,$(IS_NNUE_EDITION))
       ENGINE_NAME := YaneuraOu_NNUE_HALFKP_VM
       CPPFLAGS += -DEVAL_NNUE_HALFKP_VM_256X2_32_32
     else ifeq ($(ENGINE_ARCH_UPPER),SFNN1536)
-      ENGINE_NAME := YaneuraOu_NNUE_SFNN1536
+      ENGINE_NAME := YaneuraOu_Progress
       CPPFLAGS += -DYANEURAOU_ENGINE_SFNN1536 -DSFNNwoPSQT
+      CPPFLAGS += -DENGINE_AUTHOR_FROM_MAKEFILE=keinoda -DENGINE_VERSION=\"v9.41-progress\"
     else
       # 知らないNNUEのarchitectureなので、architecture headerを動的に生成する。
       ARCH_HEADER_FILE = \"architectures/$(NNUE_ARCH).h\"

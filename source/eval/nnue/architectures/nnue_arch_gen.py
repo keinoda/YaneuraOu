@@ -36,10 +36,6 @@ if "SFNNWOP" in arch_upper_for_validation:
     print("Error! : SFNNWOP architecture names are no longer supported. Use SFNN1536 or SFNN_..._k3k3 / SFNN_..._king3_by_king3.")
     raise SystemExit(1)
 
-if "LS9" in arch_upper_for_validation.split('_'):
-    print("Error! : ls9 is no longer supported. Use k3k3 or king3_by_king3.")
-    raise SystemExit(1)
-
 # 出力ファイル名
 filename = arch + ".h"
 
@@ -51,6 +47,7 @@ print(f"output file path  : {out_path}")
 # 大文字化して、'-'を'_'に置換したアーキテクチャ名
 arch   = arch.replace('-','_')
 arch   = arch.upper()
+arch_for_header = arch
 
 print(f"architecture name : {arch}")
 
@@ -78,8 +75,13 @@ if arches[0].startswith("SFNN"):
     if layer_stack_spec == "K3K3" or layer_stack_spec == "KING3_BY_KING3":
         layer_stack_name = "K3K3"
         layer_stack_count = "9"
+    elif len(arches) == 6 and arches[5].startswith("LS") and arches[5][2:].isdigit():
+        layer_stack_name = arches[5]
+        layer_stack_count = arches[5][2:]
+        if layer_stack_count == "9":
+            arch_for_header = "_".join(arches[:5] + ["K3K3"])
     else:
-        print("Error! : SFNN layer stack must be k3k3 or king3_by_king3")
+        print("Error! : SFNN layer stack must be k3k3, king3_by_king3, or ls<N>")
         raise SystemExit(1)
 
     arches = [arches[1], arches[2], arches[3], arches[4], layer_stack_count]
@@ -92,8 +94,8 @@ if SFNN:
     header = f"""
     // SFNN without PSQT 1536 architecture
 
-    #ifndef CLASSIC_NNUE_SFNN_{arch}_H_INCLUDED
-    #define CLASSIC_NNUE_SFNN_{arch}_H_INCLUDED
+    #ifndef CLASSIC_NNUE_SFNN_{arch_for_header}_H_INCLUDED
+    #define CLASSIC_NNUE_SFNN_{arch_for_header}_H_INCLUDED
     """
 else:
     header = f"""
@@ -351,7 +353,7 @@ if SFNN:
             }}
 
             static std::string GetStructureString() {{
-                return "{'SFNN-1536' if input_feature == 'halfkahm2' and layers == ['1536', '15', '32', '9'] and layer_stack_name == 'K3K3' else arch}";
+                return "{'SFNN-1536' if input_feature == 'halfkahm2' and layers == ['1536', '15', '32', '9'] else arch_for_header}";
             }}
 
             Tools::Result ReadParameters(std::istream& stream) {{
@@ -407,7 +409,7 @@ if SFNN:
     }}  // namespace Eval::NNUE
     }}  // namespace YaneuraOu
 
-    #endif // CLASSIC_NNUE_{arch}_H_INCLUDED
+    #endif // CLASSIC_NNUE_{arch_for_header}_H_INCLUDED
     """
 
     # 💡 GetStructureString()で異なる文字列を返すと別のアーキテクチャとみなされてしまう。

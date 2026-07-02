@@ -190,12 +190,21 @@ public:
 // リリース（開発版でない）ビルドでは、バージョン番号のみを含めます：
 //      Stockfish version
 
+#if defined(ENGINE_NAME_FROM_MAKEFILE) || defined(ENGINE_AUTHOR_FROM_MAKEFILE)
+#define ENGINE_INFO_STRINGIFY(n) #n
+#define ENGINE_INFO_TOSTRING(n) ENGINE_INFO_STRINGIFY(n)
+#endif
+
 std::string engine_version_info() {
 	std::stringstream ss;
 #if STOCKFISH
 	ss << "Stockfish " << version << std::setfill('0');
 #else
+#if defined(ENGINE_NAME_FROM_MAKEFILE)
+    ss << ENGINE_INFO_TOSTRING(ENGINE_NAME_FROM_MAKEFILE) << " " << ENGINE_VERSION;
+#else
     ss << "YaneuraOu" << ENGINE_VERSION;
+#endif
 #endif
 
 	// "dev"版であれば日付を出力する機能。
@@ -262,13 +271,7 @@ std::string engine_info(const std::string& engine_name,
 		engine_name_ =
 			// Makefileのほうでエンジン表示名が指定されているならそれに従う。
 #if defined(ENGINE_NAME_FROM_MAKEFILE)
-			// マクロの内容の文字列化
-			// cf. https://www.hiroom2.com/2015/09/07/c%E8%A8%80%E8%AA%9E%E3%81%AE-line-%E3%83%9E%E3%82%AF%E3%83%AD%E3%82%92%E3%83%97%E3%83%AA%E3%83%97%E3%83%AD%E3%82%BB%E3%83%83%E3%82%B5%E3%81%AE%E6%AE%B5%E9%9A%8E%E3%81%A7%E6%96%87%E5%AD%97%E5%88%97%E3%81%AB%E5%A4%89%E6%8F%9B%E3%81%99%E3%82%8B/
-#define STRINGIFY(n) #n
-#define TOSTRING(n) STRINGIFY(n)
-			TOSTRING(ENGINE_NAME_FROM_MAKEFILE)
-#undef STRINGIFY
-#undef TOSTRING
+			ENGINE_INFO_TOSTRING(ENGINE_NAME_FROM_MAKEFILE)
 #else
 			engine_name
 #endif
@@ -280,13 +283,22 @@ std::string engine_info(const std::string& engine_name,
 			+" TOURNAMENT"
 #endif
 			;
+#if defined(ENGINE_AUTHOR_FROM_MAKEFILE)
+			engine_author_ = ENGINE_INFO_TOSTRING(ENGINE_AUTHOR_FROM_MAKEFILE);
+#else
 			engine_author_ = engine_author;
+#endif
                 // やねうら王 "yaneurao";
                 // ふかうら王 "Tadao Yamaoka , yaneurao";
 	}
 
 	return engine_name_ + "\n" + "id author " + engine_author_; 
 }
+
+#if defined(ENGINE_NAME_FROM_MAKEFILE) || defined(ENGINE_AUTHOR_FROM_MAKEFILE)
+#undef ENGINE_INFO_STRINGIFY
+#undef ENGINE_INFO_TOSTRING
+#endif
 
 // 使用したコンパイラについての文字列を返す。
 string compiler_info() {

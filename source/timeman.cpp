@@ -2,6 +2,11 @@
 
 #if defined(USE_TIME_MANAGEMENT)
 
+#include <algorithm>
+#include <array>
+#include <sstream>
+#include <string>
+
 #include "misc.h"
 #include "search.h"
 #include "thread.h"
@@ -18,6 +23,62 @@ const int MoveHorizon = 160;
 
 // 思考時間のrtimeが指定されたときに用いる乱数
 PRNG prng;
+
+constexpr std::array<int, 3> DefaultProgressSlowMoverScales = {65, 140, 70};
+
+// progress bucket 0..7 を、SlowMoverに掛ける百分率へ変換する。
+// bucket 0-1, 2-5, 6-7 の3区間で一定倍率にする。
+int progress_slow_mover_scale(int bucket, const std::array<int, 3>& scales) {
+    bucket = std::clamp(bucket, 0, 7);
+    if (bucket <= 1)
+        return scales[0];
+    if (bucket <= 5)
+        return scales[1];
+    return scales[2];
+}
+
+std::array<int, 3> parse_progress_slow_mover_scales(const OptionsMap& options) {
+    std::string text = (std::string)options["ProgressSlowMoverScales"];
+
+    for (char& c : text)
+        if (c == ',' || c == '/' || c == ':' || c == ';')
+            c = ' ';
+
+    std::istringstream is(text);
+    std::array<int, 3> parsed;
+    int extra;
+    if (!(is >> parsed[0] >> parsed[1] >> parsed[2]) || (is >> extra))
+    {
+        sync_cout << "info string Warning! ProgressSlowMoverScales must be three values, "
+                     "for example 65,140,70. Use default=65,140,70"
+                  << sync_endl;
+        return DefaultProgressSlowMoverScales;
+    }
+
+    for (int& scale : parsed)
+        scale = std::clamp(scale, 1, 1000);
+    return parsed;
+}
+
+// 160手を8つのprogress bucketに分け、bucket中心に20手分の余裕を足して
+// 残り自分手番を見積もる。
+int progress_mtg(int bucket) {
+    bucket = std::clamp(bucket, 0, 7);
+    return MoveHorizon / 2 + 5 - bucket * 10;
+}
+
+int slow_mover_for_color(const OptionsMap& options, Color us) {
+    const int legacy = (int)options["SlowMover"];
+    int black = (int)options["SlowMover_black"];
+    int white = (int)options["SlowMover_white"];
+
+    if (black == 0)
+        black = legacy;
+    if (white == 0)
+        white = legacy;
+
+    return us == BLACK ? black : white;
+}
 
 } // namespace
 
@@ -46,10 +107,22 @@ void TimeManagement::add_options(OptionsMap& options) {
     // 最小思考時間[ms]
     options.add("MinimumThinkingTime", Option(2000, 1, 100000));
 
-    // 切れ負けのときの思考時間を調整する。序盤重視率。百分率になっている。
-    // 例えば200を指定すると本来の最適時間の200%(2倍)思考するようになる。
-    // 対人のときに短めに設定して強制的に早指しにすることが出来る。
+    // 互換用。SlowMover_blackとSlowMover_whiteが両方0なら、この値を使う。
     options.add("SlowMover", Option(100, 1, 1000));
+
+    // 切れ負けのときの思考時間を調整する。百分率になっている。
+    // 0は未指定。未指定側はSlowMoverの値を使う。
+    options.add("SlowMover_black", Option(0, 0, 1000));
+    options.add("SlowMover_white", Option(0, 0, 1000));
+
+    // progress.bin由来の進行度でSlowMoverを間接的に補正する。
+    // デフォルトでは無効。実棋譜サンプルで平均がおよそ100%になる程度に傾斜させる。
+    options.add("ProgressSlowMover", Option(false));
+    // bucket 0-1, 2-5, 6-7 の倍率をこの順に指定する。区切りは "," "/" 空白など。
+    options.add("ProgressSlowMoverScales", Option("65,140,70"));
+
+    // progress.bin由来の進行度で残り手数(MTG)を見積もる。
+    options.add("ProgressMtg", Option(false));
 
 	// 持ち時間、各秒のギリギリまで使うか。
     options.add("RoundUpToFullSecond", true);
@@ -66,7 +139,8 @@ void TimeManagement::init(const Search::LimitsType& limits,
 // 💡 やねうら王では使わないことにする。
 #else
                           ,
-                          int max_moves_to_draw
+                          int max_moves_to_draw,
+                          int progress_bucket
 #endif
 
 ) {
@@ -84,7 +158,7 @@ void TimeManagement::init(const Search::LimitsType& limits,
     lastcall_Opt    = const_cast<OptionsMap*>(&options);
 #endif
 
-    init_(limits, us, ply, options, max_moves_to_draw);
+    init_(limits, us, ply, options, max_moves_to_draw, progress_bucket);
 }
 
 // 今回の思考時間を計算して、optimum(),maximum()が値をきちんと返せるようにする。
@@ -94,7 +168,9 @@ void TimeManagement::init(const Search::LimitsType& limits,
 void TimeManagement::init_(const Search::LimitsType& limits,
                            Color               us,
                            int                 ply,
-                           const OptionsMap&   options, int max_moves_to_draw) {
+                           const OptionsMap&   options,
+                           int                 max_moves_to_draw,
+                           int                 progress_bucket) {
 
 #if STOCKFISH
 	TimePoint npmsec = TimePoint(options["nodestime"]);
@@ -163,7 +239,16 @@ void TimeManagement::init_(const Search::LimitsType& limits,
 	// 序盤重視率
 	// 　これはこんなパラメーターとして手で調整するべきではなく、探索パラメーターの一種として
 	//   別の方法で調整すべき。ただ、対人でソフトに早指ししたいときには意味があるような…。
-	int slowMover = (int)options["SlowMover"];
+	int slowMover = slow_mover_for_color(options, us);
+	if ((bool)options["ProgressSlowMover"] && 0 <= progress_bucket && progress_bucket < 8)
+	{
+	    const int scale = progress_slow_mover_scale(
+	      progress_bucket, parse_progress_slow_mover_scales(options));
+	    slowMover = std::clamp(slowMover * scale / 100, 1, 1000);
+	    sync_cout << "info string ProgressSlowMover bucket=" << progress_bucket
+	              << " scale=" << scale
+	              << " effective_slow_mover=" << slowMover << sync_endl;
+	}
 
 	if (limits.rtime)
 	{
@@ -208,7 +293,18 @@ void TimeManagement::init_(const Search::LimitsType& limits,
 	// 残りの自分の手番の回数
 	// ⇨　plyは平手の初期局面が1。256手ルールとして、max_game_ply == 256だから、256手目の局面においてply == 256
 	// 　その1手前の局面においてply == 255。ply == 255 or 256のときにMTGが1にならないといけない。だから2足しておくのが正解。
-    const int MTG = std::min(max_moves_to_draw - ply + 2, move_horizon) / 2;
+    const int draw_mtg = (max_moves_to_draw - ply + 2) / 2;
+    const int base_mtg = std::min(max_moves_to_draw - ply + 2, move_horizon) / 2;
+    int MTG = base_mtg;
+    if ((bool)options["ProgressMtg"] && 0 <= progress_bucket && progress_bucket < 8)
+    {
+        const int pmtg = progress_mtg(progress_bucket);
+        MTG = std::min(draw_mtg, pmtg);
+        sync_cout << "info string ProgressMtg bucket=" << progress_bucket
+                  << " base_mtg=" << base_mtg
+                  << " progress_mtg=" << pmtg
+                  << " mtg=" << MTG << sync_endl;
+    }
 
 	if (MTG <= 0)
 	{
@@ -298,6 +394,16 @@ void TimeManagement::init_(const Search::LimitsType& limits,
             isFinalPush                             = true;
         }
 	}
+
+#if !STOCKFISH
+    if (limits.ponderMiss)
+    {
+        const TimePoint oldMaximum = maximumTime;
+        maximumTime = std::min(maximumTime * 2, remain_time);
+        sync_cout << "info string PonderMiss maximumTime=" << oldMaximum << "->"
+                  << maximumTime << sync_endl;
+    }
+#endif
 
 	// 残り時間 - network_delay2よりは短くしないと切れ負けになる可能性が出てくる。
 	minimumTime = std::min(round_up(minimumTime), remain_time);

@@ -31,10 +31,11 @@ class TimeManagement {
 	// ⚠ optionsに"USI_Ponder"と"Stochastic_Ponder"オプションが含まれていること。
     void init(const Search::LimitsType& limits, Color us, int ply, const OptionsMap& options
 #if STOCKFISH
-			  , double& originalTimeAdjust
+				  , double& originalTimeAdjust
     // 💡 やねうら王では使わないことにする。
 #else
-			  , int max_moves_to_draw
+				  , int max_moves_to_draw
+				  , int progress_bucket = -1
 #endif
     );
 
@@ -140,7 +141,8 @@ class TimeManagement {
                Color                     us,
                int                       ply,
                const OptionsMap&         options,
-               int                       max_moves_to_draw);
+               int                       max_moves_to_draw,
+               int                       progress_bucket);
 
     // optionsのそれぞれの値
     TimePoint minimum_thinking_time;
