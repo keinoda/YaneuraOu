@@ -18,6 +18,8 @@ include $(CLEAR_VARS)
 
 CPPFLAGS := -DTARGET_ARCH="$(TARGET_ARCH_ABI)"
 
+# /Users/keinoda/Library/Android/sdk/ndk/29.0.13113456/ndk-build
+
 # example: (default build target)
 # $ ndk-build
 
@@ -45,7 +47,7 @@ CPPFLAGS := -DTARGET_ARCH="$(TARGET_ARCH_ABI)"
 # example: MATE_ENGINE (tanuki_MATE)
 # $ ndk-build YANEURAOU_EDITION=MATE_ENGINE
 
-YANEURAOU_EDITION := YANEURAOU_ENGINE_NNUE
+YANEURAOU_EDITION := YANEURAOU_ENGINE_NNUE_HALFKP_768X2_16_64
 #YANEURAOU_EDITION := YANEURAOU_ENGINE_NNUE_HALFKP_VM_256X2_32_32
 #YANEURAOU_EDITION := YANEURAOU_ENGINE_NNUE_HALFKPE9
 #YANEURAOU_EDITION := YANEURAOU_ENGINE_NNUE_KP256
@@ -61,7 +63,7 @@ YO_CLUSTER = OFF
 
 # エンジンの表示名 (engine displayname)
 # ("usi"コマンドに対して出力される)
-#ENGINE_NAME :=
+ENGINE_NAME := Suisho10beta2
 
 # developing branch // 現状、非公開 (currently private)
 # dev : 開発中のbranchならdevと指定する (developing branch) :
@@ -78,8 +80,12 @@ EXTRA_CPPFLAGS =
 MATERIAL_LEVEL = 1
 
 # NNUE評価関数を実行ファイルに内蔵する。 `eval/nnue/embedded_nnue.cpp` が別途必要。
-EVAL_EMBEDDING = OFF
-# EVAL_EMBEDDING = ON
+# EVAL_EMBEDDING = OFF
+EVAL_EMBEDDING = ON
+
+# Python
+# ※ NNUEの未知なarchitectureの時にarchitecture headerを動的に生成するのに用いる。
+PYTHON = python3
 
 CPPFLAGS += $(EXTRA_CPPFLAGS)
 
@@ -128,6 +134,14 @@ ifeq ($(findstring YANEURAOU_ENGINE_NNUE,$(YANEURAOU_EDITION)),YANEURAOU_ENGINE_
       CPPFLAGS += -DEVAL_NNUE_HALFKP_VM_256X2_32_32
     endif
   endif
+  ifeq ($(YANEURAOU_EDITION),YANEURAOU_ENGINE_NNUE_HALFKP_512X2_8_64)
+    ENGINE_NAME := YANEURAOU_ENGINE_NNUE_HALFKP_512X2_8_64
+	  CPPFLAGS += -DEVAL_NNUE_HALFKP_512X2_8_64
+  endif
+  ifeq ($(YANEURAOU_EDITION),YANEURAOU_ENGINE_NNUE_HALFKP_768X2_16_64)
+    ENGINE_NAME := YANEURAOU_ENGINE_NNUE_HALFKP_768X2_16_64
+	  CPPFLAGS += -DEVAL_NNUE_HALFKP_768X2_16_64
+  endif
 endif
 
 ifeq ($(YANEURAOU_EDITION),YANEURAOU_MATE_ENGINE)
@@ -146,7 +160,7 @@ ifeq ($(YANEURAOU_EDITION),USER_ENGINE)
 endif
 
 ifeq ($(TARGET_ARCH_ABI),arm64-v8a)
-  CPPFLAGS += -DIS_64BIT -DUSE_NEON -mfpu=neon
+  CPPFLAGS += -DIS_64BIT -DUSE_NEON
   LOCAL_ARM_NEON := true
 endif
 
@@ -159,7 +173,7 @@ ifeq ($(TARGET_ARCH_ABI),x86)
 endif
 
 ifeq ($(TARGET_ARCH_ABI),armeabi-v7a)
-  CPPFLAGS += -DUSE_NEON -mfpu=neon
+  CPPFLAGS += -DUSE_NEON
   LOCAL_ARM_NEON := true
 endif
 

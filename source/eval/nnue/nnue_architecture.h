@@ -53,6 +53,16 @@
 // halfkpvm_256x2-32-32型
 #include "architectures/halfkpvm_256x2-32-32.h"
 
+#elif defined(EVAL_NNUE_HALFKP_512X2_8_64)
+
+// halfkpvm_512x2_8_64型
+#include "architectures/halfkp_512x2_8_64.h"
+
+#elif defined(EVAL_NNUE_HALFKP_768X2_16_64)
+
+// halfkpvm_768x2_16_64型
+#include "architectures/halfkp_768x2_16_64.h"
+
 #else
 
 // どれも定義されていなかったので標準NNUE型にしておく。

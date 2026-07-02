@@ -19,6 +19,9 @@
 #include <iomanip>
 #include <cmath>	// std::log(),std::pow(),std::round()
 #include <cstring>	// memset()
+#include <algorithm>
+#include <optional>
+#include <vector>
 
 #include "../../position.h"
 #include "../../thread.h"
@@ -64,6 +67,100 @@ static std::fstream result_log;
 // 定跡の指し手を選択するモジュール
 Book::BookMoveSelector book;
 
+namespace {
+
+// 指定SFENに到達した局面を、実際の将棋の終局とは無関係に勝敗付き終端局面として扱う。
+struct TargetTerminalState
+{
+	bool        dirty       = true;
+	bool        ready       = false;
+	bool        enabled     = false;
+	bool        disableBook = true;
+	Color       winner      = BLACK;
+	std::string sfen;
+	std::string scoreMode;
+	HASH_KEY    key{};
+};
+
+TargetTerminalState targetTerminal;
+
+std::string trim_target_sfen(const std::string& s)
+{
+	const auto begin = s.find_first_not_of(" \t\r\n");
+	if (begin == std::string::npos)
+		return "";
+
+	const auto end = s.find_last_not_of(" \t\r\n");
+	return s.substr(begin, end - begin + 1);
+}
+
+std::string target_position_sfen(std::string sfen)
+{
+	sfen = trim_target_sfen(sfen);
+
+	const std::string positionSfenPrefix = "position sfen ";
+	const std::string sfenPrefix         = "sfen ";
+
+	if (sfen.compare(0, positionSfenPrefix.size(), positionSfenPrefix) == 0)
+		sfen = sfen.substr(positionSfenPrefix.size());
+	else if (sfen.compare(0, sfenPrefix.size(), sfenPrefix) == 0)
+		sfen = sfen.substr(sfenPrefix.size());
+
+	return trim_target_sfen(sfen);
+}
+
+void mark_target_terminal_dirty([[maybe_unused]] const USI::Option& o)
+{
+	targetTerminal.dirty = true;
+}
+
+void refresh_target_terminal()
+{
+	targetTerminal.enabled     = Options["TargetMode"];
+	targetTerminal.disableBook = Options["TargetDisableBook"];
+	targetTerminal.sfen        = target_position_sfen((std::string)Options["TargetSfen"]);
+	targetTerminal.scoreMode   = Options["TargetScoreMode"] == "proven_win" ? "proven_win" : "mate";
+	targetTerminal.winner      = Options["TargetWinner"] == "white" ? WHITE : BLACK;
+	targetTerminal.ready       = false;
+
+	if (targetTerminal.enabled && !targetTerminal.sfen.empty())
+	{
+		StateInfo si;
+		Position targetPos;
+		targetPos.set(targetTerminal.sfen, &si, Threads.main());
+		targetTerminal.key   = targetPos.hash_key();
+		targetTerminal.ready = true;
+	}
+
+	targetTerminal.dirty = false;
+}
+
+bool target_terminal_book_disabled()
+{
+	if (targetTerminal.dirty)
+		refresh_target_terminal();
+
+	return targetTerminal.enabled && targetTerminal.disableBook;
+}
+
+std::optional<Value> target_terminal_value(const Position& pos, int ply)
+{
+	if (targetTerminal.dirty)
+		refresh_target_terminal();
+
+	if (!targetTerminal.enabled || !targetTerminal.ready || pos.hash_key() != targetTerminal.key)
+		return std::nullopt;
+
+	const int winPly = std::max(1, MAX_PLY - std::min(ply, MAX_PLY - 1));
+	const Value winValue =
+		targetTerminal.scoreMode == "proven_win" ? VALUE_TB_WIN_IN_MAX_PLY : mate_in(winPly);
+	const bool sideToMoveWins = pos.side_to_move() == targetTerminal.winner;
+
+	return sideToMoveWins ? winValue : -winValue;
+}
+
+} // namespace
+
 // USIに追加オプションを設定したいときは、この関数を定義すること。
 // USI::init()のなかからコールバックされる。
 void USI::extra_option(USI::OptionsMap & o)
@@ -94,6 +191,13 @@ void USI::extra_option(USI::OptionsMap & o)
 
 	// 投了スコア
 	o["ResignValue"]    << Option(99999, 0, 99999);
+
+	// target局面を勝敗付き終端局面として扱う実験用オプション。
+	o["TargetMode"]        << Option(false, mark_target_terminal_dirty);
+	o["TargetSfen"]        << Option("", mark_target_terminal_dirty);
+	o["TargetWinner"]      << Option(std::vector<std::string>{"black", "white"}, "black", mark_target_terminal_dirty);
+	o["TargetDisableBook"] << Option(true, mark_target_terminal_dirty);
+	o["TargetScoreMode"]   << Option(std::vector<std::string>{"mate", "proven_win"}, "mate", mark_target_terminal_dirty);
 
 #if 0
 	// nodes as timeモード。
@@ -446,6 +550,7 @@ void Search::clear()
 	// 探索パラメーターをファイルから読み直して欲しいのでここで行う。
 
 	init_param();
+	refresh_target_terminal();
 
 	// テーブルの初期化は、↑で探索パラメーターを読み込んだあとに行われなければならない。
 
@@ -640,7 +745,7 @@ void MainThread::search()
 	//     定跡の選択部
 	// ---------------------
 
-	if (book.probe(*this, Limits))
+	if (!target_terminal_book_disabled() && book.probe(*this, Limits))
 		goto SKIP_SEARCH;
 
 	// ---------------------
@@ -1466,6 +1571,9 @@ Value search(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, boo
 	// ⇨ allNodeとは、PvNodeでもなくcutNodeでもないnodeのこと。
 	//   allNodeとは、ゲーム木探索で、全ての子ノードを評価する必要があるノードのこと。
 	const bool     allNode = !(PvNode || cutNode);
+
+	if (auto targetValue = target_terminal_value(pos, ss->ply))
+		return *targetValue;
 
 	// Dive into quiescence search when the depth reaches zero
 	// 残り探索深さが1手未満であるなら現在の局面のまま静止探索を呼び出す
@@ -3595,6 +3703,9 @@ Value qsearch(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth)
 	ASSERT_LV3(-VALUE_INFINITE <= alpha && alpha < beta && beta <= VALUE_INFINITE);
 	ASSERT_LV3(PvNode || (alpha == beta - 1));
 	ASSERT_LV3(depth <= 0);
+
+	if (auto targetValue = target_terminal_value(pos, ss->ply))
+		return *targetValue;
 
 	/*
 	// Check if we have an upcoming move that draws by repetition (~1 Elo)

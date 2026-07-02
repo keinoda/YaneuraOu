@@ -164,7 +164,7 @@ EVAL_EMBEDDING = OFF
 ifneq (,$(findstring em++,$(COMPILER)))
 	CPPFLAGS += -O2
 else
-	CPPFLAGS += -Ofast
+	CPPFLAGS += -O3 -ffast-math
 endif
 
 # デバッガーを使わないなら、NDEBUGをdefineする。
@@ -711,3 +711,5 @@ clean:
 	rm -f $(OBJECTS) $(CUDA_OBJECTS) $(OBJC_OBJECTS) $(DEPENDS) $(TARGET) ${OBJECTS:.o=.gcda}
 
 -include $(DEPENDS)
+
+# make -j$(nproc) YANEURAOU_EDITION=YANEURAOU_ENGINE_NNUE_HALFKP_768X2_16_64 PYTHON=python3 TARGET_CPU=APPLEM1 EVAL_EMBEDDING=ON tournament
