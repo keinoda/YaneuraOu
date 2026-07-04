@@ -33,7 +33,7 @@ arch = strip_prefix_ci(arch, "NNUE_")
 
 arch_upper_for_validation = arch.replace('-', '_').upper()
 if "SFNNWOP" in arch_upper_for_validation:
-    print("Error! : SFNNWOP architecture names are no longer supported. Use SFNN1536 or SFNN_..._k3k3 / SFNN_..._king3_by_king3.")
+    print("Error! : SFNNWOP architecture names are no longer supported. Use SFNN1536 or SFNN_..._ls<N> / SFNN_..._k3k3 / SFNN_..._king3_by_king3.")
     raise SystemExit(1)
 
 # 出力ファイル名
