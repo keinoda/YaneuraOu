@@ -440,6 +440,10 @@ public:
 	// 　　終局までの平均手数がわりと長いので、そこまでするとスピードダウンしてR40ほど弱くなる。
 	void set_max_repetition_ply(int ply){ max_repetition_ply = ply;}
 
+	// 現在設定されている千日手の最大遡り手数を返す。
+	// (一時的に変更して復元する用途のため)
+	static int get_max_repetition_ply() { return max_repetition_ply; }
+
 	// -----------------------
     // Position representation
     //       局面の表現
