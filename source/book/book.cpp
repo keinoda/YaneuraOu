@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cstring>
+#include <deque>
 #include <fstream>
 #include <iomanip>		// std::setprecision()
 #include <limits>
@@ -1331,6 +1332,18 @@ namespace Book
 
 		// 反転させた局面が定跡DBに登録されていたら、それにヒットするようになるオプション。
         options.add("FlippedBook", Option(true));
+
+		// 定跡の候補手から定跡のベストラインを何手先まで辿って千日手チェックを行うか。
+		// 候補手を指した直後の局面のチェック(=1)は常に行われ、2以上でさらに定跡の実効値ベスト手を
+		// 交互に辿り、そのライン上で同一局面の再現(対局履歴・ライン内のどちらも)を検出したら
+		// その候補手の実効値を千日手スコア(DrawValueBlack/White反映済み)へ置き換える。
+		// 定跡グラフ内の手待ちサイクル(1手先のチェックでは見えない)への対策。
+        options.add("BookRepetitionPly", Option(16, 1, 64));
+
+		// root局面がこの対局で2回目以降の出現(=定跡ラインがループしている兆候)なら、
+		// 定跡を用いず通常探索へフォールバックするオプション。
+		// DrawValueBlack/Whiteを負に設定していれば、探索側が千日手を避ける進行を選ぶ。
+        options.add("BookIgnoreRepeatedRoot", Option(true));
 	}
 
 	// 定跡ファイルの読み込み。
@@ -1429,6 +1442,24 @@ namespace Book
         return result;
     }
 
+	// 現局面が対局履歴(StateInfoチェーン)上で何回目の出現かを数える。
+	// 盤面・手駒の完全一致のみ数える(2手ずつ遡るので手番も一致する)。
+	// is_repetition()と違い、do_move()時に計算されるst->repetitionの遡り上限(max_repetition_ply)に
+	// 依存せず、null moveまでの全履歴を照合する。
+	static int position_occurrence_count(const Position& pos)
+	{
+		const StateInfo* st = pos.state();
+		int count = 1;
+		const StateInfo* stp = st;
+		for (int i = 2; i <= st->pliesFromNull; i += 2)
+		{
+			stp = stp->previous->previous;
+			if (stp->board_key == st->board_key && stp->hand == st->hand)
+				++count;
+		}
+		return count;
+	}
+
 	// probe()の下請け
 	bool BookMoveSelector::probe_impl(Position& rootPos, bool isRoot, const Search::UpdateContext& updates , Move16& bestMove , Move16& ponderMove , Value& value, bool forceHit)
 	{
@@ -1443,6 +1474,23 @@ namespace Book
 			int book_ply = (int)options["BookMoves"];
 			if (!forceHit && rootPos.game_ply() > book_ply)
 				return false;
+
+			// root局面がこの対局ですでに出現済み(2回目以降)なら、定跡ラインがループしている
+			// 兆候である。定跡の各候補手はまだ既出局面に飛び込まない手かも知れないが、
+			// 前回この局面で選んだ定跡手ではループを断ち切れなかったことは確かなので、
+			// 定跡を用いず通常探索へ委ねる。(DrawValueBlack/Whiteが負なら探索は千日手を避ける)
+			if (options["BookIgnoreRepeatedRoot"])
+			{
+				int occ = position_occurrence_count(rootPos);
+				if (occ >= 2)
+				{
+					if (isRoot)
+						updates.onUpdateString(std::string_view(
+							"BookRepetition : root position occurred " + std::to_string(occ)
+							+ " times in this game, ignoring book."));
+					return false;
+				}
+			}
 		}
 
 		auto it = memory_book.find(rootPos);
@@ -1511,6 +1559,9 @@ namespace Book
 		// - それ以外のrepetition(千日手・勝ち・優等)になる指し手は、bm.value を通常探索側と
 		//   同じ実効スコア(drawValueTable。DrawValue設定反映済み)へ置き換え、元の定跡値は
 		//   orig_values に退避する。
+		// - 候補手直後がrepetitionでなくても、そこから双方が定跡の実効値ベストを辿るラインが
+		//   BookRepetitionPly手以内に千日手へ到達するなら(定跡グラフ内の手待ちサイクル。
+		//   1手先のチェックでは見えない)、その候補手も千日手の実効スコアへ置き換える。
 		// 役割分担:
 		//   品質フィルタ(BookEvalDiff)は「元の定跡値」で行う(千日手化による繰り上がりで
 		//   質の低い定跡手が採用されるのを防ぐ)。
@@ -1520,25 +1571,95 @@ namespace Book
 		std::unordered_map<uint16_t, int> orig_values; // 置換が起きた手: move16 -> 元の定跡値
 		{
 			Color us = rootPos.side_to_move();
+
+			// do_move()時のst->repetition計算は既定でmax_repetition_ply(16手)までしか遡らない。
+			// ここでは対局履歴全体と照合したいので、このブロックの間だけ上限を広げる。
+			// (probeは探索スレッド起動前に呼ばれるので一時変更してよい)
+			const int saved_max_rep_ply = Position::get_max_repetition_ply();
+			rootPos.set_max_repetition_ply(MAX_PLY);
+
+			// 候補手を指した局面からさらに定跡ラインを辿って調べる手数(候補手自身を1手目と数える)。
+			// forceHit(PV表示用のprobe)では先読みしない。
+			const int rep_check_ply = forceHit ? 1 : (int)options["BookRepetitionPly"];
+
+			// pos(=候補手を指した直後の局面)から、各局面の手番側から見た定跡値ベストの合法手を
+			// 交互に辿り、千日手(対局履歴・ライン内を問わず同一局面の再現)に到達するなら
+			// そのply(候補手を1手目と数える)を返す。定跡から外れる等で判定できないなら0を返す。
+			// 千日手以外のrepetition(連続王手・優等劣等)がラインの先に現れた場合、実際にそこへ
+			// 進むかは双方の選択次第なので断定せず、判定を打ち切って0を返す。
+			auto book_line_draw_ply = [&](Position& pos) -> int {
+				int found_ply = 0;
+				std::deque<StateInfo> states;
+				std::vector<Move> line;
+				for (int ply = 2; ply <= rep_check_ply; ++ply)
+				{
+					auto it_line = memory_book.find(pos);
+					if (it_line == nullptr || it_line->size() == 0)
+						break;
+					Move best_move  = Move::none();
+					int  best_value = INT_MIN;
+					for (size_t i = 0; i < it_line->size(); ++i)
+					{
+						const Book::BookMove& lbm = (*it_line)[i];
+						if (best_move && lbm.value <= best_value)
+							continue;
+						Move lm = pos.to_move(lbm.move);
+						if (pos.pseudo_legal_s<true>(lm) && pos.legal(lm))
+						{
+							best_move  = lm;
+							best_value = lbm.value;
+						}
+					}
+					if (!best_move)
+						break;
+					states.emplace_back();
+					pos.do_move(best_move, states.back());
+					line.push_back(best_move);
+					auto rep_line = pos.is_repetition(MAX_PLY);
+					if (rep_line != REPETITION_NONE)
+					{
+						if (rep_line == REPETITION_DRAW)
+							found_ply = ply;
+						break;
+					}
+				}
+				for (auto rit = line.rbegin(); rit != line.rend(); ++rit)
+					pos.undo_move(*rit);
+				return found_ply;
+			};
+
 			auto it_end = std::remove_if(move_list.begin(), move_list.end(), [&](Book::BookMove& bm) {
 				Move m = rootPos.to_move(bm.move);
 				StateInfo si;
 				rootPos.do_move(m, si);
 				auto rep = rootPos.is_repetition(MAX_PLY);
+				int line_draw_ply = 0;
+				if (rep == REPETITION_NONE && rep_check_ply >= 2)
+					line_draw_ply = book_line_draw_ply(rootPos);
 				rootPos.undo_move(m);
 
-				if (rep == REPETITION_NONE)
+				if (rep == REPETITION_NONE && line_draw_ply == 0)
 					return false;
 
-				// 相手番視点 → root側視点へ反転
 				RepetitionState rep_us;
-				const char* rep_name;
-				switch (rep) {
-				case REPETITION_WIN:      rep_us = REPETITION_LOSE;     rep_name = "lose";     break;
-				case REPETITION_LOSE:     rep_us = REPETITION_WIN;      rep_name = "win";      break;
-				case REPETITION_SUPERIOR: rep_us = REPETITION_INFERIOR; rep_name = "inferior"; break;
-				case REPETITION_INFERIOR: rep_us = REPETITION_SUPERIOR; rep_name = "superior"; break;
-				default:                  rep_us = REPETITION_DRAW;     rep_name = "draw";     break;
+				std::string rep_name;
+				if (rep != REPETITION_NONE)
+				{
+					// 相手番視点 → root側視点へ反転
+					switch (rep) {
+					case REPETITION_WIN:      rep_us = REPETITION_LOSE;     rep_name = "lose";     break;
+					case REPETITION_LOSE:     rep_us = REPETITION_WIN;      rep_name = "win";      break;
+					case REPETITION_SUPERIOR: rep_us = REPETITION_INFERIOR; rep_name = "inferior"; break;
+					case REPETITION_INFERIOR: rep_us = REPETITION_SUPERIOR; rep_name = "superior"; break;
+					default:                  rep_us = REPETITION_DRAW;     rep_name = "draw";     break;
+					}
+				}
+				else
+				{
+					// 定跡ベストラインがline_draw_ply手目で千日手に到達する。
+					// 千日手はどちらの手番から見ても引き分けなので視点の変換は不要。
+					rep_us   = REPETITION_DRAW;
+					rep_name = "draw line in " + std::to_string(line_draw_ply) + " plies";
 				}
 
 				if (rep_us == REPETITION_LOSE || rep_us == REPETITION_INFERIOR)
@@ -1562,6 +1683,8 @@ namespace Book
 				return false;
 			});
 			move_list.erase(it_end, move_list.end());
+
+			rootPos.set_max_repetition_ply(saved_max_rep_ply);
 		}
 		if (move_list.size() == 0)
 			return false;
