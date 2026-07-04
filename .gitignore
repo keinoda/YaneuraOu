@@ -249,3 +249,8 @@ GeneratedArtifacts/
 _Pvt_Extensions/
 ModelManifest.xml
 /source/eval/nnue/architectures/SFNN_*.h
+
+# Makefileの既定出力バイナリ(source/ 直下に生成される)
+/source/YaneuraOu-by-gcc
+/source/YaneuraOu-by-gcc.exe
+/source/yaneuraou.js
