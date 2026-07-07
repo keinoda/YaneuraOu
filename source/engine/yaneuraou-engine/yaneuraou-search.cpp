@@ -721,6 +721,10 @@ bool YaneuraOuEngine::qsearch_psv(const std::string& inputPath,
                                   size_t             workerCount,
                                   std::string&       message) {
 
+#if !defined(USE_SFEN_PACKER)
+    message = "qsearch_psv requires USE_SFEN_PACKER.";
+    return false;
+#else
     if (inputPath.empty() || outputPath.empty())
     {
         message = "usage: qsearch_psv input.psv output.psv [workers]";
@@ -845,6 +849,7 @@ bool YaneuraOuEngine::qsearch_psv(const std::string& inputPath,
        << " workers=" << workerCount;
     message = ss.str();
     return total.decodeErrors == 0 && total.illegalPv == 0;
+#endif
 }
 
 // utility functions
@@ -1582,33 +1587,14 @@ SKIP_SEARCH:
                                                            main_manager()->ponder_candidate))
         uciPvSent = false;
 
-    // 🌈 投了スコアが設定されていて、GUIへ出力する評価値と同じスケールの値がそれを下回るなら投了。
-    //
-    //    ResignValueはwiki上、「自分から見て -ResignValue 以下になったら投了」と説明している。
-    //    したがって、内部評価値そのものではなく、info scoreとして出力するuciScoreを歩=100のcpに
-    //    正規化して判定する。
-    //
-    //    定跡の指し手にhitした場合など、通常探索をskipした経路ではResignValueでは投了しない。
-    bool resign_by_value = false;
-    auto resign_value    = (int) options["ResignValue"];
-    if (!search_skipped && bestThread->rootMoves[0].score != -VALUE_INFINITE)
-    {
-        Value resign_score = bestThread->rootMoves[0].uciScore;
-        if (resign_score == -VALUE_INFINITE)
-            resign_score = VALUE_ZERO;
-
-        resign_by_value = USIEngine::to_cp(resign_score) <= -resign_value;
-    }
-
     // bestmoveを返す前に現在のPVを出力する条件は次のいずれか。
     //
     // 1. iterative_deepening()で最終PVをまだ出力していない。
     // 2. Lazy SMPで、最終採用するbestThreadがmain thread(this)ではない。
-    // 3. ResignValueによって投了するので、その判断に使った評価値を明示したい。
     //
     // 2. の場合、iterative_deepening()中に出力済みだったとしても、
     // それはmain threadのPVなので、採用されたbestThreadのPVを改めて出力する。
-    if (!uciPvSent || bestThread != this || resign_by_value)
+    if (!uciPvSent || bestThread != this)
     {
         if (search_skipped)
         {
@@ -1637,7 +1623,11 @@ SKIP_SEARCH:
         }
     }
 
-    if (resign_by_value)
+    // 🌈 投了スコアが設定されていて、歩の価値を100として正規化した値がそれを下回るなら投了。
+    //    ただし定跡の指し手にhitした場合などはrootMoves[0].score == -VALUE_INFINITEになっているのでそれは除外。
+    auto resign_value = (int) options["ResignValue"];
+    if (bestThread->rootMoves[0].score != -VALUE_INFINITE
+        && USIEngine::to_cp(bestThread->rootMoves[0].score) <= -resign_value)
     {
         // 探索がskipされた扱いにして、resignを積む。
         search_skipped = true;
@@ -3587,9 +3577,9 @@ Value YaneuraOuWorker::search(Position& pos, Stack* ss, Value alpha, Value beta,
         && pos.non_pawn_material(us)
     // 💡 盤上にpawn以外の駒がある ≒ pawnだけの終盤ではない。
     // 🤔 将棋でもこれに相当する条件が必要かも。
-#endif
         && ss->ply >= nmpMinPly
         // 同じ手番側に連続してnull moveを適用しない
+#endif
         && !is_loss(beta)
     )
     {
@@ -3624,6 +3614,7 @@ Value YaneuraOuWorker::search(Position& pos, Stack* ss, Value alpha, Value beta,
         undo_null_move(pos);
 
         if (nullValue >= beta && !is_win(nullValue))
+#if STOCKFISH
         // Do not return unproven mate or TB scores
         // 証明されていないmate scoreやTB scoreはreturnで返さない。
         {
@@ -3654,6 +3645,11 @@ Value YaneuraOuWorker::search(Position& pos, Stack* ss, Value alpha, Value beta,
             if (v >= beta)
                 return nullValue;
         }
+#else
+            // null move pruningの検証探索は、パス (null move) した方が有利になる局面での誤った枝刈り防止のために存在するが、
+            // 将棋ではそのようなことはチェスよりはるかに少ないため不要。
+            return nullValue;
+#endif
     }
 
 	// ここでimproving計算しなおす。
