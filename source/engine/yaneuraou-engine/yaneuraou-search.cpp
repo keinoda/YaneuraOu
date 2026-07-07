@@ -46,6 +46,111 @@ using namespace Eval;  // Eval::PieceValue
 // 📝 tune.pyとは、パラメーター自動調整フレームワークのスクリプトである。
 //     https://github.com/yaneurao/YaneuraOu-ScriptCollection/tree/main/SPSA
 //                            %%TUNE_DECLARATION%%
+int update_quiet_histories_2b_1 = 806; 
+int update_quiet_histories_2b_2 = 519; 
+int update_quiet_histories_1a_1 = 742; 
+int update_quiet_histories_1a_2 = 833; 
+int conthist_bonuses_1 = 1022; 
+int conthist_bonuses_2 = 674; 
+int conthist_bonuses_3 = 277; 
+int conthist_bonuses_4 = 679; 
+int conthist_bonuses_5 = 93; 
+int conthist_bonuses_6 = 876; 
+
+    std::array<ConthistBonus, 6> conthist_bonuses = {
+        {{1, 0 }, {2, 0 }, {3, 0 }, {4, 0 }, {5, 0 }, {6, 0 }}};
+
+int update_all_stats_1c_1 = 155; 
+int update_all_stats_1c_2 = 54; 
+int update_all_stats_1c_3 = 439; 
+int update_all_stats_1c_4 = 560; 
+int update_all_stats_1c_5 = 207; 
+int YaneuraOuWorker_reduction_1 = 801; 
+int YaneuraOuWorker_reduction_2 = 344; 
+int YaneuraOuWorker_reduction_3 = 1017; 
+int Search_standPat_1 = 123; 
+int Search_ttMoveHistoryBonus_1 = 821; 
+int Search_ttMoveHistoryBonus_2 = -1009; 
+int Search_Full_depth_search_threshold_2b_1 = 2508; 
+int Search_Full_depth_search_threshold_2b_2 = 4214; 
+int Search_Full_depth_search_threshold_1a_1 = 1101; 
+int Search_Post_LMR_continuation_history_updates_1 = 644; 
+int Search_Decrease_reduction_for_PvNodes_9_1 = 540; 
+int Search_Decrease_reduction_for_PvNodes_8_1 = 789; 
+int Search_Decrease_reduction_for_PvNodes_7_1 = 1730; 
+int Search_Decrease_reduction_for_PvNodes_6_1 = 1014; 
+int Search_Decrease_reduction_for_PvNodes_6_2 = 562; 
+int Search_Decrease_reduction_for_PvNodes_5_1 = 1812; 
+int Search_Decrease_reduction_for_PvNodes_4_1 = 3187; 
+int Search_Decrease_reduction_for_PvNodes_4_2 = 1225; 
+int Search_Decrease_reduction_for_PvNodes_3_1 = 27; 
+int Search_Decrease_reduction_for_PvNodes_3_2 = 28654; 
+int Search_Decrease_reduction_for_PvNodes_2_1 = 977; 
+int Search_Decrease_reduction_for_PvNodes_1_1 = 2308; 
+int Search_Decrease_reduction_for_PvNodes_1_2 = 1230; 
+int Search_Decrease_reduction_for_PvNodes_1_3 = 781; 
+int Search_Decrease_reduction_for_PvNodes_1_4 = 843; 
+int Search_Decrease_reduction_for_PvNodes_1_5 = 1113; 
+int Search_Extensions4_1 = 113; 
+int Search_Extensions4_2 = 393; 
+int Search_Extensions4_3 = 75; 
+int Search_Extensions4_4 = 127; 
+int Search_Extensions4_5 = 42; 
+int Search_Extensions3_1 = 0; 
+int Search_Extensions3_2 = 187; 
+int Search_Extensions3_3 = 225; 
+int Search_Extensions3_4 = 757; 
+int Search_Extensions3_5 = 26; 
+int Search_Extensions2_1 = 268417; 
+int Search_Extensions1_1 = 64; 
+int Search_Extensions1_2 = 95; 
+int Search_Extensions1_3 = 41; 
+int Search_Continuation_history_based_pruning3_1 = -38; 
+int Search_Continuation_history_based_pruning2_1 = 85; 
+int Search_Continuation_history_based_pruning2_2 = 78; 
+int Search_Continuation_history_based_pruning1_1 = -3096; 
+int Search_Continuation_history_based_pruning1_2 = 47; 
+int Search_Continuation_history_based_pruning1_3 = 3191; 
+int Search_futility_value_1 = 421; 
+int Search_futility_value_2 = 436; 
+int Search_futility_value_3 = 356; 
+int Search_decrease_reduction_for_tt_pv_1 = 348; 
+int Search_small_Probcut_1 = 369; 
+int Search_Probcut_1 = 111; 
+int Search_Probcut_2 = 77; 
+int Search_nullmove_1 = 22; 
+int Search_nullmove_2 = 290; 
+int Search_futility_1_1 = 55; 
+int Search_futility_1_2 = 23; 
+int Search_futility_1_3 = 146536; 
+int Search_razoring_1 = 568; 
+int Search_razoring_2 = 216; 
+int Search_static_evaluation3_1 = 179; 
+int Search_static_evaluation_2a_1 = 14; 
+int Search_static_evaluation_1a_1 = -272; 
+int Search_static_evaluation_1a_2 = 163; 
+int Search_static_evaluation_1a_3 = 44; 
+int Search_static_evaluation_1a_4 = 8; 
+int Search_tt_lookup2_1 = -1256; 
+int Search_tt_lookup1_1 = 31; 
+int Search_tt_lookup1_2 = 80; 
+int Search_tt_lookup1_3 = 1065; 
+int YaneuraOuWorker_clear3_1 = 2855; 
+int YaneuraOuWorker_clear2_1 = -522; 
+int aspiration_window_1 = 18; 
+int aspiration_window_2 = 7883; 
+int lowPlyHistory_fill_1 = 88; 
+int update_correction_history2_1 = 141; 
+int update_correction_history2_2 = 53; 
+int update_correction_history1_1 = 135; 
+int update_correction_history_nonPawnWeight_1 = 146; 
+
+    int nonPawnWeight = update_correction_history_nonPawnWeight_1;
+
+int correction_value_1 = 8143; 
+int correction_value_2 = 8088; 
+int correction_value_3 = 8546; 
+int correction_value_4 = 11377; 
 
 namespace {
 
@@ -503,6 +608,104 @@ void YaneuraOuEngine::add_options() {
 
 	// 🌈 tune.pyによってここ以下に自動的にエンジンオプションが追加される。
 	//                      %%TUNE_OPTIONS%%
+TUNE(SetRange(0.0, 1700.0), update_quiet_histories_2b_1, SetDefaultRange);
+TUNE(SetRange(0.0, 1100.0), update_quiet_histories_2b_2, SetDefaultRange);
+TUNE(SetRange(0.0, 1522.0), update_quiet_histories_1a_1, SetDefaultRange);
+TUNE(SetRange(0.0, 1910.0), update_quiet_histories_1a_2, SetDefaultRange);
+TUNE(SetRange(0.0, 2216.0), conthist_bonuses_1, SetDefaultRange);
+TUNE(SetRange(0.0, 1304.0), conthist_bonuses_2, SetDefaultRange);
+TUNE(SetRange(0.0, 546.0), conthist_bonuses_3, SetDefaultRange);
+TUNE(SetRange(0.0, 1144.0), conthist_bonuses_4, SetDefaultRange);
+TUNE(SetRange(0.0, 252.0), conthist_bonuses_5, SetDefaultRange);
+TUNE(SetRange(0.0, 898.0), conthist_bonuses_6, SetDefaultRange);
+TUNE(SetRange(0.0, 242.0), update_all_stats_1c_1, SetDefaultRange);
+TUNE(SetRange(0.0, 154.0), update_all_stats_1c_2, SetDefaultRange);
+TUNE(SetRange(0.0, 750.0), update_all_stats_1c_3, SetDefaultRange);
+TUNE(SetRange(0.0, 1650.0), update_all_stats_1c_4, SetDefaultRange);
+TUNE(SetRange(0.0, 392.0), update_all_stats_1c_5, SetDefaultRange);
+TUNE(SetRange(0.0, 1462.0), YaneuraOuWorker_reduction_1, SetDefaultRange);
+TUNE(SetRange(0.0, 432.0), YaneuraOuWorker_reduction_2, SetDefaultRange);
+TUNE(SetRange(0.0, 2178.0), YaneuraOuWorker_reduction_3, SetDefaultRange);
+TUNE(SetRange(0.0, 704.0), Search_standPat_1, SetDefaultRange);
+TUNE(SetRange(0.0, 1622.0), Search_ttMoveHistoryBonus_1, SetDefaultRange);
+TUNE(SetRange(-1696.0, 0.0), Search_ttMoveHistoryBonus_2, SetDefaultRange);
+TUNE(SetRange(0.0, 6424.0), Search_Full_depth_search_threshold_2b_1, SetDefaultRange);
+TUNE(SetRange(0.0, 9568.0), Search_Full_depth_search_threshold_2b_2, SetDefaultRange);
+TUNE(SetRange(0.0, 2236.0), Search_Full_depth_search_threshold_1a_1, SetDefaultRange);
+TUNE(SetRange(0.0, 2824.0), Search_Post_LMR_continuation_history_updates_1, SetDefaultRange);
+TUNE(SetRange(0.0, 1588.0), Search_Decrease_reduction_for_PvNodes_9_1, SetDefaultRange);
+TUNE(SetRange(0.0, 1606.0), Search_Decrease_reduction_for_PvNodes_8_1, SetDefaultRange);
+TUNE(SetRange(0.0, 4036.0), Search_Decrease_reduction_for_PvNodes_7_1, SetDefaultRange);
+TUNE(SetRange(0.0, 2102.0), Search_Decrease_reduction_for_PvNodes_6_1, SetDefaultRange);
+TUNE(SetRange(0.0, 1628.0), Search_Decrease_reduction_for_PvNodes_6_2, SetDefaultRange);
+TUNE(SetRange(0.0, 2830.0), Search_Decrease_reduction_for_PvNodes_5_1, SetDefaultRange);
+TUNE(SetRange(0.0, 6188.0), Search_Decrease_reduction_for_PvNodes_4_1, SetDefaultRange);
+TUNE(SetRange(0.0, 2112.0), Search_Decrease_reduction_for_PvNodes_4_2, SetDefaultRange);
+TUNE(SetRange(0.0, 132.0), Search_Decrease_reduction_for_PvNodes_3_1, SetDefaultRange);
+TUNE(SetRange(0.0, 60900.0), Search_Decrease_reduction_for_PvNodes_3_2, SetDefaultRange);
+TUNE(SetRange(0.0, 1686.0), Search_Decrease_reduction_for_PvNodes_2_1, SetDefaultRange);
+TUNE(SetRange(0.0, 5236.0), Search_Decrease_reduction_for_PvNodes_1_1, SetDefaultRange);
+TUNE(SetRange(0.0, 1982.0), Search_Decrease_reduction_for_PvNodes_1_2, SetDefaultRange);
+TUNE(SetRange(0.0, 1806.0), Search_Decrease_reduction_for_PvNodes_1_3, SetDefaultRange);
+TUNE(SetRange(0.0, 1956.0), Search_Decrease_reduction_for_PvNodes_1_4, SetDefaultRange);
+TUNE(SetRange(0.0, 2102.0), Search_Decrease_reduction_for_PvNodes_1_5, SetDefaultRange);
+TUNE(SetRange(0.0, 160.0), Search_Extensions4_1, SetDefaultRange);
+TUNE(SetRange(0.0, 552.0), Search_Extensions4_2, SetDefaultRange);
+TUNE(SetRange(0.0, 498.0), Search_Extensions4_3, SetDefaultRange);
+TUNE(SetRange(0.0, 172.0), Search_Extensions4_4, SetDefaultRange);
+TUNE(SetRange(0.0, 106.0), Search_Extensions4_5, SetDefaultRange);
+TUNE(SetRange(0.0, 8.0), Search_Extensions3_1, SetDefaultRange);
+TUNE(SetRange(0.0, 410.0), Search_Extensions3_2, SetDefaultRange);
+TUNE(SetRange(0.0, 446.0), Search_Extensions3_3, SetDefaultRange);
+TUNE(SetRange(0.0, 1918.0), Search_Extensions3_4, SetDefaultRange);
+TUNE(SetRange(0.0, 90.0), Search_Extensions3_5, SetDefaultRange);
+TUNE(SetRange(0.0, 498192.0), Search_Extensions2_1, SetDefaultRange);
+TUNE(SetRange(0.0, 112.0), Search_Extensions1_1, SetDefaultRange);
+TUNE(SetRange(0.0, 158.0), Search_Extensions1_2, SetDefaultRange);
+TUNE(SetRange(0.0, 116.0), Search_Extensions1_3, SetDefaultRange);
+TUNE(SetRange(-52.0, 0.0), Search_Continuation_history_based_pruning3_1, SetDefaultRange);
+TUNE(SetRange(0.0, 262.0), Search_Continuation_history_based_pruning2_1, SetDefaultRange);
+TUNE(SetRange(0.0, 182.0), Search_Continuation_history_based_pruning2_2, SetDefaultRange);
+TUNE(SetRange(-8722.0, 0.0), Search_Continuation_history_based_pruning1_1, SetDefaultRange);
+TUNE(SetRange(0.0, 142.0), Search_Continuation_history_based_pruning1_2, SetDefaultRange);
+TUNE(SetRange(0.0, 6466.0), Search_Continuation_history_based_pruning1_3, SetDefaultRange);
+TUNE(SetRange(0.0, 450.0), Search_futility_value_1, SetDefaultRange);
+TUNE(SetRange(0.0, 440.0), Search_futility_value_2, SetDefaultRange);
+TUNE(SetRange(0.0, 550.0), Search_futility_value_3, SetDefaultRange);
+TUNE(SetRange(0.0, 1862.0), Search_decrease_reduction_for_tt_pv_1, SetDefaultRange);
+TUNE(SetRange(0.0, 834.0), Search_small_Probcut_1, SetDefaultRange);
+TUNE(SetRange(0.0, 430.0), Search_Probcut_1, SetDefaultRange);
+TUNE(SetRange(0.0, 120.0), Search_Probcut_2, SetDefaultRange);
+TUNE(SetRange(0.0, 38.0), Search_nullmove_1, SetDefaultRange);
+TUNE(SetRange(0.0, 806.0), Search_nullmove_2, SetDefaultRange);
+TUNE(SetRange(0.0, 182.0), Search_futility_1_1, SetDefaultRange);
+TUNE(SetRange(0.0, 42.0), Search_futility_1_2, SetDefaultRange);
+TUNE(SetRange(0.0, 316210.0), Search_futility_1_3, SetDefaultRange);
+TUNE(SetRange(0.0, 990.0), Search_razoring_1, SetDefaultRange);
+TUNE(SetRange(0.0, 580.0), Search_razoring_2, SetDefaultRange);
+TUNE(SetRange(0.0, 354.0), Search_static_evaluation3_1, SetDefaultRange);
+TUNE(SetRange(0.0, 28.0), Search_static_evaluation_2a_1, SetDefaultRange);
+TUNE(SetRange(-400.0, 0.0), Search_static_evaluation_1a_1, SetDefaultRange);
+TUNE(SetRange(0.0, 312.0), Search_static_evaluation_1a_2, SetDefaultRange);
+TUNE(SetRange(0.0, 116.0), Search_static_evaluation_1a_3, SetDefaultRange);
+TUNE(SetRange(0.0, 18.0), Search_static_evaluation_1a_4, SetDefaultRange);
+TUNE(SetRange(-4256.0, 0.0), Search_tt_lookup2_1, SetDefaultRange);
+TUNE(SetRange(0.0, 254.0), Search_tt_lookup1_1, SetDefaultRange);
+TUNE(SetRange(0.0, 148.0), Search_tt_lookup1_2, SetDefaultRange);
+TUNE(SetRange(0.0, 2126.0), Search_tt_lookup1_3, SetDefaultRange);
+TUNE(SetRange(0.0, 5564.0), YaneuraOuWorker_clear3_1, SetDefaultRange);
+TUNE(SetRange(-988.0, 0.0), YaneuraOuWorker_clear2_1, SetDefaultRange);
+TUNE(SetRange(3.0, 20.0), aspiration_window_1, SetDefaultRange);
+TUNE(SetRange(0.0, 22262.0), aspiration_window_2, SetDefaultRange);
+TUNE(SetRange(0.0, 178.0), lowPlyHistory_fill_1, SetDefaultRange);
+TUNE(SetRange(0.0, 306.0), update_correction_history2_1, SetDefaultRange);
+TUNE(SetRange(0.0, 128.0), update_correction_history2_2, SetDefaultRange);
+TUNE(SetRange(0.0, 306.0), update_correction_history1_1, SetDefaultRange);
+TUNE(SetRange(0.0, 330.0), update_correction_history_nonPawnWeight_1, SetDefaultRange);
+TUNE(SetRange(0.0, 17734.0), correction_value_1, SetDefaultRange);
+TUNE(SetRange(0.0, 16272.0), correction_value_2, SetDefaultRange);
+TUNE(SetRange(0.0, 21514.0), correction_value_3, SetDefaultRange);
+TUNE(SetRange(0.0, 14464.0), correction_value_4, SetDefaultRange);
 
 
 	// もしTUNE()マクロで新たにパラメーターを追加したなら、それを反映させる。
@@ -548,6 +751,17 @@ void YaneuraOuEngine::isready() {
 
 	// 🌈 tune.pyによってここ以下に自動的にエンジンオプションが追加される。
     //                      %%TUNE_ISREADY%%
+
+    {
+        int t[6] = {conthist_bonuses_1,conthist_bonuses_2,conthist_bonuses_3,conthist_bonuses_4,conthist_bonuses_5,conthist_bonuses_6};
+        for (size_t i = 0; i < conthist_bonuses.size(); ++i)
+            conthist_bonuses[i].weight = t[i];
+    }
+
+
+    nonPawnWeight = update_correction_history_nonPawnWeight_1;
+
+
 
 
     sync_cout << "readyok" << sync_endl;
@@ -799,7 +1013,10 @@ int correction_value(const YaneuraOuWorker& w, const Position& pos, const Stack*
                 + (*(ss - 4)->continuationCorrectionHistory)[pos.piece_on(m.to_sq())][m.to_sq()]
                  : 8;
 
-    return 12153 * pcv + 8620 * micv + 12355 * (wnpcv + bnpcv) + 7982 * cntcv;
+    
+return correction_value_1 * pcv + correction_value_2 * micv + correction_value_3 * (wnpcv + bnpcv) + correction_value_4 * cntcv;
+
+
 }
 
 // Add correctionHistory value to raw staticEval and guarantee evaluation
@@ -817,22 +1034,31 @@ void update_correction_history(const Position&          pos,
     const Move  m  = (ss - 1)->currentMove;
     const Color us = pos.side_to_move();
 
-    constexpr int nonPawnWeight = 187;
+    
+    // constexpr int nonPawnWeight = 187;
+
+
 
     auto&         shared        = workerThread.sharedHistory;
 
-    shared.pawn_correction_entry(pos).at(us).pawn << bonus;
-    shared.minor_piece_correction_entry(pos).at(us).minor << bonus * 153 / 128;
+    
+shared.pawn_correction_entry(pos).at(us).pawn << bonus;
+    shared.minor_piece_correction_entry(pos).at(us).minor << bonus * update_correction_history1_1 / 128;
     shared.nonpawn_correction_entry<WHITE>(pos).at(us).nonPawnWhite << bonus * nonPawnWeight / 128;
     shared.nonpawn_correction_entry<BLACK>(pos).at(us).nonPawnBlack << bonus * nonPawnWeight / 128;
 
+
+
+    
     if (m.is_ok())
     {
         const Square to = m.to_sq();
         const Piece  pc = pos.piece_on(to);
-        (*(ss - 2)->continuationCorrectionHistory)[pc][to] << bonus * 126 / 128;
-        (*(ss - 4)->continuationCorrectionHistory)[pc][to] << bonus * 63 / 128;
+        (*(ss - 2)->continuationCorrectionHistory)[pc][to] << bonus * update_correction_history2_1 / 128;
+        (*(ss - 4)->continuationCorrectionHistory)[pc][to] << bonus * update_correction_history2_2 / 128;
     }
+
+
 }
 
 
@@ -1619,8 +1845,11 @@ bool Search::YaneuraOuWorker::iterative_deepening() {
     // 反復深化内で、現在のiterationの最終PVをGUIへ出力済みか。
     bool uciPvSent = false;
 
-    // 💡 lowPlyHistoryは、試合開始時に1回だけではなく、"go"の度に初期化したほうが強い。
-    lowPlyHistory.fill(98);
+    
+// 💡 lowPlyHistoryは、試合開始時に1回だけではなく、"go"の度に初期化したほうが強い。
+    lowPlyHistory.fill(lowPlyHistory_fill_1);
+
+
 
     // Iterative deepening loop until requested to stop or the target depth is reached
     // 要求があるか、または目標深度に達するまで反復深化ループを実行します
@@ -1750,7 +1979,11 @@ bool Search::YaneuraOuWorker::iterative_deepening() {
 
             // Reset aspiration window starting size
             // aspiration windowの開始サイズをリセットする。
-            delta     = 5 + threadIdx % 8 + std::abs(rootMoves[pvIdx].meanSquaredScore) / 9000;
+            
+            delta     = aspiration_window_1 + threadIdx % 8 + std::abs(rootMoves[pvIdx].meanSquaredScore) / aspiration_window_2;
+
+
+
             Value avg = rootMoves[pvIdx].averageScore;
             alpha     = std::max(avg - delta, -VALUE_INFINITE);
             beta      = std::min(avg + delta,  VALUE_INFINITE);
@@ -2242,15 +2475,21 @@ void YaneuraOuWorker::clear() {
     //     あまり意味がないが、無駄ではないらしい。
     //     cf. Tweak history initialization : https://github.com/official-stockfish/Stockfish/commit/7d44b43b3ceb2eebc756709432a0e291f885a1d2
 
-	for (bool inCheck : {false, true})
+	
+for (bool inCheck : {false, true})
         for (StatsType c : {NoCaptures, Captures})
             for (auto& to : continuationHistory[inCheck][c])
                 for (auto& h : to)
-                    h.fill(-523);
+                    h.fill(YaneuraOuWorker_clear2_1);
 
-	// reductions tableの初期化(これはWorkerごとが持つように変更された)
+
+
+	
+// reductions tableの初期化(これはWorkerごとが持つように変更された)
     for (size_t i = 1; i < reductions.size(); ++i)
-        reductions[i] = int(2809 / 128.0 * std::log(i));
+        reductions[i] = int(YaneuraOuWorker_clear3_1 / 128.0 * std::log(i));
+
+
 
 	// 📝 lowPlyHistoryの初期化は、対局ごとではなく、局面ごと("go"のごと)に変更された。
 
@@ -2836,17 +3075,23 @@ Value YaneuraOuWorker::search(Position& pos, Stack* ss, Value alpha, Value beta,
             // Bonus for a quiet ttMove that fails high
             // fail highしたquietなquietな(駒を取らない)ttMove(置換表の指し手)に対するボーナス
 
+            
             if (!ttCapture)
                 update_quiet_histories(pos, ss, *this, ttData.move,
-                                       std::min(130 * depth - 71, 1043));
+                                       std::min(Search_tt_lookup1_1 * depth - Search_tt_lookup1_2, Search_tt_lookup1_3));
+
+
 
             // Extra penalty for early quiet moves of the previous ply
             // 1手前の早い時点のquietの指し手に対する追加のペナルティ
 
             // 💡 1手前がMove::null()であることを考慮する必要がある。
 
-            if (prevSq != SQ_NONE && (ss - 1)->moveCount <= 4 && !priorCapture)
-                update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq, -2142);
+            
+			if (prevSq != SQ_NONE && (ss - 1)->moveCount <= 4 && !priorCapture)
+                update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq, Search_tt_lookup2_1);
+
+
         }
 
         // Partial workaround for the graph history interaction problem
@@ -3236,11 +3481,17 @@ Value YaneuraOuWorker::search(Position& pos, Stack* ss, Value alpha, Value beta,
 
     if (((ss - 1)->currentMove).is_ok() && !(ss - 1)->inCheck && !priorCapture)
     {
-        int evalDiff = std::clamp(-int((ss - 1)->staticEval + ss->staticEval), -214, 171) + 60;
-        mainHistory[~us][((ss - 1)->currentMove).raw()] << evalDiff * 10;
-        if (!ttHit && type_of(pos.piece_on(prevSq)) != PAWN
+        
+int evalDiff = std::clamp(-int((ss - 1)->staticEval + ss->staticEval), Search_static_evaluation_1a_1, Search_static_evaluation_1a_2) + Search_static_evaluation_1a_3;
+        mainHistory[~us][((ss - 1)->currentMove).raw()] << evalDiff * Search_static_evaluation_1a_4;
+
+
+        
+if (!ttHit && type_of(pos.piece_on(prevSq)) != PAWN
             && ((ss - 1)->currentMove).type_of() != PROMOTION)
-            sharedHistory.pawn_entry(pos)[pos.piece_on(prevSq)][prevSq] << evalDiff * 12;
+            sharedHistory.pawn_entry(pos)[pos.piece_on(prevSq)][prevSq] << evalDiff * Search_static_evaluation_2a_1;
+
+
     }
 
     // Set up the improving flag, which is true if current static evaluation is
@@ -3286,8 +3537,11 @@ Value YaneuraOuWorker::search(Position& pos, Stack* ss, Value alpha, Value beta,
 
     if (priorReduction >= 3 && !opponentWorsening)
         depth++;
-    if (priorReduction >= 2 && depth >= 2 && ss->staticEval + (ss - 1)->staticEval > 173)
+    
+    if (priorReduction >= 2 && depth >= 2 && ss->staticEval + (ss - 1)->staticEval > Search_static_evaluation3_1)
         depth--;
+
+
 
 	// -----------------------
     // Step 7. Razoring
@@ -3299,8 +3553,11 @@ Value YaneuraOuWorker::search(Position& pos, Stack* ss, Value alpha, Value beta,
 	// 評価値が非常に低い場合、検索を完全にスキップして qsearch の値を返します。
     // PvNode では、チェックメイトが返されるのを防ぐためのガードが必要です。
 
-    if (!PvNode && eval < alpha - 502 - 306 * depth * depth)
+    
+if (!PvNode && eval < alpha - Search_razoring_1 - Search_razoring_2 * depth * depth)
         return qsearch<NonPV>(pos, ss, alpha, beta);
+
+
 
 	// -----------------------
     // Step 8. Futility pruning: child node
@@ -3325,13 +3582,16 @@ Value YaneuraOuWorker::search(Position& pos, Stack* ss, Value alpha, Value beta,
         // futility margin
         // 💡 depth(残り探索深さ)に応じたfutility margin。
 
+		
 		auto futility_margin = [&](Depth d) {
-            Value futilityMult = 76 - 21 * !ss->ttHit;
+            Value futilityMult = Search_futility_1_1 - Search_futility_1_2 * !ss->ttHit;
 
             return futilityMult * d                                //
                  - (2686 * improving + 362 * opponentWorsening) * futilityMult / 1024
-                 + std::abs(correctionValue) / 180600;
+                 + std::abs(correctionValue) / Search_futility_1_3;
         };
+
+
 
         if (!ss->ttPv && depth < 15 && eval >= beta && eval - futility_margin(depth) >= beta
             && (!ttData.move || ttCapture) && !is_loss(beta) && !is_win(eval))
@@ -3344,7 +3604,9 @@ Value YaneuraOuWorker::search(Position& pos, Stack* ss, Value alpha, Value beta,
     // -----------------------
 
     //  🖊 evalがbetaを超えているので1手パスしてもbetaは超えそう。だからnull moveを試す
-    if (cutNode && ss->staticEval >= beta - 16 * depth - 53 * improving + 378 && !excludedMove
+    
+    if (cutNode && ss->staticEval >= beta - Search_nullmove_1 * depth - 53 * improving + Search_nullmove_2 && !excludedMove
+
 #if STOCKFISH
         && pos.non_pawn_material(us)
     // 💡 盤上にpawn以外の駒がある ≒ pawnだけの終盤ではない。
@@ -3471,7 +3733,10 @@ Value YaneuraOuWorker::search(Position& pos, Stack* ss, Value alpha, Value beta,
     // 直前の手を（ほぼ）安全に枝刈りできます。
 
     // probCutに使うbeta値。
-    probCutBeta = beta + 224 - 61 * improving;
+    
+probCutBeta = beta + Search_Probcut_1 - Search_Probcut_2 * improving;
+
+
 
 	if (depth >= 3
         && !is_decisive(beta)
@@ -3549,7 +3814,10 @@ moves_loop:  // When in check, search starts here
     // Step 12. 小さなProbcutのアイデア
     // -----------------------
 
-    probCutBeta = beta + 416;
+    
+probCutBeta = beta + Search_small_Probcut_1;
+
+
     if ((ttData.bound & BOUND_LOWER) && ttData.depth >= depth - 4 && ttData.value >= probCutBeta
         && !is_decisive(beta) && is_valid(ttData.value) && !is_decisive(ttData.value))
         return probCutBeta;
@@ -3687,8 +3955,11 @@ moves_loop:  // When in check, search starts here
         //   短い持ち時間制限では、より小さい値、あるいは負の値のほうが望ましい
         //   長い持ち時間制限では、より大きい値のほうが望ましい
 
-        if (ss->ttPv)
-            r += 946;
+        
+if (ss->ttPv)
+            r += Search_decrease_reduction_for_tt_pv_1;
+
+
 
         // -----------------------
         // Step 14. Pruning at shallow depths
@@ -3732,8 +4003,11 @@ moves_loop:  // When in check, search starts here
                     //       = CapturePieceValuePlusPromote()
                     //     のほうがより正確な評価ではないか？
 
-                    Value futilityValue = ss->staticEval + 218 + 223 * lmrDepth
-                                        + PieceValue[capturedPiece] + 131 * captHist / 1024;
+                    
+Value futilityValue = ss->staticEval + Search_futility_value_1 + Search_futility_value_2 * lmrDepth
+                                        + PieceValue[capturedPiece] + Search_futility_value_3 * captHist / 1024;
+
+
 
 
                     if (futilityValue <= alpha)
@@ -3767,18 +4041,24 @@ moves_loop:  // When in check, search starts here
                 // Continuation history based pruning
                 // Continuation historyに基づいた枝刈り(historyの値が悪いものに関してはskip)
 
-                if (history < -4097 * depth)
+                
+if (history < Search_Continuation_history_based_pruning1_1 * depth)
                     continue;
 
-                history += 71 * mainHistory[us][move.raw()] / 32;
+                history += Search_Continuation_history_based_pruning1_2 * mainHistory[us][move.raw()] / 32;
 
 				// (*Scaler): Generally, lower divisors scales well
 				// 一般に、割る数（divisor）が小さいほどスケールしやすい。
 
-                lmrDepth += history / 3220;
+                lmrDepth += history / Search_Continuation_history_based_pruning1_3;
 
-                Value futilityValue = ss->staticEval + 42 + 151 * !bestMove + 120 * lmrDepth
-                                    + 86 * (ss->staticEval > alpha);
+
+
+                
+Value futilityValue = ss->staticEval + 42 + 151 * !bestMove + Search_Continuation_history_based_pruning2_1 * lmrDepth
+                                    + Search_Continuation_history_based_pruning2_2 * (ss->staticEval > alpha);
+
+
 
                 // Futility pruning: parent node
                 // (*Scaler): Generally, more frequent futility pruning
@@ -3811,8 +4091,11 @@ moves_loop:  // When in check, search starts here
                 // 負のSEEを持つ指し手を枝刈りする
                 // 💡 lmrDepthの2乗に比例するのでこのパラメーターの影響はすごく大きい。
 
-                if (!pos.see_ge(move, -25 * lmrDepth * lmrDepth))
+                
+if (!pos.see_ge(move, Search_Continuation_history_based_pruning3_1 * lmrDepth * lmrDepth))
                     continue;
+
+
             }
         }
 
@@ -3873,8 +4156,11 @@ moves_loop:  // When in check, search starts here
 
             //  📍 このmargin値は評価関数の性質に合わせて調整されるべき。
 
-            Value singularBeta  = ttData.value - (60 + 66 * (ss->ttPv && !PvNode)) * depth / 55;
+            
+Value singularBeta  = ttData.value - (Search_Extensions1_1 + Search_Extensions1_2 * (ss->ttPv && !PvNode)) * depth / Search_Extensions1_3;
             Depth singularDepth = newDepth / 2;
+
+
 
             // 💡 move(ttMove)の指し手を以下のsearch()での探索から除外。
 
@@ -3891,11 +4177,20 @@ moves_loop:  // When in check, search starts here
 
             if (value < singularBeta)
             {
-                int corrValAdj   = std::abs(correctionValue) / 210590;
-                int doubleMargin = -4 + 212 * PvNode - 182 * !ttCapture - corrValAdj
-                                 - 906 * ttMoveHistory / 116517 - (ss->ply > rootDepth) * 44;
-                int tripleMargin = 73 + 320 * PvNode - 218 * !ttCapture + 92 * ss->ttPv - corrValAdj
-                                 - (ss->ply > rootDepth) * 45;
+                
+int corrValAdj   = std::abs(correctionValue) / Search_Extensions2_1;
+
+
+                
+int doubleMargin = Search_Extensions3_1 + Search_Extensions3_2 * PvNode - Search_Extensions3_3 * !ttCapture - corrValAdj
+                                 - Search_Extensions3_4 * ttMoveHistory / 116517 - (ss->ply > rootDepth) * Search_Extensions3_5;
+
+
+                
+                int tripleMargin = Search_Extensions4_1 + Search_Extensions4_2 * PvNode - Search_Extensions4_3 * !ttCapture + Search_Extensions4_4 * ss->ttPv - corrValAdj
+                                 - (ss->ply > rootDepth) * Search_Extensions4_5;
+
+
 
                 // 📝 2重延長を制限して探索の組合せ爆発を回避する必要がある。
 
@@ -3993,18 +4288,27 @@ moves_loop:  // When in check, search starts here
         // Decrease reduction for PvNodes (*Scaler)
         // Pv Nodesに対してreductionを減らす(*Scaler)
 
-		if (ss->ttPv)
-            r -= 2618 + PvNode * 991 + (ttData.value > alpha) * 903
-               + (ttData.depth >= depth) * (978 + cutNode * 1051);
+		
+if (ss->ttPv)
+            r -= Search_Decrease_reduction_for_PvNodes_1_1 + PvNode * Search_Decrease_reduction_for_PvNodes_1_2 + (ttData.value > alpha) * Search_Decrease_reduction_for_PvNodes_1_3
+               + (ttData.depth >= depth) * (Search_Decrease_reduction_for_PvNodes_1_4 + cutNode * Search_Decrease_reduction_for_PvNodes_1_5);
+
+
 
         // These reduction adjustments have no proven non-linear scaling
         // これらの減少量調整には、非線形スケーリングの有効性が証明されていません
 
-        r += 843;  // Base reduction offset to compensate for other tweaks
+        
+r += Search_Decrease_reduction_for_PvNodes_2_1;  // Base reduction offset to compensate for other tweaks
+
+
                    // 他の調整を補正するための基準リダクションオフセット
 
-        r -= moveCount * 66;
-        r -= std::abs(correctionValue) / 30450;
+        
+r -= moveCount * Search_Decrease_reduction_for_PvNodes_3_1;
+        r -= std::abs(correctionValue) / Search_Decrease_reduction_for_PvNodes_3_2;
+
+
 
         // Increase reduction for cut nodes
         // カットノードのreductionを増やす
@@ -4017,30 +4321,45 @@ moves_loop:  // When in check, search starts here
 			📊 【計測資料 18.】cut nodeのときにreductionを増やすかどうか。
 		*/
 
-        if (cutNode)
-            r += 3094 + 1056 * !ttData.move;
+        
+if (cutNode)
+            r += Search_Decrease_reduction_for_PvNodes_4_1 + Search_Decrease_reduction_for_PvNodes_4_2 * !ttData.move;
+
+
 
         // Increase reduction if ttMove is a capture
         // ttMove が捕獲する指し手なら、reductionを増やす
 
-        if (ttCapture)
-            r += 1415;
+        
+if (ttCapture)
+            r += Search_Decrease_reduction_for_PvNodes_5_1;
+
+
 
         // Increase reduction if next ply has a lot of fail high
         // 次の手でfail highが多い場合、reductionを増やす
 
+        
         if ((ss + 1)->cutoffCnt > 1)
-            r += 251 + 1124 * ((ss + 1)->cutoffCnt > 2) + 1042 * allNode;
+            r += 251 + Search_Decrease_reduction_for_PvNodes_6_1 * ((ss + 1)->cutoffCnt > 2) + Search_Decrease_reduction_for_PvNodes_6_2 * allNode;
+
+
 
         // For first picked move (ttMove) reduce reduction
         // 最初に選ばれた指し手（ttMove）ではreductionを減らす
 
-        if (move == ttData.move)
-            r -= 2018;
+        
+if (move == ttData.move)
+            r -= Search_Decrease_reduction_for_PvNodes_7_1;
 
-        if (capture)
-            ss->statScore = 803 * int(PieceValue[pos.captured_piece()]) / 128
+
+
+        
+if (capture)
+            ss->statScore = Search_Decrease_reduction_for_PvNodes_8_1 * int(PieceValue[pos.captured_piece()]) / 128
                           + captureHistory[movedPiece][move.to_sq()][type_of(pos.captured_piece())];
+
+
         else
             // 📊【計測資料 11.】statScoreの計算でcontHist[3]も調べるかどうか。
             // 🤔 contHist[5]も/2とかで入れたほうが良いのでは…。誤差か…？
@@ -4051,7 +4370,10 @@ moves_loop:  // When in check, search starts here
         // Decrease/increase reduction for moves with a good/bad history
         // 良い/悪い履歴を持つ手に対して、reductionを減らす/増やす
 
-        r -= ss->statScore * 794 / 8192;
+        
+r -= ss->statScore * Search_Decrease_reduction_for_PvNodes_9_1 / 8192;
+
+
 
         // Scale up reductions for expected ALL nodes
         if (allNode)
@@ -4122,7 +4444,10 @@ moves_loop:  // When in check, search starts here
                 // Post LMR continuation history updates
                 // LMR後のcontinuation historyの更新
 
-                update_continuation_histories(ss, movedPiece, move.to_sq(), 1365);
+                
+update_continuation_histories(ss, movedPiece, move.to_sq(), Search_Post_LMR_continuation_history_updates_1);
+
+
             }
         }
 
@@ -4136,14 +4461,20 @@ moves_loop:  // When in check, search starts here
             // Increase reduction if ttMove is not present
             // ttMoveが存在しない場合、削減を増やします。
 
-            if (!ttData.move)
-                r += 1118;
+            
+if (!ttData.move)
+                r += Search_Full_depth_search_threshold_1a_1;
 
-            // Note that if expected reduction is high, we reduce search depth here
+
+
+            
+// Note that if expected reduction is high, we reduce search depth here
             // 期待される削減が大きい場合、ここで探索深さを1減らすことに注意してください。
 
 			value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha,
-                                   newDepth - (r > 3212) - (r > 4784 && newDepth > 2), !cutNode);
+                                   newDepth - (r > Search_Full_depth_search_threshold_2b_1) - (r > Search_Full_depth_search_threshold_2b_2 && newDepth > 2), !cutNode);
+
+
 		}
 
         // For PV nodes only, do a full PV search on the first move or after a fail high,
@@ -4422,8 +4753,11 @@ moves_loop:  // When in check, search starts here
 
         update_all_stats(pos, ss, *this, bestMove, prevSq, quietsSearched, capturesSearched, depth,
                          ttData.move);
-        if (!PvNode)
-            ttMoveHistory << (bestMove == ttData.move ? 805 : -787);
+        
+if (!PvNode)
+            ttMoveHistory << (bestMove == ttData.move ? Search_ttMoveHistoryBonus_1 : Search_ttMoveHistoryBonus_2);
+
+
     }
 
     // Bonus for prior quiet countermove that caused the fail low
@@ -4958,7 +5292,10 @@ Value Search::YaneuraOuWorker::qsearch(Position& pos, Stack* ss, Value alpha, Va
         // 💡 futilityの基準となる値をbestValueにmargin値を加算したものとして、
         //     これを下回るようであれば枝刈りする。
 
-        futilityBase = ss->staticEval + 328;
+        
+futilityBase = ss->staticEval + Search_standPat_1;
+
+
 
     }
 
@@ -5269,10 +5606,13 @@ Value Search::YaneuraOuWorker::qsearch(Position& pos, Stack* ss, Value alpha, Va
 }
 
 // LMRのreductionの値を計算する。
+
 int Search::YaneuraOuWorker::reduction(bool i, Depth d, int mn, int delta) const {
     int reductionScale = reductions[d] * reductions[mn];
-    return reductionScale - delta * 757 / rootDelta + !i * reductionScale * 218 / 512 + 1200;
+    return reductionScale - delta * YaneuraOuWorker_reduction_1 / rootDelta + !i * reductionScale * YaneuraOuWorker_reduction_2 / 512 + YaneuraOuWorker_reduction_3;
 }
+
+
 
 // 📝 やねうら王では、下記のelapsed(), elapsed_time()は用いない。
 //     やねうら王はTimer classを持っているので、そちらを用いる。
@@ -5429,9 +5769,12 @@ void update_all_stats(const Position&          pos,
     Piece                  movedPiece     = pos.moved_piece(bestMove);
     PieceType              capturedPiece;
 
+    
     int bonus =
-      std::min(128 * depth - 77, 1529) + 353 * (bestMove == ttMove) + (ss - 1)->statScore / 32;
-    int malus = std::min(882 * depth - 204, 2122);
+      std::min(update_all_stats_1c_1 * depth - update_all_stats_1c_2, 1529) + update_all_stats_1c_3 * (bestMove == ttMove) + (ss - 1)->statScore / 32;
+    int malus = std::min(update_all_stats_1c_4 * depth - update_all_stats_1c_5, 2122);
+
+
 
     /*
 		📓 Stockfish 14ではcapture_or_promotion()からcapture()に変更された。[2022/3/23]
@@ -5506,8 +5849,10 @@ void update_all_stats(const Position&          pos,
 		⇨　Stockfish 16で3手前も見るようになった。
 */
 void update_continuation_histories(Stack* ss, Piece pc, Square to, int bonus) {
-    static constexpr std::array<ConthistBonus, 6> conthist_bonuses = {
-      {{1, 1157}, {2, 648}, {3, 288}, {4, 576}, {5, 140}, {6, 441}}};
+    
+    // static constexpr std::array<ConthistBonus, 6> conthist_bonuses = { ... };
+
+
 
     for (const auto [i, weight] : conthist_bonuses)
     {
@@ -5536,13 +5881,18 @@ void update_quiet_histories(
     workerThread.mainHistory[us][move.raw()] << bonus;  // Untuned to prevent duplicate effort
 														// 重複した処理を防ぐためにチューニングされていない
 
+    
     if (ss->ply < LOW_PLY_HISTORY_SIZE)
-        workerThread.lowPlyHistory[ss->ply][move.raw()] << bonus * 761 / 1024;
+        workerThread.lowPlyHistory[ss->ply][move.raw()] << bonus * update_quiet_histories_1a_1 / 1024;
 
-    update_continuation_histories(ss, pos.moved_piece(move), move.to_sq(), bonus * 955 / 1024);
+    update_continuation_histories(ss, pos.moved_piece(move), move.to_sq(), bonus * update_quiet_histories_1a_2 / 1024);
 
+
+
+	
 	workerThread.sharedHistory.pawn_entry(pos)[pos.moved_piece(move)][move.to_sq()]
-      << bonus * (bonus > 0 ? 850 : 550) / 1024;
+      << bonus * (bonus > 0 ? update_quiet_histories_2b_1 : update_quiet_histories_2b_2) / 1024;
+
 }
 
 } // namespace
