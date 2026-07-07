@@ -41,8 +41,8 @@ struct SearchOptions
         }
     }
 
-    // この構造体メンバーに対応するエンジンオプションを生やす
-    void add_options(OptionsMap& options);
+	// この構造体メンバーに対応するエンジンオプションを生やす
+	void add_options(OptionsMap& options);
 
     std::optional<std::string> set_opening_target_sfen(Color c, const std::string& sfen);
     bool opening_target_active() const;
@@ -63,25 +63,25 @@ struct SearchOptions
     int max_moves_to_draw;
 
     // PVの出力の抑制のために前回出力時間からの間隔を指定できる。単位は[ms]
-    // 📝 options["PvInterval"]の設定値。
-    // ⚠ 探索中は、こちらの値を使うのではなく、computed_pv_intervalを使う。
+	// 📝 options["PvInterval"]の設定値。
+	// ⚠ 探索中は、こちらの値を使うのではなく、computed_pv_intervalを使う。
     TimePoint pv_interval;
 
-    // 検討モード用のPVを出力するのか
-    // 📝 options["ConsiderationMode"]の設定値。
+	// 検討モード用のPVを出力するのか
+	// 📝 options["ConsiderationMode"]の設定値。
     bool consideration_mode;
 
-    // fail low/highの時にPVを出力するか。
-    // 📝 options["OutputFailLHPV"]の設定値。
-    bool outout_fail_lh_pv;
+	// fail low/highの時にPVを出力するか。
+	// 📝 options["OutputFailLHPV"]の設定値。
+	bool outout_fail_lh_pv;
 
-    // 合法手を生成する時に全合法手を生成するのか(歩の不成など)
+	// 合法手を生成する時に全合法手を生成するのか(歩の不成など)
     // エンジンオプションのGenerateAllLegalMovesの値がこのフラグに反映される。
-    // 📝 options["GenerateAllLegalMoves"]の設定値。
+	// 📝 options["GenerateAllLegalMoves"]の設定値。
     bool generate_all_legal_moves;
 
     // 入玉ルール設定
-    // 📝 options["EnteringKingRule"]の値。
+	// 📝 options["EnteringKingRule"]の値。
     EnteringKingRule enteringKingRule;
 
     // 指定局面AI : 盤面マスクSFENで指定された自駒配置を序盤中に目指す。
@@ -95,8 +95,8 @@ struct SearchOptions
     // 前回のPV出力した時刻。PVが詰まるのを抑制するためのもの。
     // lastPvInfoTime       : 出力した時のnow()の値。
     // computed_pv_interval : 実際のPVの出力間隔[ms]。
-    //                      📝 options["PvInterval"]とoptions["ConsiderationMode"]から決定したもの。
-    //                      ⚠ "go infinite"された時や、ConsiderationMode == trueなら、0 が設定される。
+	//                      📝 options["PvInterval"]とoptions["ConsiderationMode"]から決定したもの。
+	//                      ⚠ "go infinite"された時や、ConsiderationMode == trueなら、0 が設定される。
     TimePoint lastPvInfoTime;
     TimePoint computed_pv_interval;
 };
@@ -128,8 +128,8 @@ struct Skill {
     constexpr static int LowestElo  = 1320;
     constexpr static int HighestElo = 3190;
 
-    // skill_level : 手加減のレベル。20未満であれば手加減が有効。0が一番弱い。(R2000以上下がる)
-    // uci_elo     : 0以外ならば、そのelo ratingになるように調整される。
+	// skill_level : 手加減のレベル。20未満であれば手加減が有効。0が一番弱い。(R2000以上下がる)
+	// uci_elo     : 0以外ならば、そのelo ratingになるように調整される。
     Skill(int skill_level, int uci_elo) {
         if (uci_elo)
         {
@@ -140,15 +140,15 @@ struct Skill {
             level = double(skill_level);
     }
 
-    // 手加減が有効であるか。
+	// 手加減が有効であるか。
     bool enabled() const { return level < 20.0; }
 
-    // SkillLevelがNなら探索深さもNぐらいにしておきたいので、
-    // depthがSkillLevelに達したのかを判定する。
-    bool time_to_pick(Depth depth) const { return depth == 1 + int(level); }
+	// SkillLevelがNなら探索深さもNぐらいにしておきたいので、
+	// depthがSkillLevelに達したのかを判定する。
+	bool time_to_pick(Depth depth) const { return depth == 1 + int(level); }
 
-    // 手加減が有効のときはMultiPV = 4で探索
-    Move pick_best(const RootMoves&, size_t multiPV);
+	// 手加減が有効のときはMultiPV = 4で探索
+	Move pick_best(const RootMoves&, size_t multiPV);
 
     double level;
     Move   best = Move::none();
@@ -179,15 +179,15 @@ class SearchManager {
    public:
     // 📝 やねうら王では、これはnamespace Searchで定義しておく。
 #if STOCKFISH
-    // Infoを更新した時のcallback。このcallbackを行うと標準出力に出力する。
+	// Infoを更新した時のcallback。このcallbackを行うと標準出力に出力する。
     using UpdateShort    = std::function<void(const InfoShort&)>;
     using UpdateFull     = std::function<void(const InfoFull&)>;
     using UpdateIter     = std::function<void(const InfoIteration&)>;
     using UpdateBestmove = std::function<void(std::string_view, std::string_view)>;
 
-    // PVを設定した時に出力するためのlistener
-    struct UpdateContext {
-        UpdateShort    onUpdateNoMoves;  // root局面で指し手がない時のhandler
+	// PVを設定した時に出力するためのlistener
+	struct UpdateContext {
+        UpdateShort    onUpdateNoMoves; // root局面で指し手がない時のhandler
         UpdateFull     onUpdateFull;
         UpdateIter     onIter;
         UpdateBestmove onBestmove;
@@ -203,10 +203,7 @@ class SearchManager {
     // 現在のPV(読み筋)をUpdateContext::onUpdateFull()で登録する。
     // tt      : このスレッドに属する置換表
     // depth   : 反復深化のiteration深さ。
-    void pv(Search::YaneuraOuWorker&  worker,
-            const ThreadPool&         threads,
-            const TranspositionTable& tt,
-            Depth                     depth);
+    void pv(Search::YaneuraOuWorker& worker, const ThreadPool& threads, const TranspositionTable& tt, Depth depth);
 
     // 🌈 start_searching()より前にUI threadから
     //		Worker::pre_start_searching()が呼び出され、virtualなので派生classの
@@ -239,8 +236,8 @@ class SearchManager {
     //     ここで保存しているのは、前回の反復深化のiterationの時のtimeReductionの値。
     double previousTimeReduction;
 
-    // 前回の探索時のbestScore,bestAverageScore。
-    // 📝 aspiration searchの初期値として用いる。
+	// 前回の探索時のbestScore,bestAverageScore。
+	// 📝 aspiration searchの初期値として用いる。
     Value bestPreviousScore;
     Value bestPreviousAverageScore;
 
@@ -260,19 +257,20 @@ class SearchManager {
 	*/
     std::atomic<bool> increaseDepth;
 
-    // やねうら王探索部で用いるオプション一覧
-    SearchOptions search_options;
+	// やねうら王探索部で用いるオプション一覧
+	SearchOptions search_options;
 
     // ponder用の指し手
     // 📝 やねうら王では、ponderの指し手がないとき、一つ前のiterationのときのPV上の(相手の)指し手を用いるという独自仕様。
     //     Stockfish本家もこうするべきだと思う。
     Move ponder_candidate;
 
-    // 前回のgamePly。今回と手番が異なるかを検出するのに用いる。
-    // 📝 Stochastic Ponderの場合、手番が異なることになる。
-    //     この時、bestPreviousScore、bestPreviousAverageScoreを反転させる必要がある。
-    int lastGamePly;
+	// 前回のgamePly。今回と手番が異なるかを検出するのに用いる。
+	// 📝 Stochastic Ponderの場合、手番が異なることになる。
+	//     この時、bestPreviousScore、bestPreviousAverageScoreを反転させる必要がある。
+	int lastGamePly;
 };
+}
 
 // -----------------------
 //  探索のときに使うStack
@@ -288,8 +286,8 @@ class SearchManager {
 // 各検索スレッドは、現在の深さ（ply）に基づいてインデックスされた、独自のStackオブジェクトの配列を持っています。
 
 struct Stack {
-    // PVへのポインター。
-    PVMoves* pv;
+    // PVへのポインター。RootMovesのvector<Move> pvを指している。
+    Move* pv;
 
     // historyのうち、counter moveに関するhistoryへのポインタ。実体はThreadが持っている。
     PieceToHistory* continuationHistory;
@@ -323,10 +321,6 @@ struct Stack {
 
     // 置換表にhitしたかのフラグ
     bool ttHit;
-
-    // 前回の反復深化で得たPVを辿っているnodeか。
-    // Stockfishでは、このPV line上では一部の浅い枝刈りを抑制する。
-    bool followPV;
 
     // cut off(betaを超えたので枝刈りとしてreturn)した回数。
     int cutoffCnt;
@@ -419,13 +413,6 @@ class YaneuraOuEngine: public Engine {
 	// 置換表の使用率を返す。
     virtual int get_hashfull(int maxAge) const override;
 
-    // USI拡張コマンド "qsearch_psv" の実体。
-    // .psv(PsvRecord列)の各局面をqsearch PVのleaf nodeで置換して書き出す。
-    virtual bool qsearch_psv(const std::string& inputPath,
-                             const std::string& outputPath,
-                             size_t             workerCount,
-                             std::string&       message) override;
-
 	// 現在の局面の評価値の詳細を出力する。
     virtual void trace_eval() const override;
 
@@ -445,6 +432,8 @@ class YaneuraOuEngine: public Engine {
     // Stockfishとの互換性のために用意。
     Search::SearchManager* main_manager() { return &manager; }
 };
+
+namespace Search {
 
 // やねうら王の探索Worker
 // 📌 Stockfishから拡張して、やねうら王はエンジンを自由に差し替えられるようになっているので、
@@ -471,10 +460,6 @@ class YaneuraOuWorker: public Worker {
     // 評価関数のパラメーターが各NUMAにコピーされているようにする。
     virtual void ensure_network_replicated() override;
 
-    // qsearch<PV>()をTT hitなし扱いで行い、この呼び出し中に得られたPVを返す。
-    // 返されたPVを進めた局面が、qsearchで到達したleaf nodeになる。
-    Value qsearch_pv(Position& pos, PVMoves& pv);
-
     // 📌 Stockfishのsearch.hで定義されているWorkerが持っているメンバ変数 📌
 
 	// Public because they need to be updatable by the stats
@@ -500,7 +485,7 @@ class YaneuraOuWorker: public Worker {
     // 反復深化
     // 💡 並列探索のentry point。
     //     start_searching()から呼び出される。
-    bool iterative_deepening();
+    void iterative_deepening();
 
     // 📌 do_move～undo_move
     // 📝 do_move()は、Worker::nodesをインクリメントする。
@@ -527,8 +512,11 @@ class YaneuraOuWorker: public Worker {
     // Quiescence search function, which is called by the main search
     // メイン探索から呼ばれる静止探索関数
     // 💡 search()から、残りdepthが小さくなった時に呼び出される。
-    template<NodeType nodeType, bool ReadTT = true>
+    template<NodeType nodeType>
     Value qsearch(Position& pos, Stack* ss, Value alpha, Value beta);
+
+    // qsearch<PV>()を単独呼び出しするためのヘルパー (fork機能。V9.60相当のI/F互換のため追加)
+    Value qsearch_pv(Position& pos, PVMoves& pv);
 
 	// LMRのreductionの値を計算する。
     // ⚠ この関数は、Stockfish 17(2024.11)で、1024倍して返すことになった。
@@ -537,7 +525,7 @@ class YaneuraOuWorker: public Worker {
     //   d     : depth
     //   mn    : move_count
     //   delta : staticEvalとchildのeval(value)の差。これが低い時にreduction量を増やしたい。
-    int reduction(bool i, Depth d, int mn, int delta) const;
+    Depth reduction(bool i, Depth d, int mn, int delta) const;
 
 	// Pointer to the search manager, only allowed to be called by the main thread
     // 検索マネージャへのポインタ。メインスレッドからのみ呼び出すことが許可されています。
