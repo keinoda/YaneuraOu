@@ -24,7 +24,7 @@ const int MoveHorizon = 160;
 // 思考時間のrtimeが指定されたときに用いる乱数
 PRNG prng;
 
-constexpr std::array<int, 3> DefaultProgressSlowMoverScales = {65, 140, 70};
+constexpr std::array<int, 3> DefaultProgressSlowMoverScales = {100, 100, 100};
 
 // progress bucket 0..7 を、SlowMoverに掛ける百分率へ変換する。
 // bucket 0-1, 2-5, 6-7 の3区間で一定倍率にする。
@@ -50,7 +50,7 @@ std::array<int, 3> parse_progress_slow_mover_scales(const OptionsMap& options) {
     if (!(is >> parsed[0] >> parsed[1] >> parsed[2]) || (is >> extra))
     {
         sync_cout << "info string Warning! ProgressSlowMoverScales must be three values, "
-                     "for example 65,140,70. Use default=65,140,70"
+                     "for example 100,100,100. Use default=100,100,100"
                   << sync_endl;
         return DefaultProgressSlowMoverScales;
     }
@@ -116,15 +116,18 @@ void TimeManagement::add_options(OptionsMap& options) {
     options.add("SlowMover_white", Option(0, 0, 1000));
 
     // progress.bin由来の進行度でSlowMoverを間接的に補正する。
-    // デフォルトでは無効。実棋譜サンプルで平均がおよそ100%になる程度に傾斜させる。
+    // デフォルトでは無効。明示的に有効化したときだけ進行度時間制御を使う。
     options.add("ProgressSlowMover", Option(false));
     // bucket 0-1, 2-5, 6-7 の倍率をこの順に指定する。区切りは "," "/" 空白など。
-    options.add("ProgressSlowMoverScales", Option("65,140,70"));
+    options.add("ProgressSlowMoverScales", Option("100,100,100"));
 
     // progress.bin由来の進行度で残り手数(MTG)を見積もる。
     options.add("ProgressMtg", Option(false));
 
-	// 持ち時間、各秒のギリギリまで使うか。
+    // ponder miss時の最大思考時間倍率。100なら延長しない。200で従来の2倍延長。
+    options.add("PonderMissMaximumScale", Option(100, 100, 1000));
+
+    // 持ち時間、各秒のギリギリまで使うか。
     options.add("RoundUpToFullSecond", true);
 
 }
@@ -396,13 +399,14 @@ void TimeManagement::init_(const Search::LimitsType& limits,
 	}
 
 #if !STOCKFISH
-    if (limits.ponderMiss)
-    {
-        const TimePoint oldMaximum = maximumTime;
-        maximumTime = std::min(maximumTime * 2, remain_time);
-        sync_cout << "info string PonderMiss maximumTime=" << oldMaximum << "->"
-                  << maximumTime << sync_endl;
-    }
+	const int ponderMissMaximumScale = (int)options["PonderMissMaximumScale"];
+	if (limits.ponderMiss && ponderMissMaximumScale > 100)
+	{
+		const TimePoint oldMaximum = maximumTime;
+		maximumTime = std::min(maximumTime * ponderMissMaximumScale / 100, remain_time);
+		sync_cout << "info string PonderMiss maximumTime=" << oldMaximum << "->"
+				  << maximumTime << sync_endl;
+	}
 #endif
 
 	// 残り時間 - network_delay2よりは短くしないと切れ負けになる可能性が出てくる。
