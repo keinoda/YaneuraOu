@@ -1334,16 +1334,17 @@ namespace Book
         options.add("FlippedBook", Option(true));
 
 		// 定跡の候補手から定跡のベストラインを何手先まで辿って千日手チェックを行うか。
-		// 候補手を指した直後の局面のチェック(=1)は常に行われ、2以上でさらに定跡の実効値ベスト手を
+		// 0ならこの処理を行わない。
+		// 1以上なら候補手を指した直後の局面をチェックし、2以上でさらに定跡の実効値ベスト手を
 		// 交互に辿り、そのライン上で同一局面の再現(対局履歴・ライン内のどちらも)を検出したら
 		// その候補手の実効値を千日手スコア(DrawValueBlack/White反映済み)へ置き換える。
 		// 定跡グラフ内の手待ちサイクル(1手先のチェックでは見えない)への対策。
-        options.add("BookRepetitionPly", Option(16, 1, 64));
+        options.add("BookRepetitionPly", Option(0, 0, 64));
 
 		// root局面がこの対局で2回目以降の出現(=定跡ラインがループしている兆候)なら、
 		// 定跡を用いず通常探索へフォールバックするオプション。
 		// DrawValueBlack/Whiteを負に設定していれば、探索側が千日手を避ける進行を選ぶ。
-        options.add("BookIgnoreRepeatedRoot", Option(true));
+        options.add("BookIgnoreRepeatedRoot", Option(false));
 	}
 
 	// 定跡ファイルの読み込み。
@@ -1569,6 +1570,8 @@ namespace Book
 		//   手でも、この対局履歴では千日手にしかならないなら千日手の値として扱う)。
 		// is_repetition()はdo_move後の局面の手番(相手側)視点を返すため、root側視点へ読み替える。
 		std::unordered_map<uint16_t, int> orig_values; // 置換が起きた手: move16 -> 元の定跡値
+		const int book_repetition_ply = (int)options["BookRepetitionPly"];
+		if (book_repetition_ply > 0)
 		{
 			Color us = rootPos.side_to_move();
 
@@ -1580,7 +1583,7 @@ namespace Book
 
 			// 候補手を指した局面からさらに定跡ラインを辿って調べる手数(候補手自身を1手目と数える)。
 			// forceHit(PV表示用のprobe)では先読みしない。
-			const int rep_check_ply = forceHit ? 1 : (int)options["BookRepetitionPly"];
+			const int rep_check_ply = forceHit ? 1 : book_repetition_ply;
 
 			// pos(=候補手を指した直後の局面)から、各局面の手番側から見た定跡値ベストの合法手を
 			// 交互に辿り、千日手(対局履歴・ライン内を問わず同一局面の再現)に到達するなら

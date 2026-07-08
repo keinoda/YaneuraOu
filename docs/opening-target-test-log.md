@@ -1094,3 +1094,124 @@ Observed result:
 Summary : 87 / 87 passed.
 -> Passed all UnitTests.
 ```
+
+## 2026-07-08 OpeningTarget default-off and fork option defaults
+
+Source state: local changes on `master` after `527a083a`.
+
+Primary SFNN build:
+
+```text
+script/build-m1-mac.sh
+```
+
+Script defaults used by this run:
+
+```text
+BUILD_TARGET=tournament
+YANEURAOU_EDITION=YANEURAOU_ENGINE_SFNN1536
+TARGET_CPU=APPLEM1
+COMPILER=clang++
+OUTPUT_NAME=YaneuraOu-by-macos-arm64
+```
+
+Result: build succeeded.
+
+USI default check:
+
+```text
+printf 'usi\nquit\n' | source/YaneuraOu-by-macos-arm64
+```
+
+Observed relevant defaults:
+
+```text
+option name OpeningTargetMaxPly type spin default 0 min 0 max 512
+option name LS_PROGRESS_COEFF type string default <internal>
+option name ProgressFilePath type string default <internal>
+option name LS_BUCKET_MODE type combo default progress8kpabs var auto var kingrank9 var progress8kpabs
+option name ProgressSlowMover type check default true
+option name ProgressSlowMoverScales type string default 100,100,100
+option name ProgressMtg type check default true
+option name PonderMissMaximumScale type spin default 100 min 100 max 1000
+option name BookRepetitionPly type spin default 0 min 0 max 64
+option name BookIgnoreRepeatedRoot type check default false
+```
+
+SFNN `isready` was not counted as a pass because this checkout has no compatible
+`source/eval/nn.bin`; the engine reported `FileNotFound`.
+
+OpeningTarget runtime check used a separate MATERIAL build so no eval file was
+needed:
+
+```text
+make -C source -j"$(sysctl -n hw.ncpu)" normal \
+  YANEURAOU_EDITION=YANEURAOU_ENGINE_MATERIAL \
+  TARGET_CPU=APPLEM1 \
+  COMPILER=clang++ \
+  OBJDIR=/tmp/yaneuraou-material-defaults-obj \
+  TARGET=/tmp/yaneuraou-material-defaults
+```
+
+Runtime setup:
+
+```text
+usi
+setoption name USI_OwnBook value false
+setoption name BookFile value no_book
+setoption name OpeningTargetPenalty value 3000
+setoption name OpeningTargetSfenWhite value 9/6r2/9/p5p2/9/9/9/9/9
+isready
+```
+
+### MaxPly default zero disables target
+
+Commands:
+
+```text
+position startpos moves 2g2f
+go nodes 1000000
+```
+
+Observed:
+
+```text
+info depth 14 seldepth 17 multipv 1 score cp -42 upperbound nodes 1001598 nps 10655297 hashfull 4 time 94 pv 8b7b 4i4h
+bestmove 8b7b ponder 4i4h
+```
+
+### Explicit MaxPly enables target penalty
+
+Commands:
+
+```text
+setoption name OpeningTargetMaxPly value 2
+isready
+position startpos moves 2g2f
+go nodes 1000000
+```
+
+Observed:
+
+```text
+info depth 15 seldepth 18 multipv 1 score cp -3315 nodes 1001282 nps 9536019 hashfull 6 time 105 pv 1c1d 5i4h 4a3b 2f2e 6a7b 2e2d 2c2d 2h2d P*2c 2d2f
+bestmove 1c1d
+```
+
+This confirms that an already configured target SFEN is inert at the default
+`OpeningTargetMaxPly=0`, and only becomes active when the option is explicitly
+set.
+
+Unit test:
+
+```text
+printf 'usi\nsetoption name USI_OwnBook value false\nsetoption name BookFile value no_book\nisready\nunittest\nquit\n' \
+  | /tmp/yaneuraou-material-defaults
+```
+
+Observed result:
+
+```text
+Summary : 84 / 84 passed.
+-> Passed all UnitTests.
+```
