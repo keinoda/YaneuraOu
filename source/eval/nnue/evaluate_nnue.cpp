@@ -249,14 +249,39 @@ namespace {
 		if (!stream) return Tools::ResultCode::FileReadError;
 		if (version_out)
 			*version_out = version;
-        if (version != kVersion) {
+		if (version != kVersion) {
 			// 別実装(学習系)が書き出したnn.binはversion定数が異なることがあるが、
 			// レイアウト互換であれば読めるため、警告のみ出して続行する。
 			sync_cout << "info string NNUE header version mismatch: expected " << kVersion
 				<< " got " << version << " (continuing anyway)" << sync_endl;
 		}
-        architecture->resize(size);
-        stream.read(&(*architecture)[0], size);
+		architecture->resize(size);
+		stream.read(&(*architecture)[0], size);
+		if (stream.fail())
+			return Tools::ResultCode::FileReadError;
+
+		// Tatara系の出力にはarchitecture文字列の直後にbucket数(uint32)が入るものがある。
+		// 既存形式では次のuint32はFeatureTransformerのhashなので、そこで有無を判定する。
+		const auto params_start = stream.tellg();
+		if (params_start != std::istream::pos_type(-1)) {
+			std::uint32_t next = 0;
+			stream.read(reinterpret_cast<char*>(&next), sizeof(next));
+			if (!stream) {
+				stream.clear();
+				stream.seekg(params_start);
+				return Tools::ResultCode::FileReadError;
+			}
+
+			if (next == FeatureTransformer::GetHashValue()) {
+				stream.seekg(params_start);
+			} else if (1 <= next && next <= 1024) {
+				if (next != static_cast<std::uint32_t>(kLayerStacks))
+					sync_cout << "info string NNUE header layer stack count mismatch: file=" << next
+						<< " engine=" << kLayerStacks << " (continuing anyway)" << sync_endl;
+			} else {
+				stream.seekg(params_start);
+			}
+		}
 		return !stream.fail() ? Tools::ResultCode::Ok : Tools::ResultCode::FileReadError;
     }
 

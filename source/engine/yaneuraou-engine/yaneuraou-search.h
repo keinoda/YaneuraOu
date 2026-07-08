@@ -28,7 +28,7 @@ struct SearchOptions
         outout_fail_lh_pv        = true;
         generate_all_legal_moves = false;
         enteringKingRule         = EKR_27_POINT;
-        opening_target_max_ply   = 18;
+        opening_target_max_ply   = 0;
         opening_target_penalty   = 1000;
         lastPvInfoTime           = 0;
         computed_pv_interval     = 0;

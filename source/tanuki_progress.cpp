@@ -46,7 +46,7 @@ enum class BucketModeRequest {
     Progress8KPAbs,
 };
 
-BucketModeRequest g_bucket_mode_request = BucketModeRequest::Auto;
+BucketModeRequest g_bucket_mode_request = BucketModeRequest::Progress8KPAbs;
 Tanuki::Progress::BucketMode g_bucket_mode = Tanuki::Progress::BucketMode::KingRank9;
 int g_layer_stacks = 1;
 bool g_layer_stacks_configured = false;
@@ -196,7 +196,7 @@ bool add_options(YaneuraOu::OptionsMap& options) {
     options.add(kProgressFilePath, YaneuraOu::Option(kInternalPath));
 #if defined(SFNNwoPSQT)
     options.add(kLsBucketMode,
-                YaneuraOu::Option(std::vector<std::string>{"auto", "kingrank9", "progress8kpabs"}, "auto",
+                YaneuraOu::Option(std::vector<std::string>{"auto", "kingrank9", "progress8kpabs"}, "progress8kpabs",
                                   [](const YaneuraOu::Option& o) {
                                       const std::string mode = std::string(o);
                                       if (mode == "progress8kpabs")
