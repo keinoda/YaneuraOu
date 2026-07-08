@@ -465,7 +465,7 @@ void SearchOptions::add_options(OptionsMap& options) {
                     return set_opening_target_sfen(WHITE, std::string(o));
                 }));
 
-    options.add("OpeningTargetMaxPly", Option(18, 0, 512, [&](const Option& o) {
+    options.add("OpeningTargetMaxPly", Option(0, 0, 512, [&](const Option& o) {
                     opening_target_max_ply = int(o);
                     return std::nullopt;
                 }));
