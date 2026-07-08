@@ -23,14 +23,14 @@ engine when testing directly:
 
 ```text
 setoption name EvalDir value /workspace/<engine>/eval
-setoption name ProgressFilePath value /workspace/<engine>/progress.bin
+setoption name LS_PROGRESS_COEFF value /workspace/<engine>/progress.bin
 setoption name FV_SCALE value 28
 setoption name USI_OwnBook value false
 setoption name BookFile value no_book
 ```
 
 For `unittest`, initialize the engine first with `usi`, point `EvalDir` and
-`ProgressFilePath` at the packaged runtime data, then run `isready`.
+`LS_PROGRESS_COEFF` at the packaged runtime data, then run `isready`.
 Running `unittest` before the engine has loaded its runtime files can fail before
 the test suite is actually meaningful.
 
