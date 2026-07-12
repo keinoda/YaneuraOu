@@ -254,3 +254,4 @@ ModelManifest.xml
 /source/YaneuraOu-by-gcc
 /source/YaneuraOu-by-gcc.exe
 /source/yaneuraou.js
+__pycache__/
