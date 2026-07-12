@@ -69,8 +69,42 @@ minimum/optimum/maximum を計算して照合した結果:
 
    この場合 **Stochastic_Ponder が正しくONでも、残り時間に関わらず
    ponderhitのたびに即指しになる**。将棋所/ShogiGUIは常に時計付きで
-   go ponder を送るため顕在化しない。自作ランナーでは要注意。
+   go ponder を送るため顕在化しない。
    (通常ponderでも時計なしgo ponderは同様にhit後ほぼ即指しになる。)
+
+   **→ 発生源を特定: ShogiHome の「早期Ponder」(enableEarlyPonder)。**
+   本対局のGUIは ShogiHome(エンジンをラッパー登録)であり、
+   `src/background/usi/engine.ts` に次の実装がある(2026-07-12 main確認):
+
+   - `goPonder()`:
+     `timeState: this.option.enableEarlyPonder ? undefined : timeState`
+     — 早期Ponder有効時は **go ponder に時計を付けない**。
+   - `buildPonderTimeOptions()`: timeState が undefined なら空文字。
+     コメント「これは**やねうら王の拡張仕様**で、標準の USI では ponder
+     には必ず具体的な時間を付与する。」
+   - `ponderHit()`: 早期Ponder有効時のみ `ponderhit btime .. wtime ..` と
+     **時計は ponderhit の引数としてのみ**送る。
+   - enableEarlyPonder はエンジン個別設定で既定 false。
+
+   一方、やねうら王側でこの拡張を受けるパーサ `parse_ponderhit()`
+   (usi.cpp「"ponderhit"に"go"で使うようなwtime,btime,winc,binc,byoyomiが
+   書けるような拡張。(やねうら王独自拡張。USI拡張プロトコル)」)は、
+   **V9.60系では定義のみで呼び出し箇所が無い(死にコード)**。
+   V8.30 の ponderhit ハンドラ(通常ponder分岐)では
+   `parse_ponderhit(is)` → `Time.reinit()` が呼ばれており、
+   **V9.60 の書き直しで拡張対応が失われた退行**である
+   (upstream master も 2026-07-12 時点で同様に未接続)。
+
+   この組み合わせにより、早期Ponder有効のShogiHome + V9.60系 +
+   Stochastic_Ponder ON では、ponderhit のたびに時計なしの go ponder が
+   内部再実行され、remain_time 下限100msで即指しになる。
+   通常ponderでも go ponder の探索自体が持ち時間0で時間管理されるため、
+   ponderhit 後ほぼ即指しになる(どちらのモードでも発生する)。
+
+   **対処**: 即効はShogiHomeのエンジン設定で「早期Ponder」を無効にする
+   (go ponder に時計が付く形式に戻り、ON/OFFとも正常動作になる)。
+   恒久対応はエンジン側で ponderhit 引数の解析(parse_ponderhitの接続)を
+   復活させ、Stochastic Ponder の再goにその時計を反映すること。
 
    **(b) setoption の値の文字列が不正な場合**:
    `setoption name Stochastic_Ponder value True` (大文字) / `1` / `on` は
