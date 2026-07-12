@@ -36,9 +36,11 @@ minimum/optimum/maximum を計算して照合した結果:
   positionから再goするため、MinimumThinkingTime(2000)−NetworkDelay(120)
   +秒丸めの床(≈1.9〜2.9s)を必ず消費する。
 - OFF(通常ponder)は、相手考慮中に思考予算(totalTime)を使い切ると
-  ponderhit直後に指す設計(stopOnPonderhit / set_search_endのponderhit補正)
-  なので、相手が数秒考えた局面では0.9〜1.9秒(CSA表記でT0〜T1)まで縮む。
-  実測でも1880msの床への収束を多数観測。
+  ponderhit直後に指す設計(stopOnPonderhit / set_search_endのponderhit補正)。
+  実測では相手考慮を実際の長さ(最大12秒)で再現しても 1880ms の床
+  (CSA表記でT1相当)への収束までで、時計付きの正規手順では
+  1秒未満(T0)には届かなかった(29手中13手が床、1秒未満は0)。
+  真のT0(<1秒)を再現できたのは下記「(a) 時計なし go ponder」経路のみ。
 - 序盤〜中盤前半(ply 8〜78)のT0は相手が即指し(黒T0〜2)の直後で、
   通常ponderでも説明できない。この時間帯のT0はエンジン外の要因
   (実運用側の定跡ヒット: 本読み筋コメントの評価値が小さく安定しており
