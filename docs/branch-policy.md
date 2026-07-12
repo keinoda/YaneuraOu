@@ -25,8 +25,8 @@ kebab-case で、内容が分かる範囲で簡潔(目安4語以内)にする。
 
 - upstream(yaneurao/YaneuraOu)追随ブランチは従来どおり `search-v<版>`
   (例: `search-v9.40`)とする。
-- 既存ブランチ(`danbo-tuned` 等)へ遡って改名は行わず、本規則は
-  以後に作成するブランチへ適用する。
+- 既存ブランチにも本規則を遡及適用する(2026-07-12指示)。改名台帳と
+  実施手順は §4 のとおり。
 
 ## 2. 運用規則(ライフサイクル)
 
@@ -56,3 +56,53 @@ kebab-case で、内容が分かる範囲で簡潔(目安4語以内)にする。
 `fix/ponderhit-time-control` を切り出す。作業文書(docs/ 以下の調査ログ・
 検証データ)は規則2に従い切り出し時点では保持し、master マージ時に
 規則3に従って整理する。
+
+また、`danbo-tuned2` に `fix/ponderhit-time-control` をマージした検証用
+ブランチ `test/danbo-tuned2-ponderhit` を作成し、素の `danbo-tuned2`
+(改名後は `tune/danbo2`)との比較テストに用いる。比較テスト終了後は
+規則2-4に従い処置する。
+
+## 4. 既存ブランチの遡及改名(台帳)
+
+影響確認(2026-07-12実施): 未クローズPRなし。CIワークフローのブランチ指定は
+すべてワイルドカード(`**`)であり、改名で失効するトリガーはない。
+改名は同一コミットへ新しいrefを付け替える操作であり、内容は失われない。
+
+| 旧名 | 新名 | 状態 |
+|---|---|---|
+| `danbo-tuned` | `tune/danbo` | 実施待ち |
+| `danbo-tuned2` | `tune/danbo2` | 実施待ち |
+| `fuuppi-tuned` | `tune/fuuppi` | 実施待ち |
+| `suisho11-tuned` | `tune/suisho11` | 実施待ち |
+| `spsa-danbo` | `tune/spsa-danbo` | 実施待ち |
+| `spsa-v930` | `tune/spsa-v930` | 実施待ち |
+
+変更しないもの: `master`(正本)、`search-v*`(§1の既存規約)、
+`backup/*`・`claude/*`・`codex/*`(既に規則準拠)。
+
+**実施方法**: リモートセッションのgitプロキシはブランチ作成は許可するが
+削除を受け付けないため、改名(=新名作成+旧名削除)はセッションからは
+完了できない。次のいずれかで行う。
+
+- GitHub UI の branch rename(旧名URLのリダイレクトとPR付け替えが自動で行われ、
+  最も安全)
+- ローカルからの一括push:
+
+```
+git fetch origin
+git push origin \
+  origin/danbo-tuned:refs/heads/tune/danbo \
+  origin/danbo-tuned2:refs/heads/tune/danbo2 \
+  origin/fuuppi-tuned:refs/heads/tune/fuuppi \
+  origin/suisho11-tuned:refs/heads/tune/suisho11 \
+  origin/spsa-danbo:refs/heads/tune/spsa-danbo \
+  origin/spsa-v930:refs/heads/tune/spsa-v930 \
+  :danbo-tuned :danbo-tuned2 :fuuppi-tuned \
+  :suisho11-tuned :spsa-danbo :spsa-v930
+# 削除可否検証時の残骸プローブ(masterと同一コミットの空ブランチ)も削除する
+git push origin :test/rename-probe
+```
+
+実施後、手元のスクリプトやビルドレシピ(iShogi の docker 等)が旧名を
+参照している場合は新名へ更新すること。実施したら本台帳の状態を「実施済み」に
+更新する。
