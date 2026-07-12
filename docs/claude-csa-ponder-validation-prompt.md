@@ -57,13 +57,18 @@ ShogiHomeの早期Ponderと `Stochastic_Ponder=true` の組み合わせで、
 
 ## 定跡の扱い
 
-以前の調査で、sojo側の **ply 8〜78にあるT0着手** は定跡起因と
-判断済みです。これらは `book-expected` として扱い、定跡かどうかを
-再判定しないでください。
+定跡だった範囲は前提として固定せず、あなたが独立に判定してください。
 
-- 同一の定跡ファイルが無く、リプレイ時にエンジンが思考しても修正失敗とはしない。
-- 元棋譜全体の分類表では、該当する元棋譜T0を「定跡即指し」として残す。
-- ply 78より後を根拠なく定跡扱いしない。
+- plyの範囲や `T0` であることだけを根拠に定跡扱いしない。
+- `docs/stochastic-ponder-immediate-move-test.md` にある
+  「ply 8〜78のT0は定跡起因」という記述は過去の仮説であり、確定事項ではない。
+- ShogiHome早期Ponderの時計欠落でもT0が発生するため、定跡とPonder hitを
+  時間値だけで区別しない。
+- 実際に読み込んだ定跡DBでの局面照合、エンジンの定跡hit出力、USIログ、
+  CSAコメントなど、再確認可能な根拠を手ごとに示す。
+- 定跡データやログが不足して確定できない手は、推測で確定せず
+  `book-unconfirmed` とする。
+- `book-confirmed`、`book-probable`、`book-unconfirmed` を区別する。
 
 ## 必須検証
 
@@ -117,12 +122,15 @@ minimum / optimum / maximum と実測を照合してください。
 
 元棋譜でsojoがT0だった77手を、少なくとも次へ分類してください。
 
-- `book-expected`
+- `book-confirmed`
+- `book-probable`
+- `book-unconfirmed`
 - `mate-early-break`
 - `legal-one`
-- `other`
+- `time-control-or-other`
 
-修正後の再現で、`other` に時計欠落によるT0が残るか結論を出してください。
+各定跡分類には根拠を付けてください。修正後の再現で、
+`time-control-or-other` に時計欠落によるT0が残るか結論を出してください。
 
 ### 4. 引数なしponderhitの対照
 
