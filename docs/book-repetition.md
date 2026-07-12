@@ -43,8 +43,8 @@
 
 候補手を指した直後の局面だけでなく、そこから **双方が定跡の実効値ベストを
 交互に辿るライン** を最大 `BookRepetitionPly` 手(候補手自身を1手目と数える。
-既定16、1で従来動作)まで進め、対局履歴・ライン内を問わず同一局面の再現
-(REPETITION_DRAW)へ到達する候補手の実効値を draw値へ置き換える。
+既定0で無効、1で候補手直後のみ、16でこの対策の推奨値)まで進め、対局履歴・ライン内を問わず
+同一局面の再現(REPETITION_DRAW)へ到達する候補手の実効値を draw値へ置き換える。
 
 - 上記事例では P0 の初回訪問(43手目)時点で `+2926HI` などの手待ち手が
   「4手で千日手ライン」と判定され、draw値(負に設定していれば)未満の代替手が
@@ -59,7 +59,7 @@
 
 root局面自体が対局履歴上2回目以降の出現なら、定跡ラインがループしている
 明確な兆候(前回この局面で選んだ定跡手ではループを断ち切れなかった)なので、
-定跡を使わず通常探索へフォールバックする(既定 true)。
+定跡を使わず通常探索へフォールバックする(既定 false。使う場合は明示する)。
 
 - 上記事例では47手目(P0 の2回目)で発火し、探索(DrawValue負なら千日手忌避)
   に切り替わる。定跡DBのカバレッジにも相手の挙動にも依存しない保険。
@@ -97,7 +97,8 @@ setoption name BookEvalBlackLimit value 0
 setoption name BookEvalWhiteLimit value -80
 ```
 
-(BookRepetitionPly=16 / BookIgnoreRepeatedRoot=true は既定で有効)
+この対策を有効にする場合の推奨値は `BookRepetitionPly=16` /
+`BookIgnoreRepeatedRoot=true`。既定ではどちらも無効側。
 
 ## 検証
 
@@ -119,11 +120,11 @@ sfen lnsg1gsnl/1r2k2b1/ppppppppp/9/9/9/PPPPPPPPP/1B5R1/LNSGKGSNL w - 4
 
 (IgnoreBookPly=true, BookMoves=30, DrawValueBlack=-100, BookEvalBlackLimit=0)
 
-1. `position startpos` + 既定(BookRepetitionPly=16):
+1. `position startpos` + `BookRepetitionPly=16`:
    `BookRepetition : 5i5h book_value 10 -> -90 (draw line in 4 plies)` が出力され、
    bestmove は 2g2f(サイクル回避)。
 2. BookRepetitionPly=1(従来動作) + BookEvalDiff=0: 置換なし、bestmove 5i5h。
-3. `position startpos moves 5i5h 5a5b 5h5i 5b5a`(root再訪) + 既定:
+3. `position startpos moves 5i5h 5a5b 5h5i 5b5a`(root再訪) + `BookIgnoreRepeatedRoot=true`:
    `BookRepetition : root position occurred 2 times in this game, ignoring book.`
    が出力され、通常探索の bestmove(4g4f)。
 4. 同上 + BookIgnoreRepeatedRoot=false: 従来の1手チェックが
