@@ -9,7 +9,39 @@ source配下の差分は `source/usi.cpp` のみ (+51/−1)。
 レビュー方針: コード変更なし。実際の git diff と現在のコードを読み直し、
 PTY(pexpect)による実機テストマトリクスで検証した。
 
-## 判定: 一部不適合
+## 追補: 未対応項目の実装 (2026-07-12)
+
+以下の初回レビューで指摘した F1、F2と、追加レビューで判明した
+ponderhit受信時刻の未課金を修正した。
+
+- `ponderhit` は `btime/wtime/binc/winc/byoyomi` と、V8.30互換の
+  `rtime` だけを専用パーサで解析する。
+- 保存済み `go ponder` を `LimitsType` へ構造化してから、hit側で
+  指定された時計項目だけを上書きする。`searchmoves` の後ろに
+  時計文字列を連結しない。
+- Stochastic Ponder は従来どおり再探索する。通常Ponderも時刻付き
+  hitの場合だけ、旧探索のbestmoveを抑止して停止し、同一局面の
+  通常探索を再開する。引数なしの標準 `ponderhit` は再起動せず
+  従来どおり探索を継続する。
+- 再探索の `startTime` は停止完了時ではなく、ponderhit受信時に
+  固定する。停止・局面復元の時間も対局時計に課金される。
+
+通常Ponderの時刻付きhitは、V8.30の `Time.reinit()` による同一探索継続と
+は内部動作が異なる。現行の非同期構造でUSIスレッドから探索中の
+`TimeManagement` を書き換えるdata raceを避けるためである。TTは維持されるが、
+反復深化とroot統計は再開時に初期化される。
+
+判定可能な `script/ponderhit_regression_test.py` を追加し、MATERIAL構成で
+標準/早期×通常/Stochasticの4経路、hit優先、部分上書き、
+`searchmoves`、非対応 `nodes` の非注入、時計なし、ponder missを確認した。
+ON/OFF設定の読み戻しに加え、Ponder中PVの先頭手がONでは1手前の局面、
+OFFでは実局面の合法手であることを確認し、Stochastic経路自体を検証した。
+各bestmove後は0.5秒の無出力区間も検査した。通常の0.3秒Ponderと、
+`go ponder` 直後のhitの両方で全件合格した。
+修正前バイナリは経路CでAssertionErrorとなり、非0終了することも確認した。
+FukauraOu CoreML構成はビルドと `usiok` まで確認した。
+
+## 初回パッチの判定: 一部不適合
 
 - **Stochastic Ponder (ON)**: 標準USI形式(時計付き go ponder + 引数なし
   ponderhit)・やねうら王拡張形式(時計なし go ponder + 時計付き ponderhit)の
@@ -58,10 +90,11 @@ PTY(pexpect)による実機テストマトリクスで検証した。
   維持する」)には**適合**。V8.30 の parse_ponderhit も同じ部分上書き意味論
 - 実害: byoyomi/inc併用の時間制御は実在しないため無し(報告のみ)
 
-### F4【情報】stochastic hit の stop→再go 間の数msはどちらの予算にも課金されない
+### F4【中】stochastic hit の stop→再go 間の数msは予算に課金されない
 
 `usi.cpp:271-276`(停止待ち)→ `usi.cpp:574`(再goのparse_limitsで
-startTime=now)。思考時間が僅かに増える方向であり安全側。
+startTime=now)。思考時間が増える方向であり、時間切れ安全性では危険側。
+追補実装ではhit受信時刻を停止前に保存し、再探索の `startTime` に使う。
 
 ### F5【情報】時計なし go ponder + 引数なし ponderhit の約100ms挙動は従来どおり
 
@@ -123,11 +156,10 @@ startTime=now)。思考時間が僅かに増える方向であり安全側。
 
 ## 未確認事項
 
-- F1 の修正実装(TimeManagement::reinit)は未着手・未検証
 - tm 内部値の直接ダンプ(コード変更なしでは不可。byoyomi公式一致で代替)
 - ShogiHome 実機を接続した E2E(pexpect PTY で代替。ShogiHome 側は
   ソース静的確認のみ)
-- `go ponder searchmoves` コーナー(F2)は机上分析のみ
+- FukauraOuの実モデルを使用した探索実行(ビルドと `usiok` のみ確認)
 - Windows 環境・高負荷(スレッド競合)時の挙動
 
 ## 変更状況

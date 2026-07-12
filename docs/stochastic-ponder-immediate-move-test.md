@@ -119,22 +119,26 @@ minimum/optimum/maximum を計算して照合した結果:
 
 ### 2026-07-12: 恒久対応を実装 (usi.cpp)
 
-ponderhit ハンドラで残りのトークン(時間制御)を取り出し、
-Stochastic_Ponder 有効時は保存済み go ponder 引数の**後ろに連結**して再goする
-(parse_limits は後に出現したトークンで上書きするので、ponderhit側の新しい
-時計が優先される)。go ponder / ponderhit のどちらにも時間制御が無い場合と、
-通常ponder(未対応)で時刻付きponderhitを受けた場合は warning を出す。
+保存済み `go ponder` を `LimitsType` へ解析し、`ponderhit` 専用パーサが
+`btime/wtime/binc/winc/byoyomi`(V8.30互換の `rtime` も維持)だけを
+部分上書きする。これにより `searchmoves` が行末まで引数を消費する場合でも
+hit時計は失われず、`nodes/depth/infinite` などの仕様外引数も注入されない。
 
-テストマトリクス(実測、sojotsec7のnn.binを使用した2048_ls9ビルド):
+Stochastic Ponderと、通常Ponderの時刻付きhitは、旧探索のbestmoveを抑止して
+停止し、実局面から通常探索を再開する。再探索の `startTime` は
+ponderhit受信時に固定し、停止・局面復元の時間も対局時計に課金する。
+引数なしの標準 `ponderhit` は再起動せず、従来どおり探索を継続する。
+
+テストマトリクス(MATERIALビルド、3秒読みの直接go基準1932ms):
 
 ```text
-[ON ] 時計なしgo ponder + 時計付きponderhit :  105ms → 3881ms に修正
-[ON ] 時計付きgo ponder + 時計なしponderhit : 2880ms (回帰なし)
-[ON ] go ponder側byoyomi1000 / hit側10000   : 8880ms (hit側が優先されている)
-[ON ] 両方時計なし                          :  103ms + Warning (退化ケースを可視化)
-[OFF] 時計なしgo ponder + 時計付きponderhit :  100ms + Warning (未対応の明示)
-[OFF] 時計付きgo ponder + 時計なしponderhit : 1880ms (回帰なし)
-[---] 通常のgo                              : 1881ms (回帰なし)
+[OFF] 時計付きgo ponder + 時計なしponderhit : 1940ms
+[ON ] 時計付きgo ponder + 時計なしponderhit : 1941ms
+[OFF] 時計なしgo ponder + 時計付きponderhit : 1942ms
+[ON ] 時計なしgo ponder + 時計付きponderhit : 1932ms
+[ON ] searchmoves付きgo ponder + 時計付きhit        : 1935ms
+[ON ] ponderhit nodes 1 + 時計                       : 1941ms (nodesは無視)
+[ON ] 両方時計なし                                  :  160ms + Warning
 ```
 
 実棋譜の局面での修正前後比較 (early-ponder形式リプレイ、ply82〜92):
@@ -144,13 +148,17 @@ Stochastic_Ponder 有効時は保存済み go ponder 引数の**後ろに連結*
 修正後(パッチ版)   : 3.88〜17.88s      ← 正常な時間管理
 ```
 
-`script/csa_ponder_replay.py` に `--mode earlyponder`
-(時計なし go ponder + 時計付き ponderhit を送る ShogiHome 早期Ponder形式) を追加。
+`script/ponderhit_regression_test.py` は上記経路とhit優先、部分上書き、
+ponder missをPTYで検証し、不適合時は非0で終了する。
+`Stochastic_Ponder` は `getoption` で設定値を読み戻すだけでなく、Ponder中の
+PV先頭手を検査する。ONでは最後の1手を戻した局面、OFFでは実局面の合法手集合に
+属することを確認するため、通常Ponderの再探索経路だけが動いていても合格しない。
+また各応答後0.5秒と次ケース開始前の出力を検査し、停止した旧探索から遅れて出る
+二重 `bestmove` も失敗として扱う。通常の0.3秒Ponderと待機なしhitで全件合格した。
 
-残課題: 通常ponder(Stochastic_Ponder無効)での時刻付きponderhit対応は、
-TimeManagement::reinit()(V9.60系で未実装)の追加が必要なため未対応のまま
-(warningで可視化)。早期Ponderを使う場合は Stochastic_Ponder を有効にするか、
-GUI側の早期Ponderを無効にすること。
+通常Ponderの時刻付きhitはV8.30の `Time.reinit()` による同一探索継続と異なり、
+現行の非同期構造でdata raceを避けるため内部再探索する。TTは維持するが、
+反復深化とroot統計は再開時に初期化される。
 
    **(b) setoption の値の文字列が不正な場合**:
    `setoption name Stochastic_Ponder value True` (大文字) / `1` / `on` は
