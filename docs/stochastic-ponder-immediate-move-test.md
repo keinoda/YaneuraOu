@@ -1,5 +1,85 @@
 # Stochastic Ponder 有効時の「残り時間に関わらず即指し」調査ログ
 
+## 2026-07-12: 実対局CSA棋譜(600秒+2秒加算)の0秒指し検証
+
+### 対象
+
+`dr7tsec+buoy_blackbid600_tsec7p2-3-top_4_suishoo_sojo-600-2F` の実対局棋譜。
+sojo(後手=本エンジン)の104手中 **77手がT0**。後手の残り時間は常に188秒以上
+(終局時207秒)で、時間切迫は一度もない。
+
+### 静的解析: 時間管理は実装どおり正確に動いていた
+
+CSAのT値から各局面の時計を復元し、timeman.cpp の式で
+minimum/optimum/maximum を計算して照合した結果:
+
+- 長考(T20〜42)15回のうち **13回が理論maximumTimeと厳密一致**
+  (差は常に −0.88s = 秒切り上げ−NetworkDelay 120ms のオフセットそのもの)。
+  ponder外れ時のフル思考として完全に実装どおり。
+- 残り2回(T20)も optimum〜maximum の帯域内。
+- この時間制御(600s+2F)での理論値: minimum 1.88s / optimum 7〜12s /
+  maximum 26〜43s(残り時間により変動)。**1秒未満は時間管理からは出ない**。
+
+### 実機リプレイ: T0はStochastic_Ponder有効では再現不可能
+
+`script/csa_ponder_replay.py` で、実際の時計残量・実際の相手考慮時間を
+再現しつつ全104手の白番を計測(always-hit USIポンダー手順)。
+
+| モード | 対象 | 最短 | 中央値 | 最長 |
+| --- | --- | --- | --- | --- |
+| Stochastic_Ponder **ON** | 非詰み・合法手2手以上の93手 | **2880ms** | 5881ms | 34882ms |
+| Stochastic_Ponder **OFF**(通常ponder) | 同 | **1880ms** | 6881ms | 36881ms |
+
+- **ON: 棋譜でT0だった77手のうち67手は1.8秒以上を要した**(残り10手は
+  詰み読み切り(mate-break)と合法手1手(502msキャップ)で、これは仕様どおり
+  どのモードでも即指しになる)。ONの実装は ponderhit のたびに現局面を
+  positionから再goするため、MinimumThinkingTime(2000)−NetworkDelay(120)
+  +秒丸めの床(≈1.9〜2.9s)を必ず消費する。
+- OFF(通常ponder)は、相手考慮中に思考予算(totalTime)を使い切ると
+  ponderhit直後に指す設計(stopOnPonderhit / set_search_endのponderhit補正)
+  なので、相手が数秒考えた局面では0.9〜1.9秒(CSA表記でT0〜T1)まで縮む。
+  実測でも1880msの床への収束を多数観測。
+- 序盤〜中盤前半(ply 8〜78)のT0は相手が即指し(黒T0〜2)の直後で、
+  通常ponderでも説明できない。この時間帯のT0はエンジン外の要因
+  (実運用側の定跡ヒット: 本読み筋コメントの評価値が小さく安定しており
+  定跡値の特徴と一致)が必要。zip配布物に定跡ファイルは含まれないため、
+  実運用の BookFile / BookMoves 設定の確認が必要。
+
+### 結論
+
+1. 棋譜中の時間消費は全点で実装と整合し、**時間管理の不具合はない**。
+2. **この対局の0秒指しパターンは Stochastic_Ponder が有効な状態の
+   本実装からは物理的に発生しない**(ONでは最短でも1.9〜2.9秒)。
+   T0の分布(相手長考後の即指し + 定跡帯 + 詰み圏 + 王手応手1手)は
+   「通常ponder + 定跡」の正規の動作プロファイルと一致する。
+3. T0を実際に発生させうる構成不備を2つ、実機で特定した。
+   ランナーのUSIログで以下の2点を確認すれば確定できる。
+
+   **(a) `go ponder` に時計パラメータが無い場合(最有力)**:
+   Stochastic_Ponder の ponderhit 処理は保存した go ponder コマンド行を
+   そのまま再実行するため、そこに btime/wtime が無いと再探索は
+   持ち時間0(remain_time 下限100ms)で走る。実測:
+
+   ```text
+   go ponder                                  → ponderhit後  105ms で bestmove (=T0)
+   go ponder btime 300000 wtime 300000 ...    → ponderhit後 2884ms で bestmove
+   ```
+
+   この場合 **Stochastic_Ponder が正しくONでも、残り時間に関わらず
+   ponderhitのたびに即指しになる**。将棋所/ShogiGUIは常に時計付きで
+   go ponder を送るため顕在化しない。自作ランナーでは要注意。
+   (通常ponderでも時計なしgo ponderは同様にhit後ほぼ即指しになる。)
+
+   **(b) setoption の値の文字列が不正な場合**:
+   `setoption name Stochastic_Ponder value True` (大文字) / `1` / `on` は
+   usioption.cpp の check 型判定 (`v != "true" && v != "false"`) により
+   **エラー表示なしで無視され、falseのまま**になる(実機確認済み。
+   Python の `str(True)` が "True" を生成する点に注意)。
+   この場合は通常ponderとして動作し、相手考慮中に思考予算を使い切った
+   ponderhit で即指しになる(こちらは正規のponder動作)。
+   オプション名の誤り(例: `StochasticPonder`)は "No such option" が
+   表示されるが、**値の誤りは沈黙する**。
+
 ## 2026-07-11: 調査のまとめ
 
 ### 症状
