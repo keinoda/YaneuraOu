@@ -50,8 +50,12 @@ minimum/optimum/maximum を計算して照合した結果:
 ### 結論
 
 1. 棋譜中の時間消費は全点で実装と整合し、**時間管理の不具合はない**。
-2. **この対局の0秒指しパターンは Stochastic_Ponder が有効な状態の
-   本実装からは物理的に発生しない**(ONでは最短でも1.9〜2.9秒)。
+2. **時計付きの正規USI手順である限り、この対局の0秒指しパターンは
+   Stochastic_Ponder が有効な状態の本実装からは発生しない**
+   (ONでは最短でも1.9〜2.9秒)。
+   ⚠ ただしこれは時計欠落起因のT0についての話であり、
+   **詰み読み切り(mate早期打ち切り)・合法手1手(502msキャップ)・
+   定跡ヒット・MaxMovesToDraw超過の保険経路によるT0は仕様として残る**。
    T0の分布(相手長考後の即指し + 定跡帯 + 詰み圏 + 王手応手1手)は
    「通常ponder + 定跡」の正規の動作プロファイルと一致する。
 3. T0を実際に発生させうる構成不備を2つ、実機で特定した。
@@ -89,11 +93,18 @@ minimum/optimum/maximum を計算して照合した結果:
    一方、やねうら王側でこの拡張を受けるパーサ `parse_ponderhit()`
    (usi.cpp「"ponderhit"に"go"で使うようなwtime,btime,winc,binc,byoyomiが
    書けるような拡張。(やねうら王独自拡張。USI拡張プロトコル)」)は、
-   **V9.60系では定義のみで呼び出し箇所が無い(死にコード)**。
-   V8.30 の ponderhit ハンドラ(通常ponder分岐)では
-   `parse_ponderhit(is)` → `Time.reinit()` が呼ばれており、
-   **V9.60 の書き直しで拡張対応が失われた退行**である
-   (upstream master も 2026-07-12 時点で同様に未接続)。
+   **V9.60系では定義のみで呼び出し箇所が無い(死にコード)**
+   (upstream master も 2026-07-12 時点で同様。upstreamでは `#if 0` 内)。
+
+   歴史的な正確性のための補足: V8.30 で `parse_ponderhit(is)` →
+   `Time.reinit()` を呼んでいたのは**通常ponder分岐だけ**であり、
+   Stochastic Ponder 分岐は当時から保存した go ponder を再実行するのみで
+   ponderhit の時刻引数を参照していない。つまり
+   - 通常ponder経路: V8.30では対応 → V9.60で失われた(**退行**)
+   - Stochastic経路: **当初から未対応**(下記パッチで新規対応)
+   であり、分類としては「特定コミットの退行」よりも
+   **GUI・エンジン間の拡張プロトコル互換処理(特にStochastic Ponder
+   ヒット時)の統合不具合**が適切。
 
    この組み合わせにより、早期Ponder有効のShogiHome + V9.60系 +
    Stochastic_Ponder ON では、ponderhit のたびに時計なしの go ponder が

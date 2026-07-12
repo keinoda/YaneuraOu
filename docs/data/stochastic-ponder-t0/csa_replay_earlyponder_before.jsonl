@@ -1,0 +1,6 @@
+{"mode": "earlyponder", "ply": 82, "kifu_move": "6e7d", "kifu_t": 0, "black_think": 3, "wclock": 277000, "legal": 42, "kind": "ponderhit", "latency_ms": 104, "score": "cp -127", "depth": "17", "bestmove": "6e7d"}
+{"mode": "earlyponder", "ply": 84, "kifu_move": "7c6e", "kifu_t": 0, "black_think": 4, "wclock": 279000, "legal": 85, "kind": "ponderhit", "latency_ms": 107, "score": "cp -77", "depth": "18", "bestmove": "7c6e"}
+{"mode": "earlyponder", "ply": 86, "kifu_move": "7a7d", "kifu_t": 0, "black_think": 4, "wclock": 281000, "legal": 88, "kind": "ponderhit", "latency_ms": 103, "score": "cp -171", "depth": "18", "bestmove": "7a7d"}
+{"mode": "earlyponder", "ply": 88, "kifu_move": "7d8d", "kifu_t": 0, "black_think": 3, "wclock": 283000, "legal": 106, "kind": "ponderhit", "latency_ms": 102, "score": "cp -95", "depth": "15", "bestmove": "7d6d"}
+{"mode": "earlyponder", "ply": 90, "kifu_move": "P*6h", "kifu_t": 0, "black_think": 3, "wclock": 285000, "legal": 99, "kind": "ponderhit", "latency_ms": 100, "score": "cp -191", "depth": "17", "bestmove": "P*6h"}
+{"mode": "earlyponder", "ply": 92, "kifu_move": "5d6c", "kifu_t": 0, "black_think": 3, "wclock": 287000, "legal": 84, "kind": "ponderhit", "latency_ms": 103, "score": "cp -84", "depth": "15", "bestmove": "5d6c"}
