@@ -106,6 +106,41 @@ minimum/optimum/maximum を計算して照合した結果:
    恒久対応はエンジン側で ponderhit 引数の解析(parse_ponderhitの接続)を
    復活させ、Stochastic Ponder の再goにその時計を反映すること。
 
+### 2026-07-12: 恒久対応を実装 (usi.cpp)
+
+ponderhit ハンドラで残りのトークン(時間制御)を取り出し、
+Stochastic_Ponder 有効時は保存済み go ponder 引数の**後ろに連結**して再goする
+(parse_limits は後に出現したトークンで上書きするので、ponderhit側の新しい
+時計が優先される)。go ponder / ponderhit のどちらにも時間制御が無い場合と、
+通常ponder(未対応)で時刻付きponderhitを受けた場合は warning を出す。
+
+テストマトリクス(実測、sojotsec7のnn.binを使用した2048_ls9ビルド):
+
+```text
+[ON ] 時計なしgo ponder + 時計付きponderhit :  105ms → 3881ms に修正
+[ON ] 時計付きgo ponder + 時計なしponderhit : 2880ms (回帰なし)
+[ON ] go ponder側byoyomi1000 / hit側10000   : 8880ms (hit側が優先されている)
+[ON ] 両方時計なし                          :  103ms + Warning (退化ケースを可視化)
+[OFF] 時計なしgo ponder + 時計付きponderhit :  100ms + Warning (未対応の明示)
+[OFF] 時計付きgo ponder + 時計なしponderhit : 1880ms (回帰なし)
+[---] 通常のgo                              : 1881ms (回帰なし)
+```
+
+実棋譜の局面での修正前後比較 (early-ponder形式リプレイ、ply82〜92):
+
+```text
+修正前(配布バイナリ): 全手 0.10〜0.11s  ← 棋譜のT0を完全再現
+修正後(パッチ版)   : 3.88〜17.88s      ← 正常な時間管理
+```
+
+`script/csa_ponder_replay.py` に `--mode earlyponder`
+(時計なし go ponder + 時計付き ponderhit を送る ShogiHome 早期Ponder形式) を追加。
+
+残課題: 通常ponder(Stochastic_Ponder無効)での時刻付きponderhit対応は、
+TimeManagement::reinit()(V9.60系で未実装)の追加が必要なため未対応のまま
+(warningで可視化)。早期Ponderを使う場合は Stochastic_Ponder を有効にするか、
+GUI側の早期Ponderを無効にすること。
+
    **(b) setoption の値の文字列が不正な場合**:
    `setoption name Stochastic_Ponder value True` (大文字) / `1` / `on` は
    usioption.cpp の check 型判定 (`v != "true" && v != "false"`) により

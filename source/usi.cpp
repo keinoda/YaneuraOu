@@ -34,6 +34,19 @@ void read_engine_options_from_candidates(OptionsMap& options, const std::string&
     }
 }
 
+// 文字列中に"go"コマンドの時間制御トークンが含まれるか。
+// "ponderhit"の時刻付き拡張(早期Ponder)関係の判定に用いる。
+bool has_time_control_tokens(const std::string& s) {
+    std::istringstream is(s);
+    std::string        token;
+    while (is >> token)
+        if (token == "btime" || token == "wtime" || token == "binc" || token == "winc"
+            || token == "byoyomi" || token == "movetime" || token == "rtime"
+            || token == "infinite")
+            return true;
+    return false;
+}
+
 }
 
 // benchmark用のコマンドその2
@@ -244,6 +257,13 @@ bool USIEngine::usi_cmdexec(const std::string& cmd) {
         last_ponder_hit = true;
         current_search_is_ponder = false;
 
+		// 🌈 "ponderhit"には"go"と同様の時間制御(btime/wtime/binc/winc/byoyomiなど)を
+		//     付与できる。(やねうら王独自拡張。USI拡張プロトコル)
+		//     ShogiHomeの「早期Ponder」は"go ponder"に時間制御を付与せず、
+		//     この形式("ponderhit btime .. wtime ..")で残り時間を送ってくる。
+        std::string ponderhit_args;
+        std::getline(is, ponderhit_args);
+
         // Stochastic Ponder中にhitした。
         if (engine.get_options().count("Stochastic_Ponder")
             && engine.get_options()["Stochastic_Ponder"])
@@ -264,10 +284,40 @@ bool USIEngine::usi_cmdexec(const std::string& cmd) {
 			std::istringstream iss2(last_go_cmd_string);
             iss2 >> token; // 先頭の"go"を捨てる。
             iss2 >> token; // "ponder"の文字列も捨てる。("go ponder"と連続してきているはず。
-            go(iss2);
+            std::string saved_go_args;
+            std::getline(iss2, saved_go_args);
+
+			// "go ponder"に付随していた時間制御より"ponderhit"に付随している時間制御のほうが新しい。
+			// parse_limits()は後に出現したトークンの値で上書きするので、後ろに連結すれば優先される。
+			// 💡 早期Ponderでは"go ponder"側には時間制御がなく、"ponderhit"側にだけ付いている。
+			//     これを反映しないと持ち時間0(下限100ms)の思考になってしまい、ほぼ即指しになる。
+            std::istringstream iss3(saved_go_args + " " + ponderhit_args);
+
+			// どちらにも時間制御が無いなら、この思考は持ち時間0(下限100ms)となり
+			// ほぼ即指しになってしまう。GUI側の"go ponder"の送信内容に問題がある。
+            if (!has_time_control_tokens(saved_go_args)
+                && !has_time_control_tokens(ponderhit_args))
+                sync_cout << "info string Warning! : no time control was given on 'go ponder' "
+                             "nor 'ponderhit'. The engine will move (almost) immediately."
+                          << sync_endl;
+
+            go(iss3);
 		}
 		else
+        {
+			// ⚠ 時刻付きponderhit(早期Ponder)による思考時間の再計算は、
+			//    通常ponder(Stochastic_Ponder無効)では現状未対応。
+			//    (V8.30まではparse_ponderhit()+Time.reinit()で行っていたが、
+			//     V9.60系の書き直しではTimeManagement::reinit()が未実装のため未接続。)
+			//    この場合、"go ponder"に時間制御が無いと持ち時間0の計画で思考しているため、
+			//    ponderhit後ほぼ即指しになる。
+            if (has_time_control_tokens(ponderhit_args))
+                sync_cout << "info string Warning! : 'ponderhit' with time control is not "
+                             "supported unless Stochastic_Ponder is enabled. Enable "
+                             "Stochastic_Ponder or disable early-ponder on the GUI side."
+                          << sync_endl;
 	        engine.set_ponderhit(false);
+        }
     }
 #endif
 

@@ -23,7 +23,10 @@ ap = argparse.ArgumentParser()
 ap.add_argument("csa")
 ap.add_argument("--engine-dir", required=True)
 ap.add_argument("--engine-bin", default="./YaneuraOu-by-gcc")
-ap.add_argument("--mode", choices=["stochastic", "normal", "noponder"], default="stochastic")
+ap.add_argument("--mode", choices=["stochastic", "normal", "noponder", "earlyponder"],
+                default="stochastic",
+                help="earlyponder = ShogiHomeの早期Ponder形式 "
+                     "(時計なし go ponder + 時計付き ponderhit, Stochastic_Ponder=true)")
 ap.add_argument("--side", choices=["b", "w"], default="w", help="which side the engine replays")
 ap.add_argument("--main-time", type=int, default=600000)
 ap.add_argument("--inc", type=int, default=2000)
@@ -97,7 +100,8 @@ send("usi"); wait(lambda l: l == "usiok")
 send(f"setoption name Threads value {args.threads}")
 send(f"setoption name USI_Hash value {args.hash}")
 send("setoption name USI_Ponder value true")
-send(f"setoption name Stochastic_Ponder value {'true' if args.mode == 'stochastic' else 'false'}")
+stochastic = args.mode in ("stochastic", "earlyponder")
+send(f"setoption name Stochastic_Ponder value {'true' if stochastic else 'false'}")
 send("isready"); wait(lambda l: l == "readyok", 180)
 send("usinewgame")
 
@@ -110,11 +114,18 @@ for i in range(len(moves)):
     opp_t = times[i - 1] if i - 1 >= 0 else 0
 
     drain()
-    if args.mode in ("stochastic", "normal") and i >= 1:
+    if args.mode in ("stochastic", "normal", "earlyponder") and i >= 1:
         send("position startpos moves " + " ".join(prefix))
-        send("go ponder " + clocks_str(i))
+        if args.mode == "earlyponder":
+            # ShogiHomeの早期Ponder: go ponderには時計を付けず、ponderhitに付ける。
+            send("go ponder")
+        else:
+            send("go ponder " + clocks_str(i))
         time.sleep(min(opp_t, args.max_opp_sleep) + 0.2)
-        t0 = send("ponderhit")
+        if args.mode == "earlyponder":
+            t0 = send("ponderhit " + clocks_str(i))
+        else:
+            t0 = send("ponderhit")
         kind = "ponderhit"
     else:
         send("position startpos moves " + " ".join(prefix))
