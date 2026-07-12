@@ -1,4 +1,5 @@
 ﻿#include <cstdlib>
+#include <optional>
 #include <sstream>
 #include <queue>
 
@@ -34,18 +35,82 @@ void read_engine_options_from_candidates(OptionsMap& options, const std::string&
     }
 }
 
-// 文字列中に"go"コマンドの時間制御トークンが含まれるか。
-// "ponderhit"の時刻付き拡張(早期Ponder)関係の判定に用いる。
-bool has_time_control_tokens(const std::string& s) {
-    std::istringstream is(s);
-    std::string        token;
+#if !STOCKFISH
+
+// 時刻付きponderhitが上書きする時間制御。
+// 未指定の項目はgo ponder側の値を維持する。
+struct PonderhitTimeControls {
+    std::optional<TimePoint> time[COLOR_NB];
+    std::optional<TimePoint> inc[COLOR_NB];
+    std::optional<TimePoint> byoyomi;
+    std::optional<TimePoint> rtime;
+    std::string              malformed_token;
+
+    bool has_values() const {
+        return time[WHITE] || time[BLACK] || inc[WHITE] || inc[BLACK] || byoyomi || rtime;
+    }
+
+    void apply(Search::LimitsType& limits) const {
+        for (Color c : COLOR)
+        {
+            if (time[c])
+                limits.time[c] = *time[c];
+            if (inc[c])
+                limits.inc[c] = *inc[c];
+        }
+
+        if (byoyomi)
+            limits.byoyomi[WHITE] = limits.byoyomi[BLACK] = *byoyomi;
+        if (rtime)
+            limits.rtime = *rtime;
+    }
+};
+
+PonderhitTimeControls parse_ponderhit_time_controls(std::istream& is) {
+    PonderhitTimeControls controls;
+    std::string           token;
+
     while (is >> token)
-        if (token == "btime" || token == "wtime" || token == "binc" || token == "winc"
-            || token == "byoyomi" || token == "movetime" || token == "rtime"
-            || token == "infinite")
-            return true;
-    return false;
+    {
+        std::optional<TimePoint>* destination = nullptr;
+
+        if (token == "wtime")
+            destination = &controls.time[WHITE];
+        else if (token == "btime")
+            destination = &controls.time[BLACK];
+        else if (token == "winc")
+            destination = &controls.inc[WHITE];
+        else if (token == "binc")
+            destination = &controls.inc[BLACK];
+        else if (token == "byoyomi")
+            destination = &controls.byoyomi;
+        else if (token == "rtime")
+            // V8.30の拡張パーサとの互換性のため維持する。
+            destination = &controls.rtime;
+        else
+            continue;
+
+        TimePoint value;
+        if (!(is >> value))
+        {
+            controls.malformed_token = token;
+            break;
+        }
+        *destination = value;
+    }
+
+    return controls;
 }
+
+bool has_usable_time_control(const Search::LimitsType& limits, Color side_to_move) {
+    if (!limits.use_time_management())
+        return true;
+
+    return limits.time[side_to_move] || limits.inc[side_to_move]
+        || limits.byoyomi[side_to_move] || limits.rtime;
+}
+
+#endif
 
 }
 
@@ -159,6 +224,10 @@ void USIEngine::init_search_update_listeners() {
     engine.set_on_update_full(
       [this](const auto& i) { on_update_full(i /*, engine.get_options()["UCI_ShowWDL"] */); });
     engine.set_on_bestmove([this](const auto& bm, const auto& p) {
+#if !STOCKFISH
+        if (suppress_bestmove_output.load(std::memory_order_relaxed))
+            return;
+#endif
         remember_bestmove(bm, p);
         on_bestmove(bm, p);
     });
@@ -254,6 +323,9 @@ bool USIEngine::usi_cmdexec(const std::string& cmd) {
         engine.set_ponderhit(false);
 #else
     {
+        const TimePoint ponderhit_time = now();
+        const bool      was_pondering  = current_search_is_ponder;
+
         last_ponder_hit = true;
         current_search_is_ponder = false;
 
@@ -263,60 +335,55 @@ bool USIEngine::usi_cmdexec(const std::string& cmd) {
 		//     この形式("ponderhit btime .. wtime ..")で残り時間を送ってくる。
         std::string ponderhit_args;
         std::getline(is, ponderhit_args);
+        std::istringstream    ponderhit_stream(ponderhit_args);
+        PonderhitTimeControls hit_controls = parse_ponderhit_time_controls(ponderhit_stream);
 
-        // Stochastic Ponder中にhitした。
-        if (engine.get_options().count("Stochastic_Ponder")
-            && engine.get_options()["Stochastic_Ponder"])
+        if (!hit_controls.malformed_token.empty())
+            sync_cout << "info string Warning! : 'ponderhit " << hit_controls.malformed_token
+                      << "' requires an integer time value." << sync_endl;
+
+        const bool stochastic_ponder = engine.get_options().count("Stochastic_Ponder")
+                                    && engine.get_options()["Stochastic_Ponder"];
+
+        // Stochastic Ponderは必ず実局面から再探索する。
+        // 通常Ponderでも時刻付き拡張なら、探索中のTimeManagementを
+        // USIスレッドから書き換えず、同一局面の通常探索として再開する。
+        if (was_pondering && (stochastic_ponder || hit_controls.has_values()))
         {
-			// 思考をいったん停止。このときbestmoveを出力されると困るので抑制してから。
-            auto on_bestmove = engine.get_on_bestmove();
-            engine.set_on_bestmove([](auto,auto) {});
-	        engine.stop();
+            // 保存済みgo ponderは一度LimitsTypeに変換する。
+            // searchmovesは行末まで消費するため、hit引数を文字列連結してはならない。
+            std::istringstream saved_go(last_go_cmd_string);
+            saved_go >> token; // 先頭の"go"を捨てる。
+            Search::LimitsType limits = parse_limits(saved_go);
+            hit_controls.apply(limits);
+            limits.ponderMode = false;
+
+            // 探索停止と局面復元に費やした時間も対局時計に課金する。
+            limits.startTime = ponderhit_time;
+
+            // 旧探索を止める際のbestmoveはGUIに返さない。
+            suppress_bestmove_output.store(true, std::memory_order_relaxed);
+            engine.stop();
             engine.wait_for_search_finished();
-            engine.set_on_bestmove(std::move(on_bestmove));
+            suppress_bestmove_output.store(false, std::memory_order_relaxed);
 
-			// 1手前の局面で思考させていたので、現在の局面にする必要がある。
+            // Stochastic Ponderでは1手前の局面を探索している。
+            // 通常Ponderでも保存局面を再設定し、両経路を同じ条件で再開する。
+            std::istringstream saved_position(last_position_cmd_string);
+            saved_position >> token; // 先頭の"position"を捨てる。
+            position(saved_position);
 
-            std::istringstream iss1(last_position_cmd_string);
-            iss1 >> token; // 先頭の"position"を捨てる。
-            position(iss1);
-
-			std::istringstream iss2(last_go_cmd_string);
-            iss2 >> token; // 先頭の"go"を捨てる。
-            iss2 >> token; // "ponder"の文字列も捨てる。("go ponder"と連続してきているはず。
-            std::string saved_go_args;
-            std::getline(iss2, saved_go_args);
-
-			// "go ponder"に付随していた時間制御より"ponderhit"に付随している時間制御のほうが新しい。
-			// parse_limits()は後に出現したトークンの値で上書きするので、後ろに連結すれば優先される。
-			// 💡 早期Ponderでは"go ponder"側には時間制御がなく、"ponderhit"側にだけ付いている。
-			//     これを反映しないと持ち時間0(下限100ms)の思考になってしまい、ほぼ即指しになる。
-            std::istringstream iss3(saved_go_args + " " + ponderhit_args);
-
-			// どちらにも時間制御が無いなら、この思考は持ち時間0(下限100ms)となり
-			// ほぼ即指しになってしまう。GUI側の"go ponder"の送信内容に問題がある。
-            if (!has_time_control_tokens(saved_go_args)
-                && !has_time_control_tokens(ponderhit_args))
-                sync_cout << "info string Warning! : no time control was given on 'go ponder' "
-                             "nor 'ponderhit'. The engine will move (almost) immediately."
+            if (!has_usable_time_control(limits, engine.get_position().side_to_move()))
+                sync_cout << "info string Warning! : no usable time control was given on "
+                             "'go ponder' or 'ponderhit'. The engine may move immediately."
                           << sync_endl;
 
-            go(iss3);
+            go(std::move(limits));
 		}
 		else
         {
-			// ⚠ 時刻付きponderhit(早期Ponder)による思考時間の再計算は、
-			//    通常ponder(Stochastic_Ponder無効)では現状未対応。
-			//    (V8.30まではparse_ponderhit()+Time.reinit()で行っていたが、
-			//     V9.60系の書き直しではTimeManagement::reinit()が未実装のため未接続。)
-			//    この場合、"go ponder"に時間制御が無いと持ち時間0の計画で思考しているため、
-			//    ponderhit後ほぼ即指しになる。
-            if (has_time_control_tokens(ponderhit_args))
-                sync_cout << "info string Warning! : 'ponderhit' with time control is not "
-                             "supported unless Stochastic_Ponder is enabled. Enable "
-                             "Stochastic_Ponder or disable early-ponder on the GUI side."
-                          << sync_endl;
-	        engine.set_ponderhit(false);
+			// 標準USIの引数なしponderhitは、従来どおり探索を継続する。
+		        engine.set_ponderhit(false);
         }
     }
 #endif
@@ -768,9 +835,9 @@ bool USIEngine::consume_ponder_miss(const Search::LimitsType& limits) {
 // go()は、思考エンジンがUSIコマンドの"go"を受け取ったときに呼び出される。
 // この関数は、入力文字列から思考時間とその他のパラメーターをセットし、探索を開始する。
 
-void USIEngine::go(std::istringstream& is)
-{
-    Search::LimitsType limits = parse_limits(is);
+void USIEngine::go(std::istringstream& is) { go(parse_limits(is)); }
+
+void USIEngine::go(Search::LimitsType limits) {
 #if !STOCKFISH
     limits.ponderMiss = consume_ponder_miss(limits);
     current_search_is_ponder = limits.ponderMode;
