@@ -4264,6 +4264,13 @@ moves_loop:  // When in check, search starts here
         if (ttCapture)
             r += 1054;
 
+        // 🌈 A/B(AB-06): 王手にならない駒打ちはreductionを増やす(将棋固有)。
+        //     駒打ちは将棋の合法手数を膨らませる主因で、その大半は有望でない。
+        //     historyの学習を待たず、構造的な事前確率として薄く読む。
+        //     (王手になる駒打ちは詰み絡みで重要なことが多いため除外)
+        if (move.is_drop() && !givesCheck)
+            r += 768;
+
         // Increase reduction if next ply has a lot of fail high
         // 次の手でfail highが多い場合、reductionを増やす
 
