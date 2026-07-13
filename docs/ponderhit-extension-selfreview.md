@@ -1,5 +1,13 @@
 # ponderhit時間制御拡張パッチのセルフレビュー報告 (2026-07-12)
 
+## 2026-07-13追補: 通常PonderをV8.30基準へ変更
+
+2026-07-12時点の内部再探索は現行の実装ではない。通常Ponderは、
+時計付きhitでもroot、反復深化、PV、nodes、root統計を維持する。
+USIスレッドは時計をpending eventとして渡し、探索メインスレッドが
+`TimeManagement` だけを再初期化してからPonderを解除する。
+Stochastic Ponderは従来どおり、一手前のrootから実局面へ再探索する。
+
 対象: コミット `6de7cab`「ponderhitの時間制御引数をStochastic Ponderの再goに反映する」
 比較元: ブランチ基点 `23faf0a` (master)。
 source配下の差分は `source/usi.cpp` のみ (+51/−1)。

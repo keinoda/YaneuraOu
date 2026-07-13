@@ -55,6 +55,7 @@ byo_long = "btime 0 wtime 0 byoyomi 3000"
 byo_mid = "btime 0 wtime 0 byoyomi 2500"
 byo_short = "btime 0 wtime 0 byoyomi 2000"
 fischer_low = "btime 1100 wtime 1100 binc 2000 winc 2000"
+asymmetric_clock = "btime 1100 wtime 3000"
 
 engine = pexpect.spawn(
     engine_bin,
@@ -98,6 +99,21 @@ def extract_pv_root_moves(output):
         if pv_index + 1 < len(fields):
             root_moves.append(fields[pv_index + 1])
     return root_moves
+
+
+def extract_search_samples(output):
+    samples = []
+    for line in output.replace("\r", "").splitlines():
+        fields = line.split()
+        if not fields or fields[0] != "info" or "depth" not in fields or "nodes" not in fields:
+            continue
+        try:
+            depth = int(fields[fields.index("depth") + 1])
+            nodes = int(fields[fields.index("nodes") + 1])
+        except (ValueError, IndexError):
+            continue
+        samples.append((depth, nodes))
+    return samples
 
 
 def expect_bestmove(timeout=30):
@@ -151,6 +167,7 @@ def run_ponder_case(
     expected_bestmoves=None,
     maximum_ms=None,
     expected_ponder_legal_moves=None,
+    expect_continuity=False,
 ):
     set_stochastic_ponder(label, stochastic)
     send(position_cmd)
@@ -173,6 +190,23 @@ def run_ponder_case(
     elapsed_ms = (time.monotonic() - started) * 1000
     tail = assert_no_bestmove(f"{label}: 応答後", args.quiet_seconds)
     combined_output = before_hit + output + tail
+
+    if expect_continuity and args.ponder_sleep > 0:
+        before_samples = extract_search_samples(before_hit)
+        after_samples = extract_search_samples(output)
+        assert before_samples, f"{label}: ponderhit前のdepth/nodesを観測できなかった"
+        assert after_samples, f"{label}: ponderhit後のdepth/nodesを観測できなかった"
+
+        before_depth = max(depth for depth, _ in before_samples)
+        before_nodes = max(nodes for _, nodes in before_samples)
+        after_depth = max(depth for depth, _ in after_samples)
+        after_nodes = min(nodes for _, nodes in after_samples)
+        assert after_depth >= before_depth, (
+            f"{label}: depthが{before_depth}から{after_depth}へリセットされた"
+        )
+        assert after_nodes >= before_nodes, (
+            f"{label}: hit後の最小nodes={after_nodes}がhit前の最大nodes={before_nodes}を下回った"
+        )
 
     assert_legal_bestmove(label, bestmove)
     if expected_bestmoves is not None:
@@ -197,6 +231,9 @@ def run_ponder_case(
 try:
     send("usi")
     engine.expect("usiok")
+    send("getoption PonderMissMaximumScale")
+    engine.expect(r"100\r?\n", timeout=5)
+    print("PASS PonderMissMaximumScale default is 100", flush=True)
     for option in (
         "Threads value 2",
         "USI_Hash value 64",
@@ -218,6 +255,7 @@ try:
     long_ms, _ = run_go("R-long: direct byoyomi 3000", byo_long)
     mid_ms, _ = run_go("R-mid: direct byoyomi 2500", byo_mid)
     short_ms, _ = run_go("R-short: direct byoyomi 2000", byo_short)
+    asymmetric_ms, _ = run_go("R-asymmetric: direct uses White clock", asymmetric_clock)
 
     print("== Fischer current-move limit ==")
     fischer_ms, _ = run_go(
@@ -252,6 +290,7 @@ try:
         "",
         long_ms,
         expected_ponder_legal_moves=legal_moves,
+        expect_continuity=True,
     )
     run_ponder_case(
         "B: ON clocked go + bare hit",
@@ -268,6 +307,7 @@ try:
         byo_long,
         long_ms,
         expected_ponder_legal_moves=legal_moves,
+        expect_continuity=True,
     )
     run_ponder_case(
         "D: ON bare go + clocked hit",
@@ -276,6 +316,15 @@ try:
         byo_long,
         long_ms,
         expected_ponder_legal_moves=stochastic_ponder_legal_moves,
+    )
+    run_ponder_case(
+        "E: OFF bare go + asymmetric clocked hit",
+        False,
+        "",
+        asymmetric_clock,
+        asymmetric_ms,
+        expected_ponder_legal_moves=legal_moves,
+        expect_continuity=True,
     )
 
     print("== merge semantics ==")

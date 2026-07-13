@@ -5,7 +5,7 @@
 ---
 
 `keinoda/YaneuraOu` のブランチ
-`claude/stochastic-ponder-immediate-moves-ef5xzl` にある最新実装を、
+`fix/ponderhit-time-control` にある最新実装を、
 実対局CSA棋譜で独立検証してください。
 
 ## 目的
@@ -28,7 +28,7 @@ ShogiHomeの早期Ponderと `Stochastic_Ponder=true` の組み合わせで、
 ## 対象
 
 - リポジトリ: `/Users/keinoda/Documents/YaneuraOu`
-- ブランチ: `claude/stochastic-ponder-immediate-moves-ef5xzl`
+- ブランチ: `fix/ponderhit-time-control`
 - 棋譜:
   `/tmp/codex-remote-attachments/019f5589-36b4-73e1-a591-d59248419a81/F884BA72-2FB6-40A0-ACF3-B34ED698263F/1-dr7tsec-buoy_blackbid600_tsec7p2-3-top_4_suishoo_sojo-600-2F-suishoo-sojo-20260711212454.csa`
 - テスト対象: sojo、後手、104手

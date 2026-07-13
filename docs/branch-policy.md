@@ -57,6 +57,10 @@ kebab-case で、内容が分かる範囲で簡潔(目安4語以内)にする。
 検証データ)は規則2に従い切り出し時点では保持し、master マージ時に
 規則3に従って整理する。
 
+2026-07-13、旧作業ブランチは
+`archive/claude/stochastic-ponder-immediate-moves-ef5xzl` タグで保全し、
+ブランチrefを削除した。以後の修正と検証は `fix/ponderhit-time-control` を用いる。
+
 また、`danbo-tuned2` に `fix/ponderhit-time-control` をマージした検証用
 ブランチ `test/danbo-tuned2-ponderhit` を作成し、素の `danbo-tuned2`
 (改名後は `tune/danbo2`)との比較テストに用いる。比較テスト終了後は

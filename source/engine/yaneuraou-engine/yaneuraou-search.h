@@ -1,6 +1,9 @@
 ﻿#ifndef YANEURAOU_SEARCH_H_INCLUDED
 #define YANEURAOU_SEARCH_H_INCLUDED
 
+#include <mutex>
+#include <optional>
+
 #include "../../config.h"
 
 #if defined (YANEURAOU_ENGINE)
@@ -200,6 +203,13 @@ class SearchManager {
     // 指し手をGUIに返す時刻になったかをチェックする。
     void check_time(YaneuraOuWorker& worker);
 
+#if !STOCKFISH
+    // USIスレッドから受け取ったponderhitを探索スレッド側で反映する。
+    void request_ponderhit(const LimitsType* limits, TimePoint ponderhitTime);
+    bool consume_ponderhit(YaneuraOuWorker& worker);
+    void init_time_management(YaneuraOuWorker& worker, bool reuseRootContext = false);
+#endif
+
     // 現在のPV(読み筋)をUpdateContext::onUpdateFull()で登録する。
     // tt      : このスレッドに属する置換表
     // depth   : 反復深化のiteration深さ。
@@ -272,6 +282,21 @@ class SearchManager {
     // 📝 Stochastic Ponderの場合、手番が異なることになる。
     //     この時、bestPreviousScore、bestPreviousAverageScoreを反転させる必要がある。
     int lastGamePly;
+
+#if !STOCKFISH
+   private:
+    struct PonderhitRequest {
+        std::optional<LimitsType> limits;
+        TimePoint                 ponderhitTime;
+    };
+
+    std::mutex                      ponderhitMutex;
+    std::optional<PonderhitRequest> pendingPonderhit;
+    std::atomic_bool                ponderhitPending = false;
+    Color                           timeManagementSide = BLACK;
+    int                             timeManagementGamePly = 0;
+    int                             timeManagementProgressBucket = -1;
+#endif
 };
 
 // -----------------------
@@ -409,6 +434,8 @@ class YaneuraOuEngine: public Engine {
 
     // "ponderhit"に対するhandler。
     virtual void set_ponderhit(bool b) override;
+    virtual bool set_ponderhit_limits(const Search::LimitsType& limits,
+                                      TimePoint                 ponderhitTime) override;
 
     // Threadのresizeするときのevent。
     virtual void resize_threads() override;

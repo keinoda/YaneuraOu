@@ -345,18 +345,38 @@ bool USIEngine::usi_cmdexec(const std::string& cmd) {
         const bool stochastic_ponder = engine.get_options().count("Stochastic_Ponder")
                                     && engine.get_options()["Stochastic_Ponder"];
 
-        // Stochastic Ponderは必ず実局面から再探索する。
-        // 通常Ponderでも時刻付き拡張なら、探索中のTimeManagementを
-        // USIスレッドから書き換えず、同一局面の通常探索として再開する。
+        std::optional<Search::LimitsType> resumed_limits;
         if (was_pondering && (stochastic_ponder || hit_controls.has_values()))
         {
             // 保存済みgo ponderは一度LimitsTypeに変換する。
             // searchmovesは行末まで消費するため、hit引数を文字列連結してはならない。
             std::istringstream saved_go(last_go_cmd_string);
             saved_go >> token; // 先頭の"go"を捨てる。
-            Search::LimitsType limits = parse_limits(saved_go);
-            hit_controls.apply(limits);
-            limits.ponderMode = false;
+            resumed_limits = parse_limits(saved_go);
+            hit_controls.apply(*resumed_limits);
+            resumed_limits->ponderMode = false;
+        }
+
+        // V8.30と同様に、通常Ponderはrootや反復深化を維持したまま
+        // 時間制御だけを探索スレッド側で更新する。
+        bool continued_normal_ponder = false;
+        if (was_pondering && !stochastic_ponder && resumed_limits)
+        {
+            if (!has_usable_time_control(*resumed_limits, engine.get_position().side_to_move()))
+                sync_cout << "info string Warning! : no usable time control was given on "
+                             "'go ponder' or 'ponderhit'. The engine may move immediately."
+                          << sync_endl;
+
+            continued_normal_ponder =
+              engine.set_ponderhit_limits(*resumed_limits, ponderhit_time);
+        }
+
+        // Stochastic Ponderは一手前のrootを探索するため必ず再探索する。
+        // 通常Ponderでも探索部が時間更新に未対応なら従来経路へ戻す。
+        if (was_pondering
+            && (stochastic_ponder || (resumed_limits && !continued_normal_ponder)))
+        {
+            Search::LimitsType limits = std::move(*resumed_limits);
 
             // 探索停止と局面復元に費やした時間も対局時計に課金する。
             limits.startTime = ponderhit_time;
@@ -368,7 +388,7 @@ bool USIEngine::usi_cmdexec(const std::string& cmd) {
             suppress_bestmove_output.store(false, std::memory_order_relaxed);
 
             // Stochastic Ponderでは1手前の局面を探索している。
-            // 通常Ponderでも保存局面を再設定し、両経路を同じ条件で再開する。
+            // 時間更新未対応の探索部も保存局面から再開する。
             std::istringstream saved_position(last_position_cmd_string);
             saved_position >> token; // 先頭の"position"を捨てる。
             position(saved_position);
@@ -380,10 +400,10 @@ bool USIEngine::usi_cmdexec(const std::string& cmd) {
 
             go(std::move(limits));
 		}
-		else
+        else if (!continued_normal_ponder)
         {
-			// 標準USIの引数なしponderhitは、従来どおり探索を継続する。
-		        engine.set_ponderhit(false);
+            // 標準USIの引数なしponderhitも同一探索を継続する。
+            engine.set_ponderhit(false);
         }
     }
 #endif
