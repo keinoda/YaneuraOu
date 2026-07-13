@@ -3671,11 +3671,8 @@ Value YaneuraOuWorker::search(Position& pos, Stack* ss, Value alpha, Value beta,
     // 十分な探索深さがある場合、置換表（TTMove）に手がないPVノードやCutノードについては探索深さを削減する。
     //（*Scaler）IIR をよりアグレッシブにすると、スケーリング効率が悪化する。
 
-    if (!ss->followPV && !allNode && depth >= 6 && !ttData.move && priorReduction <= 3)
-        depth--;
-
-#if OLD_CODE
-    // 🌈 以前のコードのほうが強い可能性がある。
+    // 🌈 A/B(AB-03): 旧方式のIIRを採用する。
+    //     作者コメント「以前のコードのほうが強い可能性がある」(#if OLD_CODEで残されていたもの) の検証。
 
 	if (    PvNode
 		&& !ttData.move)
@@ -3695,7 +3692,6 @@ Value YaneuraOuWorker::search(Position& pos, Stack* ss, Value alpha, Value beta,
 
 	if (cutNode && depth >= 7 && (!ttData.move || ttData.bound == BOUND_UPPER))
 		depth -= 1 + !ttData.move;
-#endif
         
 	// -----------------------
     // Step 11. ProbCut
