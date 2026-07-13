@@ -4213,6 +4213,13 @@ moves_loop:  // When in check, search starts here
 			*/
         }
 
+        // 🌈 A/B(AB-02): 王手延長の復活 (旧Stockfishの形 + SEE条件)。
+        //     将棋は王手絡みの変化の読み抜けが勝敗に直結しやすい一方、手駒による
+        //     王手が続きやすく組み合わせ爆発の危険もあるため、
+        //     「駒損しない王手」(SEE >= 0) かつ深いnode (depth > 9) に限定して1手延長する。
+        else if (givesCheck && depth > 9 && pos.see_ge(move, 0))
+            extension = 1;
+
 		// -----------------------
         // Step 16. Make the move
         // Step 16. 指し手で進める
