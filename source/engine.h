@@ -169,6 +169,10 @@ public:
     // 🤔 このbool、どう見ても不要なのだが…。
     virtual void set_ponderhit(bool b) = 0;
 
+    // 時刻付きponderhitを探索を継続したまま反映できるエンジンはtrueを返す。
+    // 未対応の探索部ではUSI層が従来どおり再探索にフォールバックする。
+    virtual bool set_ponderhit_limits(const Search::LimitsType&, TimePoint) { return false; }
+
 	// "ucinewgame"に対してWorkerを初期化する。(tt.clear(), threads.clear()を呼び出す)
 	//	🤔 将棋だと"isready"に対するhandlerで処理したほうがいいと思う。
 	//      "bench"コマンドから内部的に呼び出すので用意しておく。
@@ -527,6 +531,10 @@ class EngineWrapper: public IEngine {
     virtual void resize_threads() override { engine->resize_threads(); }
     virtual void set_tt_size(size_t mb) override { engine->set_tt_size(mb); }
     virtual void set_ponderhit(bool b) override { engine->set_ponderhit(b); }
+    virtual bool set_ponderhit_limits(const Search::LimitsType& limits,
+                                      TimePoint                 ponderhitTime) override {
+        return engine->set_ponderhit_limits(limits, ponderhitTime);
+    }
     virtual void search_clear() override { engine->search_clear(); }
 
     virtual void set_on_update_no_moves(std::function<void(const InfoShort&)>&& f) override final {

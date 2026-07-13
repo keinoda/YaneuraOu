@@ -380,12 +380,91 @@ void SearchOptions::add_options(OptionsMap& options) {
 
 
 void SearchManager::pre_start_searching(YaneuraOuWorker& worker) {
+#if !STOCKFISH
+    {
+        std::lock_guard<std::mutex> lock(ponderhitMutex);
+        pendingPonderhit.reset();
+        ponderhitPending.store(false, std::memory_order_relaxed);
+    }
+#endif
+
     // 🤔 StockfishのThreadPool::start_thinking()にあった以下の初期化をこちらに移動させた。
 
     stopOnPonderhit /* = stop = abortedSearch */ = false;
     ponder                                       = worker.limits.ponderMode;
     increaseDepth                                = true;
 }
+
+#if !STOCKFISH
+void SearchManager::request_ponderhit(const LimitsType* limits, TimePoint ponderhitTime) {
+    std::optional<LimitsType> updatedLimits;
+    if (limits)
+        updatedLimits = *limits;
+
+    std::lock_guard<std::mutex> lock(ponderhitMutex);
+    pendingPonderhit = PonderhitRequest{std::move(updatedLimits), ponderhitTime};
+    ponderhitPending.store(true, std::memory_order_release);
+}
+
+void SearchManager::init_time_management(YaneuraOuWorker& worker, bool reuseRootContext) {
+    if (!reuseRootContext)
+    {
+        timeManagementSide           = worker.rootPos.side_to_move();
+        timeManagementGamePly        = worker.rootPos.game_ply();
+        timeManagementProgressBucket = -1;
+#if defined(EVAL_NNUE)
+        if ((bool)worker.options["ProgressSlowMover"] || (bool)worker.options["ProgressMtg"])
+            timeManagementProgressBucket = Tanuki::Progress::LayerStackIndex(worker.rootPos);
+#endif
+    }
+
+    auto timeLimits = worker.limits;
+    if (opening_target_active_at_root(worker.rootOpeningTargetReached,
+                                      worker.rootOpeningTargetHidden,
+                                      timeManagementSide))
+        timeLimits.ponderMiss = false;
+
+    tm.init(timeLimits, timeManagementSide, timeManagementGamePly, worker.options,
+            search_options.max_moves_to_draw, timeManagementProgressBucket);
+}
+
+bool SearchManager::consume_ponderhit(YaneuraOuWorker& worker) {
+    if (!ponderhitPending.load(std::memory_order_acquire))
+        return false;
+
+    std::optional<PonderhitRequest> request;
+    {
+        std::lock_guard<std::mutex> lock(ponderhitMutex);
+        if (!pendingPonderhit)
+        {
+            ponderhitPending.store(false, std::memory_order_relaxed);
+            return false;
+        }
+        request = std::move(pendingPonderhit);
+        pendingPonderhit.reset();
+        ponderhitPending.store(false, std::memory_order_relaxed);
+    }
+
+    if (request->limits)
+    {
+        const auto& updated = *request->limits;
+        for (Color c : COLOR)
+        {
+            worker.limits.time[c]     = updated.time[c];
+            worker.limits.inc[c]      = updated.inc[c];
+            worker.limits.byoyomi[c]  = updated.byoyomi[c];
+        }
+        worker.limits.rtime = updated.rtime;
+        init_time_management(worker, true);
+        // 時計なしgo ponderの100ms予算で立った停止決定を新しい時計へ持ち越さない。
+        stopOnPonderhit = false;
+    }
+
+    tm.ponderhitTime = request->ponderhitTime;
+    ponder.store(false, std::memory_order_release);
+    return true;
+}
+#endif
 
 // 思考エンジンの追加オプションを設定する。
 // 💡 Stockfishでは、Engine::Engine()で行っている。
@@ -572,14 +651,16 @@ void YaneuraOuEngine::clear()
 
 // 🌈 "ponderhit"に対する処理。
 void YaneuraOuEngine::set_ponderhit(bool b) {
+    if (b)
+        manager.ponder = true;
+    else
+        manager.request_ponderhit(nullptr, now());
+}
 
-	// 📝 ponderhitしたので、やねうら王では、
-    //     現在時刻をtimer classに保存しておく必要がある。
-	// 💡 ponderフラグを変更する前にこちらを先に実行しないと
-	//     ponderフラグを見てponderhitTimeを参照して間違った計算をしてしまう。
-    manager.tm.ponderhitTime = now();
-
-	manager.ponder           = b;
+bool YaneuraOuEngine::set_ponderhit_limits(const Search::LimitsType& limits,
+                                           TimePoint                 ponderhitTime) {
+    manager.request_ponderhit(&limits, ponderhitTime);
+    return true;
 }
 
 // スレッド数を反映させる関数
@@ -1260,19 +1341,7 @@ void Search::YaneuraOuWorker::start_searching() {
                             main_manager()->originalTimeAdjust);
 #else
     auto& mainManager = *main_manager();
-    int progressBucket = -1;
-#if defined(EVAL_NNUE)
-    if ((bool)options["ProgressSlowMover"] || (bool)options["ProgressMtg"])
-        progressBucket = Tanuki::Progress::LayerStackIndex(rootPos);
-#endif
-
-    auto timeLimits = limits;
-    if (opening_target_active_at_root(rootOpeningTargetReached, rootOpeningTargetHidden,
-                                      rootPos.side_to_move()))
-        timeLimits.ponderMiss = false;
-
-    mainManager.tm.init(timeLimits, rootPos.side_to_move(), rootPos.game_ply(), options,
-                        mainManager.search_options.max_moves_to_draw, progressBucket);
+    mainManager.init_time_management(*this);
 #endif
 
     // 📌 置換表のTTEntryの世代を進める。
@@ -1464,6 +1533,10 @@ SKIP_SEARCH:
 
     while (!threads.stop && (main_manager()->ponder || limits.infinite))
     {
+#if !STOCKFISH
+        main_manager()->consume_ponderhit(*this);
+#endif
+
         // Busy wait for a stop or a ponder reset
         // stop か ponder reset を待つ間のビジーウェイト
 
@@ -5848,6 +5921,10 @@ void SearchManager::check_time(Search::YaneuraOuWorker& worker) {
     if (--callsCnt > 0)
         return;
 
+#if !STOCKFISH
+    consume_ponderhit(worker);
+#endif
+
     // When using nodes, ensure checking rate is not lower than 0.1% of nodes
     // ノード数を基準にする場合、チェック頻度がノード数の0.1%未満にならないようにする
 
@@ -5871,6 +5948,12 @@ void SearchManager::check_time(Search::YaneuraOuWorker& worker) {
 
     if (ponder)
         return;
+
+#if !STOCKFISH
+    // V8.30と同様に、maximumとmovetimeはponderhit後の経過時間で判定する。
+    // search_endはgo時刻基準の値なので、従来どおりelapsedと比較する。
+    const TimePoint elapsedFromPonderhit = tm.elapsed_time_from_ponderhit();
+#endif
 
 	if (
     // Later we rely on the fact that we can at least use the mainthread previous
@@ -5909,7 +5992,7 @@ void SearchManager::check_time(Search::YaneuraOuWorker& worker) {
     {
         if (
           // 3.
-          (worker.limits.movetime && elapsed >= worker.limits.movetime)
+          (worker.limits.movetime && elapsedFromPonderhit >= worker.limits.movetime)
           // 4.
           || (worker.limits.nodes && worker.threads.nodes_searched() >= worker.limits.nodes)
           // 5.
@@ -5919,7 +6002,7 @@ void SearchManager::check_time(Search::YaneuraOuWorker& worker) {
 
         else if (!tm.search_end && worker.limits.use_time_management() &&
 				 // 1.
-				 (elapsed > tm.maximum()
+				 (elapsedFromPonderhit > tm.maximum()
 				 // 2
 				  || stopOnPonderhit))
             tm.set_search_end(elapsed);
