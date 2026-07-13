@@ -116,9 +116,7 @@ qsearch futility、aspiration delta のみを触る)。
 - **場所**: search() Step 9
 - **現状**: `Depth R = 7 + depth / 3;` (深さのみ依存)
 - **変更**: `Depth R = std::min(int(eval - beta) / 232, 6) + depth / 3 + 5;`
-  (SF16〜17.1で長年使われた形。evalがbetaを大きく超えるほど深く削減)。
-  あわせて発動条件に `eval >= beta` を追加 (SF17と同形)。これがないと eval < beta のとき
-  Rが負になり、null move探索が親より深くなる病的ケースが生じる。
+  (SF16〜17.1で長年使われた形。evalがbetaを大きく超えるほど深く削減)
 - **根拠**: 将棋は終盤の評価値スイングがチェスより大きく、eval≫beta の局面では null move の
   検証を粗くしても安全という仮説。逆に eval≈beta では R が小さくなり検証が丁寧になる。
 - **リスク**: SF最新が固定Rに簡素化したのには理由がある(チェスでは等価以上だった)。将棋で
