@@ -3569,6 +3569,13 @@ Value YaneuraOuWorker::search(Position& pos, Stack* ss, Value alpha, Value beta,
 		auto futility_margin = [&](Depth d) {
             Value futilityMult = 76 - 21 * !ss->ttHit;
 
+            // 🌈 A/B(AB-09): 将棋の終盤は評価値の変動幅が大きくなるため、
+            //     進行度(手数)に応じてマージンを拡大する。
+            //     序盤1.0倍 → 200手目以降1.5倍の線形スケール。
+            //     このファイル上部の作者コメント「進行度に応じたfutility_marginが
+            //     必要となる。ここでは進行度としてgamePly()を用いる」の実装。
+            futilityMult += futilityMult * std::min(pos.game_ply(), 200) / 400;
+
             return futilityMult * d                                //
                  - (2686 * improving + 362 * opponentWorsening) * futilityMult / 1024
                  + std::abs(correctionValue) / 180600;
