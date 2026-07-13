@@ -456,7 +456,10 @@ Move MovePicker::select(Pred filter) {
 Move MovePicker::next_move() {
 
 	// 💡 good Quietの閾値
-	constexpr int goodQuietThreshold = -14000;
+	// 🌈 A/B(AB-11): -14000 → -8000 (Stockfishの値に近い水準)。
+	//     閾値を上げると、historyの悪いquietがより多くBAD_QUIET送りになり、
+	//     bad capturesの後に回される。将棋はハズレquietが多いので効果が出やすい仮説。
+	constexpr int goodQuietThreshold = -8000;
 
 top:
     switch (stage)
