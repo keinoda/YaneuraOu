@@ -54,6 +54,7 @@ assert legal_moves.isdisjoint(stochastic_ponder_legal_moves)
 byo_long = "btime 0 wtime 0 byoyomi 3000"
 byo_mid = "btime 0 wtime 0 byoyomi 2500"
 byo_short = "btime 0 wtime 0 byoyomi 2000"
+fischer_low = "btime 1100 wtime 1100 binc 2000 winc 2000"
 
 engine = pexpect.spawn(
     engine_bin,
@@ -217,6 +218,31 @@ try:
     long_ms, _ = run_go("R-long: direct byoyomi 3000", byo_long)
     mid_ms, _ = run_go("R-mid: direct byoyomi 2500", byo_mid)
     short_ms, _ = run_go("R-short: direct byoyomi 2000", byo_short)
+
+    print("== Fischer current-move limit ==")
+    fischer_ms, _ = run_go(
+        "F-direct: direct go does not add increment", fischer_low
+    )
+    assert fischer_ms <= 700, (
+        f"F-direct: {fischer_ms:.0f}ms, 残り1100msへincrementを先取りしている"
+    )
+
+    run_ponder_case(
+        "F-normal: OFF bare go + clocked hit",
+        False,
+        "",
+        fischer_low,
+        maximum_ms=700,
+        expected_ponder_legal_moves=legal_moves,
+    )
+    run_ponder_case(
+        "F-stochastic: ON bare go + clocked hit",
+        True,
+        "",
+        fischer_low,
+        maximum_ms=700,
+        expected_ponder_legal_moves=stochastic_ponder_legal_moves,
+    )
 
     print("== standard/early ponder matrix ==")
     run_ponder_case(
