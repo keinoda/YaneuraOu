@@ -1,7 +1,11 @@
 # script/ab — 探索部改善のA/Bテスト基盤
 
-`docs/search-improvement-plan.md` の改善ブランチ群 (`claude/search-ab/*`) を
+`docs/search-improvement-plan.md` の改善ブランチ群 (`test/ab-*`) を
 統計的に検証するためのツール一式。
+
+**効果測定はshogibenchで一括実施する方針** (設定は計画書§4と
+`shogibench-branches.yml` を参照)。本ディレクトリの `ab_match.py` は
+shogibenchが使えない環境向けの補助ツール。
 
 ## 構成
 
@@ -21,7 +25,7 @@ pip install cshogi
 # 1) ベースとテスト対象ブランチをビルド (NNUE / AVX2)
 script/ab/build_branches.sh -e YANEURAOU_ENGINE_NNUE -a AVX2 \
     claude/yaneuraou-search-optimization-qxvzz0 \
-    claude/search-ab/01-capture-futility
+    test/ab-01-capture-futility
 
 # 2) (推奨) 手元の評価関数で開始局面集を生成し直す
 python3 script/ab/make_openings.py \
@@ -32,7 +36,7 @@ python3 script/ab/make_openings.py \
 # 3) SPRT対局 (base=engine1 vs test=engine2)
 python3 script/ab/ab_match.py \
     --engine1 build/ab/claude_yaneuraou-search-optimization-qxvzz0.bin \
-    --engine2 build/ab/claude_search-ab_01-capture-futility.bin \
+    --engine2 build/ab/test_ab-01-capture-futility.bin \
     --eval-dir /path/to/eval \
     --byoyomi 1000 --concurrency 2 \
     --openings script/ab/openings.sfen \

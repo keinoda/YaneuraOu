@@ -1,0 +1,58 @@
+# shogibench一括テスト用のブランチインベントリ
+# docs/search-improvement-plan.md §4 の設定の機械可読版。
+# shogibench側のスキーマに合わせて読み替え/変換して使うこと。
+
+base:
+  branch: claude/yaneuraou-search-optimization-qxvzz0   # エンジンコードはmasterと同一
+  note: 対照群(engine1)。masterのビルドでも等価。
+
+build:
+  command: >
+    make -j$(nproc) tournament
+    YANEURAOU_EDITION=YANEURAOU_ENGINE_NNUE TARGET_CPU=AVX2 COMPILER=clang++
+  workdir: source
+  clean_between_editions: true   # エディション/フラグ変更時は make clean 必須
+  binary: source/YaneuraOu-by-gcc
+
+common_options:            # 両エンジンに設定するUSIオプション
+  Threads: 1
+  USI_Hash: 256
+  USI_Ponder: false
+  NetworkDelay: 0
+  NetworkDelay2: 0
+  MinimumThinkingTime: 0
+  MaxMovesToDraw: 320
+  USI_OwnBook: false
+  BookFile: no_book
+  # EvalDir: <両者共通のNNUE評価フォルダ>       # 環境に合わせて設定
+  # LS_PROGRESS_COEFF: <progress.bin>           # 進行度SFNN構成で測る場合のみ
+  # FV_SCALE: 28                                # 同上
+
+match:
+  tc: byoyomi 1000ms          # 判定採用前にLTC(持時間5分+秒読み等)で追試
+  openings: script/ab/openings.sfen   # 暫定版。たややん互角局面集等を推奨
+  pair_games: true            # 同一開始局面で先後入替
+  draw_moves: 320
+  adjudication: {resign_score: 3000, resign_count: 3}
+  fixed_nodes: false          # NPSが変わる変更が多いため時間制御必須
+
+sprt:
+  default: {elo0: 0, elo1: 5, alpha: 0.05, beta: 0.05}
+  small_effect: {elo0: 0, elo1: 3}      # AB-07 / AB-11 / AB-12
+  simplification: {elo0: -3, elo1: 1}   # AB-04 (機構の削除)
+
+# テスト対象 (推奨実行順)。engine2 = 当該ブランチ、engine1 = base。
+tests:
+  - {id: AB-01, branch: test/ab-01-capture-futility,  sprt: default,        desc: 捕獲futilityに交換値(盤上+手駒+成り)}
+  - {id: AB-03, branch: test/ab-03-iir-old-style,     sprt: default,        desc: IIRを旧方式へ}
+  - {id: AB-04, branch: test/ab-04-no-followpv,       sprt: simplification, desc: followPVゲーティング除去}
+  - {id: AB-09, branch: test/ab-09-gameply-futility,  sprt: default,        desc: futilityマージンの進行度スケール}
+  - {id: AB-02, branch: test/ab-02-check-extension,   sprt: default,        desc: 王手延長(SEE>=0, depth>9)}
+  - {id: AB-05, branch: test/ab-05-nmp-eval-r,        sprt: default,        desc: NMPのRにeval-beta項}
+  - {id: AB-10, branch: test/ab-10-mate1ply-depth,    sprt: default,        desc: mate_1plyにdepth>=3条件}
+  - {id: AB-11, branch: test/ab-11-goodquiet-threshold, sprt: small_effect, desc: good quiet閾値-14000→-8000}
+  - {id: AB-08, branch: test/ab-08-aspiration-delta,  sprt: default,        desc: aspiration初期幅5→9}
+  - {id: AB-12, branch: test/ab-12-capture-statscore, sprt: small_effect,   desc: 捕獲statScoreに交換値}
+  - {id: AB-06, branch: test/ab-06-drop-lmr,          sprt: default,        desc: 非王手駒打ちのreduction増}
+  - {id: AB-07, branch: test/ab-07-statscore-conthist, sprt: small_effect,  desc: statScoreにcontHist[3],[5]}
+  - {id: AB-ALL, branch: test/ab-all,                 sprt: default,        desc: 全部乗せ(相互作用の参考値)}
