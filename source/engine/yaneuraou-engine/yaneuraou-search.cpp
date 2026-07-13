@@ -3965,13 +3965,14 @@ moves_loop:  // When in check, search starts here
 
                 if (!givesCheck && lmrDepth < 7)
                 {
-                    // 🤔 StockfishのPieceValue[]は、
-                    //     やねうら王ではCapturePieceValue[] + CapturePieceValue[capturedPiece]
-                    //       = CapturePieceValuePlusPromote()
-                    //     のほうがより正確な評価ではないか？
+                    // 🌈 A/B(AB-01): 将棋の捕獲は「盤上の相手駒の除去 + 手駒の獲得」なので、
+                    //     評価値の変動量はPieceValue(盤上値のみ)ではなく
+                    //     交換値+成り差分 = CapturePieceValuePlusPromote() で見積もる。
+                    //     (歩の成りなどもここに来るので、その価値も正しく乗る)
 
                     Value futilityValue = ss->staticEval + 218 + 223 * lmrDepth
-                                        + PieceValue[capturedPiece] + 131 * captHist / 1024;
+                                        + Eval::CapturePieceValuePlusPromote(pos, move)
+                                        + 131 * captHist / 1024;
 
 
                     if (futilityValue <= alpha)
@@ -5296,13 +5297,14 @@ Value Search::YaneuraOuWorker::qsearch(Position& pos, Stack* ss, Value alpha, Va
                     continue;
 
 				/*
-                    🤔 moveが成りの指し手なら、その成ることによる価値上昇分も
-					    ここに乗せたほうが正しい見積りになるはず。
+                    🌈 A/B(AB-01): 将棋の捕獲による評価値変動は
+					    「盤上駒の除去 + 手駒の獲得(+成りの価値)」なので、
+					    交換値+成り差分 = CapturePieceValuePlusPromote() で見積もる。
 					📊 【計測資料 14.】 futility pruningのときにpromoteを考慮するかどうか。
 				*/
 
                 Value futilityValue = futilityBase +
-                                    PieceValue[pos.piece_on(move.to_sq())];
+                                    Eval::CapturePieceValuePlusPromote(pos, move);
                                 // ⚠　これ、加算した結果、s16に収まらない可能性があるが、
                                 //      計算はs32で行って、そのあと、この値を用いないからセーフ。
 
