@@ -3582,7 +3582,11 @@ Value YaneuraOuWorker::search(Position& pos, Stack* ss, Value alpha, Value beta,
     // -----------------------
 
     //  🖊 evalがbetaを超えているので1手パスしてもbetaは超えそう。だからnull moveを試す
-    if (cutNode && ss->staticEval >= beta - 16 * depth - 53 * improving + 378 && !excludedMove
+    // 🌈 A/B(AB-05): eval >= beta の条件を追加 (SF17と同じ)。
+    //     これがないと下のRの計算で eval < beta のとき R が負になり、
+    //     null move探索が親nodeより深くなる病的なケースが生じうる。
+    if (cutNode && eval >= beta
+        && ss->staticEval >= beta - 16 * depth - 53 * improving + 378 && !excludedMove
 #if STOCKFISH
         && pos.non_pawn_material(us)
     // 💡 盤上にpawn以外の駒がある ≒ pawnだけの終盤ではない。
