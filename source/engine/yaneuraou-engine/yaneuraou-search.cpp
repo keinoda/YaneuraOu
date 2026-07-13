@@ -3671,7 +3671,8 @@ Value YaneuraOuWorker::search(Position& pos, Stack* ss, Value alpha, Value beta,
     // 十分な探索深さがある場合、置換表（TTMove）に手がないPVノードやCutノードについては探索深さを削減する。
     //（*Scaler）IIR をよりアグレッシブにすると、スケーリング効率が悪化する。
 
-    if (!ss->followPV && !allNode && depth >= 6 && !ttData.move && priorReduction <= 3)
+    // 🌈 A/B(AB-04): followPVゲーティングを除去 (純Stockfish挙動の検証)
+    if (!allNode && depth >= 6 && !ttData.move && priorReduction <= 3)
         depth--;
 
 #if OLD_CODE
@@ -3996,7 +3997,8 @@ moves_loop:  // When in check, search starts here
                     continue;
 
             }
-            else if (!ss->followPV || !PvNode)
+            // 🌈 A/B(AB-04): followPVゲーティングを除去 (純Stockfish挙動の検証)
+            else
             {
                 int history = (*contHist[0])[movedPiece][move.to_sq()]
                             + (*contHist[1])[movedPiece][move.to_sq()]
