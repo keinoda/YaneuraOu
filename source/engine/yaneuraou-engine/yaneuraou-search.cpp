@@ -3598,7 +3598,11 @@ Value YaneuraOuWorker::search(Position& pos, Stack* ss, Value alpha, Value beta,
         // Null move dynamic reduction based on depth
         // (残り探索)深さと評価値に基づくnull moveの動的なreduction
 
-        Depth R = 7 + depth / 3;
+        // 🌈 A/B(AB-05): evalとbetaの差に応じてRを動的にスケールさせる
+        //     (Stockfish 16〜17.1で長年使われた形の復元)。
+        //     将棋は評価値のスイングが大きいため、eval >> beta では深く削減しても安全で、
+        //     eval ≈ beta では検証を丁寧にするという仮説の検証。
+        Depth R = std::min(int(eval - beta) / 232, 6) + depth / 3 + 5;
 
         ss->currentMove                   = Move::null();
         ss->continuationHistory           = &continuationHistory[0][0][NO_PIECE][0];
