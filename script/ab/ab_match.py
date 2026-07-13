@@ -52,13 +52,12 @@ def elo_to_score(elo: float) -> float:
 
 def sprt_llr(wins: int, draws: int, losses: int, elo0: float, elo1: float) -> float:
     """fastchess/cutechess系のGSPRT近似によるLLR。"""
-    n = wins + draws + losses
-    if n == 0:
+    if wins + draws + losses == 0:
         return 0.0
     # 正則化 (0分散を避ける)
-    w = max(wins, 0.5) / n
-    d = max(draws, 0.5) / n
-    l = max(losses, 0.5) / n
+    W, D, L = max(wins, 0.5), max(draws, 0.5), max(losses, 0.5)
+    n = W + D + L
+    w, d, l = W / n, D / n, L / n
     s = w + d / 2.0
     m2 = w + d / 4.0
     var = m2 - s * s
