@@ -70,12 +70,12 @@ kebab-case で、内容が分かる範囲で簡潔(目安4語以内)にする。
 
 | 旧名 | 新名 | 状態 |
 |---|---|---|
-| `danbo-tuned` | `tune/danbo` | 実施待ち |
-| `danbo-tuned2` | `tune/danbo2` | 実施待ち |
-| `fuuppi-tuned` | `tune/fuuppi` | 実施待ち |
-| `suisho11-tuned` | `tune/suisho11` | 実施待ち |
-| `spsa-danbo` | `tune/spsa-danbo` | 実施待ち |
-| `spsa-v930` | `tune/spsa-v930` | 実施待ち |
+| `danbo-tuned` | `tune/danbo` | 実施済み |
+| `danbo-tuned2` | `tune/danbo2` | 実施済み |
+| `fuuppi-tuned` | `tune/fuuppi` | 実施済み |
+| `suisho11-tuned` | `tune/suisho11` | 実施済み |
+| `spsa-danbo` | `tune/spsa-danbo` | 実施済み |
+| `spsa-v930` | `tune/spsa-v930` | 実施済み |
 
 変更しないもの: `master`(正本)、`search-v*`(§1の既存規約)、
 `backup/*`・`claude/*`・`codex/*`(既に規則準拠)。
@@ -104,5 +104,9 @@ git push origin :test/rename-probe
 ```
 
 実施後、手元のスクリプトやビルドレシピ(iShogi の docker 等)が旧名を
-参照している場合は新名へ更新すること。実施したら本台帳の状態を「実施済み」に
-更新する。
+参照している場合は新名へ更新すること。
+
+**実施記録(2026-07-13)**: 全6件の改名とプローブ削除を完了。新refが旧refと
+同一コミットを指すことを全件で検証済み(tune/danbo=a913b200,
+tune/danbo2=5e5f0b53, tune/fuuppi=8b5dc706, tune/spsa-danbo=8136c5d0,
+tune/spsa-v930=67e75fcf, tune/suisho11=180137d0)。
