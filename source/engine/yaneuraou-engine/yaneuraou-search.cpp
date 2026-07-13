@@ -4277,7 +4277,10 @@ moves_loop:  // When in check, search starts here
             r -= 2239;
 
         if (capture)
-            ss->statScore = 863 * int(PieceValue[pos.captured_piece()]) / 128
+            // 🌈 A/B(AB-12): 捕獲手のstatScoreの駒価値項を、盤上値(PieceValue)から
+            //     将棋の実質変動量である交換値(CapturePieceValue=盤上+手駒)に変更する。
+            //     大駒・成駒を取る手のreductionがより小さくなる(=深く読まれる)。
+            ss->statScore = 863 * int(Eval::CapturePieceValue[pos.captured_piece()]) / 128
                           + captureHistory[movedPiece][move.to_sq()][type_of(pos.captured_piece())];
         else
             // 📊【計測資料 11.】statScoreの計算でcontHist[3]も調べるかどうか。
