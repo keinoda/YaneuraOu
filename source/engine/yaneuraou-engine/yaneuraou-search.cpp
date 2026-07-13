@@ -1979,7 +1979,10 @@ bool Search::YaneuraOuWorker::iterative_deepening() {
 
             // Reset aspiration window starting size
             // aspiration windowの開始サイズをリセットする。
-            delta     = 5 + threadIdx % 8 + std::abs(rootMoves[pvIdx].meanSquaredScore) / 9000;
+            // 🌈 A/B(AB-08): 初期幅のベースを5(SF17の値)から9へ拡大。
+            //     解説コメントにある「将棋ではStockfishより少し高めが良さそう」の検証。
+            //     評価値の揺れが大きい将棋ではfail high/lowの再探索コストが嵩む仮説。
+            delta     = 9 + threadIdx % 8 + std::abs(rootMoves[pvIdx].meanSquaredScore) / 9000;
             Value avg = rootMoves[pvIdx].averageScore;
             alpha     = std::max(avg - delta, -VALUE_INFINITE);
             beta      = std::min(avg + delta,  VALUE_INFINITE);
