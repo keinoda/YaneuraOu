@@ -4297,11 +4297,15 @@ moves_loop:  // When in check, search starts here
             ss->statScore = 863 * int(PieceValue[pos.captured_piece()]) / 128
                           + captureHistory[movedPiece][move.to_sq()][type_of(pos.captured_piece())];
         else
-            // 📊【計測資料 11.】statScoreの計算でcontHist[3]も調べるかどうか。
-            // 🤔 contHist[5]も/2とかで入れたほうが良いのでは…。誤差か…？
+            // 🌈 A/B(AB-07): statScoreに4手前(contHist[3])・6手前(contHist[5])の
+            //     継続手履歴を半分の重みで追加する。
+            //     作者コメント「contHist[5]も/2とかで入れたほうが良いのでは」(計測資料11) の検証。
+            //     MovePickerのオーダリングは既にcontHist[0..3],[5]を使っており、reduction側との整合も取る。
             ss->statScore = 2 * mainHistory[us][move.raw()]
                           + (*contHist[0])[movedPiece][move.to_sq()]
-                          + (*contHist[1])[movedPiece][move.to_sq()];
+                          + (*contHist[1])[movedPiece][move.to_sq()]
+                          + (*contHist[3])[movedPiece][move.to_sq()] / 2
+                          + (*contHist[5])[movedPiece][move.to_sq()] / 2;
 
         // Decrease/increase reduction for moves with a good/bad history
         // 良い/悪い履歴を持つ手に対して、reductionを減らす/増やす
