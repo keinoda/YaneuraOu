@@ -3232,7 +3232,10 @@ Value YaneuraOuWorker::search(Position& pos, Stack* ss, Value alpha, Value beta,
 			ただ、静止探索で入れている以上、depth == 1でも1手詰めを判定したほうがよさげではある。
 	*/
 
-	if (!rootNode && !ttHit
+	// 🌈 A/B(AB-10): depth >= 3 の条件を追加。
+	//     浅いnodeでの1手詰め判定は「どうせこのあとすぐ(子のqsearchで)見つけてしまう」ため
+	//     見返りが少ない、という作者コメントの実装・検証。呼び出し回数削減によるNPS向上を狙う。
+	if (!rootNode && !ttHit && depth >= 3
 		// TODO : この条件必要なのか？
         && !excludedMove
     )
