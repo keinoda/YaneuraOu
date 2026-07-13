@@ -3673,6 +3673,7 @@ Value YaneuraOuWorker::search(Position& pos, Stack* ss, Value alpha, Value beta,
 
     // 🌈 A/B(AB-03): 旧方式のIIRを採用する。
     //     作者コメント「以前のコードのほうが強い可能性がある」(#if OLD_CODEで残されていたもの) の検証。
+    // 💡 A/B(AB-04)との統合: 旧方式IIRはfollowPVを参照しないため、この解決で両方の意図を満たす。
 
 	if (    PvNode
 		&& !ttData.move)
@@ -3993,7 +3994,8 @@ moves_loop:  // When in check, search starts here
                     continue;
 
             }
-            else if (!ss->followPV || !PvNode)
+            // 🌈 A/B(AB-04): followPVゲーティングを除去 (純Stockfish挙動の検証)
+            else
             {
                 int history = (*contHist[0])[movedPiece][move.to_sq()]
                             + (*contHist[1])[movedPiece][move.to_sq()]
