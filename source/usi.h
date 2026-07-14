@@ -1,6 +1,7 @@
 ﻿#ifndef USI_H_INCLUDED
 #define USI_H_INCLUDED
 
+#include <atomic>
 #include <cstddef>
 #include <iosfwd>
 #include <map>
@@ -168,6 +169,7 @@ private:
 	// USIプロトコルのコマンド名がそのまま関数名になっている。
 
 	void          go(std::istringstream& is);
+	void          go(Search::LimitsType limits);
 	void          bench(std::istream& args);
 	void          benchmark(std::istream& args);
 	void          position(std::istringstream& is);
@@ -252,6 +254,9 @@ private:
     bool                     last_ponder_hit             = false;
     bool                     last_ponder_search_started  = false;
     bool                     current_search_is_ponder    = false;
+
+    // ponderhitで旧探索を停止する間のbestmove出力を抑止する。
+    std::atomic_bool suppress_bestmove_output = false;
 
 #endif
 };

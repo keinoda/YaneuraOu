@@ -3342,6 +3342,7 @@ namespace {
 void Position::UnitTest(Test::UnitTester& tester, IEngine& engine) {
     auto section1 = tester.section("Position");
 
+    // NNUEではStateInfoが大きいため、複数局面の履歴はStateListでheapに確保する。
     Position  pos;
     StateInfo si;
 
@@ -3465,7 +3466,7 @@ void Position::UnitTest(Test::UnitTester& tester, IEngine& engine) {
 
         tester.test("REPETITION_DRAW", rep == REPETITION_DRAW && found_ply == 4);
 
-        StateInfo s[512];
+        StateList s(4);
         // 初期局面から先手の飛車が46,後手玉が54に移動している局面。
         // ここから56飛(46)→44玉(54)→46飛(56)→54玉(44)で先手の反則負け
         pos_init("lnsg1gsnl/1r5b1/ppppppppp/4k4/9/5R3/PPPPPPPPP/1B7/LNSGKGSNL b - 1");
@@ -3687,7 +3688,7 @@ void Position::UnitTest(Test::UnitTester& tester, IEngine& engine) {
     {
         // see_ge()のテスト
         auto      section = tester.section("see_ge");
-        StateInfo s[512];
+        StateList s(4);
 
         // 平手初期化
         hirate_init();
@@ -3737,7 +3738,7 @@ void Position::UnitTest(Test::UnitTester& tester, IEngine& engine) {
         // null moveのテスト
         auto section = tester.section("nullmove");
         matsuri_init();
-        StateInfo s[512];
+        StateList s(1);
 
         // null moveして、局面情報がおかしくならないかのテスト。
         pos.do_null_move(s[0]);
@@ -3804,10 +3805,10 @@ void Position::UnitTest(Test::UnitTester& tester, IEngine& engine) {
 
             bool ok = true;
 
+            StateList states(MAX_PLY + 1);
             for (int i = 0; i < 1000; ++i)
             {
-                StateInfo si[MAX_PLY];
-                pos.set_hirate(&si[0]);
+                pos.set_hirate(&states[0]);
                 for (int j = 1; j < MAX_PLY; ++j)
                 {
                     MoveList<LEGAL_ALL> ml(pos);
@@ -3817,7 +3818,7 @@ void Position::UnitTest(Test::UnitTester& tester, IEngine& engine) {
                         break;
 
                     Move m = Move(ml.at(size_t(my_rand.rand(ml.size()))));
-                    pos.do_move(m, si[j + 1]);
+                    pos.do_move(m, states[j + 1]);
 
 					// 📓 sfen経由でset()を呼び出す。この時、set()によってpartial keyが初期化される。
 					//     差分更新したpartial keyと一致するかをテストする。
@@ -3957,7 +3958,7 @@ void Position::UnitTest(Test::UnitTester& tester, IEngine& engine) {
 
             // seed固定乱数(再現性ある乱数)
             PRNG      my_rand(114514);
-            StateInfo s[512];
+            StateList s(512);
 
             for (s64 i = 0; i < random_player_loop; ++i)
             {
