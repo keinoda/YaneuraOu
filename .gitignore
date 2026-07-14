@@ -250,8 +250,10 @@ _Pvt_Extensions/
 ModelManifest.xml
 /source/eval/nnue/architectures/SFNN_*.h
 
-# Makefileの既定出力バイナリ(source/ 直下に生成される)
-/source/YaneuraOu-by-gcc
-/source/YaneuraOu-by-gcc.exe
+# エンジンのビルド成果物(source/ 直下に生成される)
+/source/YaneuraOu-by-*
 /source/yaneuraou.js
+/source/yaneuraou.wasm
+/source/yaneuraou.worker.js
+/source/yaneuraou.data
 __pycache__/
