@@ -506,6 +506,12 @@ constexpr int MAX_PLY_NUM = 246;
 //   for tournament
 // --------------------
 
+// ENABLE_TUNE(探索パラメーターのUSIオプション化)は大会用ビルドと併用できない。
+// 大会用は従来どおり固定値が埋め込まれていなければならない。
+#if defined(FOR_TOURNAMENT) && defined(ENABLE_TUNE)
+	#error "ENABLE_TUNE cannot be combined with FOR_TOURNAMENT."
+#endif
+
 // トーナメント(大会)用に、対局に不要なものをすべて削ぎ落とす。
 #if defined(FOR_TOURNAMENT)
 	#undef ASSERT_LV
