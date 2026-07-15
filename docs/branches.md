@@ -1,17 +1,18 @@
 # ブランチ台帳
 
 - 作成: 2026-07-14(第2回棚卸し。docs/branch-policy.md §6)
+- 更新: 2026-07-15(第3回棚卸し。同 §7)
 - 目的: 生きているブランチの目的・状態の一覧
   (docs/repository-organization-plan.md P5 の実施)
 - 規則: docs/branch-policy.md。ブランチの追加・削除・処置のたびに本台帳を更新する
-- 実施状況: **実施済み(2026-07-14)**。リモート照合済み
-  (タグ0件・refs/archive 11件・残ブランチ25本=本台帳と一致)
+- 実施状況: **第3回実施済み(2026-07-15)**。リモート照合済み
+  (refs/archive 16件・残ブランチ7本=本台帳と一致)
 
 ## 正本
 
 | ブランチ | 説明 |
 |---|---|
-| `master` | 正本。実運用ビルドはここから行う(2026-07-14 ponderhit修正・danbo2調整 統合済み) |
+| `master` | 正本。実運用ビルドはここから行う(2026-07-15 探索部改善計画書v3 取り込み済み) |
 
 ## upstream追随(search-v*)
 
@@ -27,22 +28,18 @@
 
 | ブランチ | 説明 |
 |---|---|
-| `tune/danbo` | danbo-v11-progress 向け探索パラメータSPSA焼き込み(102,400局 tc=2+0.02) |
-| `tune/fuuppi` | fuuppi-v3 向けSPSA焼き込み |
-| `tune/spsa-danbo` | danbo系SPSA実験 |
-| `tune/spsa-v930` | v9.30系SPSA実験 |
-| `tune/suisho11` | suisho11 向け調整 |
+| `tune/spsa-danbo` | danbo系SPSAチューニング導入パッチ(探索パラメータのグローバル変数化+tune.py用宣言。次回SPSA調整の土台) |
+| `tune/spsa-v930` | v9.30系SPSAチューニング導入パッチ(同上。探索部はV9.30相当) |
 
-(danbo2系は2026-07-14にmaster統合済み。履歴は `refs/archive/tune/danbo2`)
+(数値焼き込みの `tune/danbo`・`tune/fuuppi`・`tune/suisho11` は2026-07-15に
+アーカイブへ移設。danbo2系は2026-07-14にmaster統合済みで履歴は
+`refs/archive/tune/danbo2`)
 
-## 実験(test/*、claude/)
+## 実験
 
-| ブランチ | 説明 | 状態 |
-|---|---|---|
-| `claude/yaneuraou-search-optimization-qxvzz0` | 探索部改善計画(計画書v3)とA/Bテスト基盤(ab_match.py 等) | 現役。test/ab-* シリーズの統括 |
-| `test/ab-01〜12`(12本) | 探索部改善のA/B実験(1ブランチ1テーマ) | 現役(2026-07-13開始)。完了時に規則2-4で処置 |
-| `test/ab-all` | ab-01〜12 の全部乗せ | 現役。同上 |
-| `claude/branch-organization-cleanup-jpeorn` | 本棚卸し(§6)の作業ブランチ | master統合後に削除 |
+現在、実験ブランチはなし。以後は branch-policy.md §7 の運用
+(1テーマ=1ブランチ、A/Bテストは ShogiBench、判定後に統合または削除)に従う。
+改善テーマの候補は docs/search-improvement-plan.md を参照。
 
 ## 大会提出(命名規則の例外)
 
@@ -54,7 +51,7 @@
 
 GitHub UI には表示されない。一覧は `git ls-remote origin 'refs/archive/*'`、
 取得・復元手順は docs/branch-policy.md §5。
-現在の一覧(旧 archive タグ6件+休止ブランチ5件)。
+現在16件(第2回で11件+第3回で5件)。
 
 | ref | 内容 |
 |---|---|
@@ -69,11 +66,26 @@ GitHub UI には表示されない。一覧は `git ls-remote origin 'refs/archi
 | `refs/archive/codex/android-v941-sfnn1536-stack` | Android SFNN1536ビルド・スタック設定(最終更新 2026-06-18) |
 | `refs/archive/backup/yaneuraou-home-20260702` | 正本化前ローカルrepoの全退避(NNUE 512x2/768x2系) |
 | `refs/archive/backup/yaneuraou-1-android-20260702` | 正本化前ローカルrepoの全退避(Androidビルド系) |
+| `refs/archive/test/ab-all` | 探索部改善A/B実験(AB-01〜12)の全部乗せ。**個別12ブランチの全履歴を包含**(2026-07-15移設) |
+| `refs/archive/claude/yaneuraou-search-optimization-qxvzz0` | 探索部改善計画とA/Bテスト基盤(script/ab: ab_match.py 等)。計画書はmasterへ取り込み済み(2026-07-15移設) |
+| `refs/archive/tune/danbo` | danbo-v11-progress 向け探索パラメータSPSA結果焼き込み(102,400局 tc=2+0.02。2026-07-15移設) |
+| `refs/archive/tune/fuuppi` | fuuppi-v3 向けSPSA結果焼き込み(2026-07-15移設) |
+| `refs/archive/tune/suisho11` | 水匠11 向けSPSA結果焼き込み(2026-07-15移設) |
 
-## 削除(2026-07-14棚卸しで実施済み)
+## 削除記録
+
+### 2026-07-15(第3回棚卸し)
+
+- ブランチ `test/ab-01〜12`(12本) — `test/ab-all`(アーカイブ済み)に全履歴が包含
+- (ローカルのみ) `refactor/book-effective-value`・`refactor/ls-bucket-runtime` —
+  master(4a0aa76f)に統合済み
+- (ローカルのみ) アーカイブ退避済みブランチのworktree 2つと対応ブランチ
+  (`codex/fukauraou-policyvalue`・`codex/android-v941-sfnn1536-stack`)
+
+### 2026-07-14(第2回棚卸し)
 
 - ブランチ `claude/opening-book-repetition-t64nol` — master に完全包含
-- ブランチ `claude/search-ab/all` — `test/ab-all` に完全包含
+- ブランチ `claude/search-ab/all` — `test/ab-all` に完全包含。01〜09改名時(§4とは別の07-13作業)の取り残し
 - タグ `archive/claude/search-ab/01〜09`、`archive/danbo-tuned`、
   `archive/fuuppi-tuned`、`archive/spsa-danbo`、`archive/spsa-v930`、
   `archive/suisho11-tuned` — 現役ブランチと同一コミットの改名残骸(計14個)

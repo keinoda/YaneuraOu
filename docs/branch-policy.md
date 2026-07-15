@@ -4,6 +4,7 @@
 制定: 2026-07-12(ponderhit時間制御修正のブランチ整理を機に策定)
 改訂: 2026-07-14(アーカイブ先を refs/archive へ変更(§5)、第2回棚卸し(§6)、
 `sojo_tsec7` の例外指定。生きているブランチの台帳は docs/branches.md に分離)
+改訂: 2026-07-15(第3回棚卸しと実験運用の改訂(§7))
 
 前提: 正本ブランチは `master`(docs/repository-organization-plan.md P1で確立)。
 本規則は同プランP2(既存ブランチの棚卸し)を引き継ぎ、以後に作成する
@@ -304,4 +305,50 @@ fi
 
 **実施記録(2026-07-14)**: スクリプト(zsh互換修正版)で全38操作を完了。
 タグ0件・refs/archive 11件(全SHA照合済み)・残ブランチ25本が
+docs/branches.md の台帳と一致することをリモートで確認した。
+
+## 7. 第3回棚卸しと実験運用の改訂(2026-07-15)
+
+### 背景と方針転換
+
+探索部改善のA/B実験(`test/ab-01〜12`+`test/ab-all`、13本同時)のような
+「候補テーマの一括ブランチ化」はツリーを圧迫し、個々の検証も進まなかった。
+実験ブランチ群を一掃し、以後は次の運用とする。
+
+1. **実験は1テーマ=1ブランチ**で着手し、原則として同時に1本まで。
+   採否判定が出てから次のテーマに進む。
+2. 判定後は規則2-4に従い、master統合または削除(履歴を残す場合は
+   refs/archive 退避)を行ってから次へ。
+3. **A/Bテスト(SPRT)は外部の ShogiBench を使用**する。自前の対局基盤
+   (script/ab)は正本に置かない
+   (`refs/archive/claude/yaneuraou-search-optimization-qxvzz0` から復元可能)。
+4. 改善テーマの候補カタログとして `docs/search-improvement-plan.md` を
+   master に取り込んだ(計画書内の ab_match.py 関連の記述は基盤退避前の
+   もので、現在は ShogiBench に読み替える)。
+
+### ブランチの処置
+
+影響確認(2026-07-15): 未クローズPRなし。`test/ab-all` が個別12本の
+全コミットを履歴包含することを `git merge-base --is-ancestor` で全件検証済み。
+
+| 処置 | 対象 | 理由 |
+|---|---|---|
+| refs/archive へ移設(5本) | `test/ab-all`、`claude/yaneuraou-search-optimization-qxvzz0`、`tune/danbo`、`tune/fuuppi`、`tune/suisho11` | 実験の一括中止と、数値焼き込みSPSA成果の退役。履歴は全て保全(2026-07-15ユーザー決定) |
+| 削除(12本) | `test/ab-01〜12` | `test/ab-all` に全履歴が包含済みのため個別退避は冗長 |
+| 維持(7本) | `master`、`sojo_tsec7`、`search-v9.22/9.30/9.40`、`tune/spsa-danbo`、`tune/spsa-v930` | search-v* はupstream追随のA/B比較基準。tune/spsa-* はSPSAチューニング導入パッチで次回調整の土台(2026-07-15ユーザー決定) |
+
+### ローカルの整理(参考)
+
+- リモート処置済みの追跡ブランチ4本(`test/danbo-tuned2-ponderhit`、
+  `fix/ponderhit-time-control`、`tune/danbo2`、`codex/android-build-v941-refresh`)、
+  master(4a0aa76f)へ統合済みのローカル専用2本(`refactor/book-effective-value`、
+  `refactor/ls-bucket-runtime`)、アーカイブ退避済みブランチのworktree 2つと
+  対応ブランチ(`codex/fukauraou-policyvalue`、`codex/android-v941-sfnn1536-stack`)
+  を削除
+- 2026-07-08棚卸し作業の残骸worktree登録8件をprune、stash・一時ファイルを整理
+
+### 実施記録(2026-07-15)
+
+ref名ベースの一括スクリプト(§6と同設計。退避16件の確認後にのみ削除実行)で、
+退避5件→ブランチ17本の削除を完了。残ブランチ7本・refs/archive 16件が
 docs/branches.md の台帳と一致することをリモートで確認した。
