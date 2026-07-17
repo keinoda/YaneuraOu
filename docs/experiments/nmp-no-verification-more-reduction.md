@@ -54,7 +54,18 @@ make -C source -j8 \
 
 ## ShogiBench 固定値SPRT
 
-未実施。この結果が負けまたは不明瞭でも、それだけで不採用としない。
+- テスト: [ShogiBench #68](https://shogibench.fly.dev/test/68/)
+- 状態: 承認待ち（2026-07-17作成）
+- dev: `feature/nmp-no-verification-more-reduction@a34962c1`
+- base: `master@9a349509`
+- 評価関数: `danbo-v16-progress` (`674A1218`)
+- 条件: `8.0+0.08`, Threads=1, Hash=64MB, ponder off
+- 開始局面集: `yaneuraou2025_ply24_shogi_sfen.epd`
+- SPRT: Elo `[0.00, 4.00]`, `alpha=0.05`, `beta=0.10`
+- workload size: 32
+
+#66と同じ条件で作成した。この結果が負けまたは不明瞭でも、それだけで
+不採用としない。
 
 ## 再SPSA後の最終評価
 
