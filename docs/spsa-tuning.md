@@ -155,3 +155,61 @@ python3 -m unittest discover -s script/spsa -p 'test_*.py' -v
 ```
 
 テストは一時ディレクトリだけを書き換え、実リポジトリの148名契約は読み取り専用で確認する。
+
+## 8. rshogiからの直接SPSA検証
+
+2026-07-17、ShogiBench workerとして提供中のVast.ai instance `45136916`を、
+対局workload停止後に直接操作して検証した。ShogiBench経由のSPSAはこの時点では
+未検証であり、本節はその前段となる直接実行の記録である。
+
+使用した版と成果物:
+
+- rshogi: `e0388e581c1cf4f83e9d492f79f27074649d6e28`
+- YaneuraOu: `64015ceab9d242e0525919c4143a05ad972d57c0`
+- rshogi `spsa` SHA-256:
+  `8333f5349d2880bde02bb5e80f903807781f842a95a827addee7ec981313efdd`
+- YaneuraOu tune binary SHA-256:
+  `89be558cd1d260920bd111e3c516b8983fb09f1c7f34d1c84122e7eb1f7eb9a4`
+- 起点params SHA-256:
+  `b003964e4db6edb3f4a6a316cf98115661535cce8603d00f31dfc67e0fafa8cd`
+
+ビルド条件は `make tune`、
+`YANEURAOU_ENGINE_SFNN_halfkahm2_2048_15_64_ls9`、AVX512、clang++、
+`HASH_KEY_BITS=128`、`TT_CLUSTER_SIZE=4`、`USE_LAZY_EVALUATE`。
+生成した148行のparams名は、tune binaryが公開した同名`spin` USI optionに
+全件存在し、欠落は0件だった。
+
+対局条件は共通で、Threads=1、Hash=16MB、100ms秒読み、最大320手、seed=1、
+`taya36_shogi_sfen.epd`を使用した。評価関数はdanbo-v16-progress (`674A1218`)で、
+`EvalDir`、`LS_PROGRESS_COEFF`、`LS_BUCKET_MODE=progress8kpabs`、`FV_SCALE=28`を
+USI optionで指定し、定跡は無効化した。
+
+### 8.1 razoring 2件のprotocol smoke
+
+- run dir: `/root/spsa-yaneuraou-direct/runs/razoring-smoke-20260717T075512Z`
+- `--active-only-regex '^Search_razoring_'`
+- 4ペア8局、1 batch
+- plus 4勝、minus 3勝、1分、raw result `+1`
+- active 2件中2件が更新、平均更新量 `0.111376`、最大 `0.127485`
+- `final.params` SHA-256:
+  `f9e4e2cbdebcaafedbccb158823ad7f245a3672e5eb5be3175b5e961ab8b10e1`
+
+`Search_razoring_1`は`368`から`368.127485`、
+`Search_razoring_2`は`275`から`275.095267`へ更新された。
+
+### 8.2 全148件のintegration smoke
+
+- run dir: `/root/spsa-yaneuraou-direct/runs/all148-smoke-20260717T075622Z`
+- 4ペア8局、1 batch
+- plus 3勝、minus 5勝、raw result `-2`
+- active `148/148`、148件すべてが更新
+- 平均更新量 `2.583810`、最大 `192.657940`
+- `final.params` SHA-256:
+  `ff3153104ff909d8b9174e83d53386691969b9158b746462de8b93749da8d0b5`
+
+以上により、rshogiのSPSAループからYO形式paramsを読み、摂動値をYaneuraOuへ
+USI optionとして渡し、対局結果からparamsを更新して`final.params`を確定する
+直接経路は動作した。少数局のため、得られた数値自体は棋力調整結果として使用しない。
+
+ShogiBench上の64ペアスモーク（#73）は別の統合段階であり、完走するまで
+ShogiBench経路および本実装全体を完成扱いしない。
