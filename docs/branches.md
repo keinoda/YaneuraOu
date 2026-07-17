@@ -39,8 +39,8 @@
 
 | ブランチ | 説明 | 状態 |
 |---|---|---|
-| `codex/capture-single-extension-master` | 駒を取る手の二重・三重singular extensionを抑制 | 未初期化修正前のShogiBench #66固定値SPRTは負け。修正版で再試験予定 |
-| `feature/nmp-no-verification-more-reduction` | NMP検証探索の削除 + reduction増加(tanuki #4+#5) | baseが未初期化修正前のShogiBench #68は実行中。修正版で再試験予定 |
+| `codex/capture-single-extension-master` | 駒を取る手の二重・三重singular extensionを抑制 | 初期化修正前の#66は参考値。修正版#72は承認待ち |
+| `feature/nmp-no-verification-more-reduction` | NMP検証探索の削除 + reduction増加(tanuki #4+#5) | 初期化修正前の#68は参考値。修正版#71は承認待ち |
 
 branch-policy.md §7 の運用(1テーマ=1ブランチ、A/Bテストは ShogiBench、
 固定値SPRT単独では不採用にせず、総合判断後に統合または削除)に従う。
