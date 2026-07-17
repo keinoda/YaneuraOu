@@ -234,4 +234,34 @@ USI optionとして渡し、対局結果からparamsを更新して`final.params
 `b22fb9768dbb9283ccde3e687e267393b68c3e6d`で、直接ビルドした
 `64015ceab9d242e0525919c4143a05ad972d57c0`との差分は本節の文書追記のみである。
 起点paramsのSHA-256は上記と同じ`b003964e...`である。#74は作成時点で未承認・
-0/64ペアであり、完走するまでShogiBench経路および本実装全体を完成扱いしない。
+0/64ペアだった。その後、全64ペア（128局、4 batches）を完走し、最終paramsの
+SHA-256は直接実行と同じ`68cc284b...`になった。これにより、同一条件では直接実行と
+ShogiBench経路が決定論的に一致することを確認した。ただし64ペアはprotocol smokeであり、
+得られた値を調整結果として使用しない。開始局面集も実装比較用の24手局面集ではなく
+`taya36_shogi_sfen.epd`だったため、#74は`Nagisa`により削除された（操作ログ`DELETE`、
+Unix時刻`1784276670`）。削除後も直接実行と一致した検証記録は本節に残す。
+
+### 8.4 ShogiBench軽量SPSA（master対照）
+
+実装候補の比較前に行う調整は、51,200ペア（102,400局）の最終調整より軽量にする。
+rshogiの目安である「対象パラメータ数×50」の下限は148件で7,400ペアとなるため、
+96並列を使い切れる48ペア単位へ切り上げ、7,680ペア（15,360局、160 batches）とした。
+
+2026-07-17、master相当の探索を対照としてShogiBench #75を作成した。
+
+- URL: `https://shogibench.fly.dev/tune/75/`
+- ブランチ: `feature/tunable-search-params`
+- 作成時head: `0920807bb101fa1ec17f21171e283765007efd81`
+- 起点params: 148件、SHA-256 `b003964e4db6edb3f4a6a316cf98115661535cce8603d00f31dfc67e0fafa8cd`
+- 総量: 7,680ペア（15,360局）、batch 48、seed 1、early stopなし
+- 時間制御: `2.0+0.02`、スケール基準DEV、1,000,000 NPS
+- 開始局面集: `yaneuraou2025_ply24_shogi_sfen.epd`
+- 評価関数: danbo-v16-progress (`674A1218`)
+- Threads=1、Hash=16MB、`USI_OwnBook=false`、`BookFile=no_book`、
+  `NetworkDelay=0`、`NetworkDelay2=0`、`MinimumThinkingTime=100`、
+  `RoundUpToFullSecond=false`、`FV_SCALE=28`
+- SPSA schedule: alpha `0.602`、gamma `0.101`、A-ratio `0.1`、mappingなし、全148件
+- 作成直後の状態: 未承認、0/7,680ペア
+
+#75はmaster対照の軽量調整であり、この結果単独で探索実装を採否決定しない。
+同じ条件・seedで各featureを独立に調整し、調整後master対調整後featureの対局結果で判断する。
