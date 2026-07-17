@@ -8,6 +8,12 @@
 対象: このリポジトリ (V9.60git ベース + fork独自機能) の探索部
 `source/engine/yaneuraou-engine/yaneuraou-search.cpp` / `source/movepick.cpp` / `source/history.h` ほか
 
+> **2026-07-17追記**: 本文は作成時点の候補カタログである。その後masterには
+> danbo-v16向けSPSA値が統合された。また、実コード再照合により`followPV`と
+> per-thread continuation historyはV9.30相当にも存在することを確認したため、
+> 両者はV9.30→V9.60の差ではない。現行差分は
+> [`search-v930-v960-differences.md`](search-v930-v960-differences.md)を正とする。
+
 ---
 
 ## 1. 現状分析
@@ -29,7 +35,8 @@
 - したがって「古いSFとの差分を取り込む」型の改善余地はほぼ枯れており、残る改善余地は主に:
   1. **チェス用定数・チェス用ロジックの将棋への適応不足** (捕獲価値、王手の扱い、進行度等)
   2. **やねうらお氏自身がコード中コメントで「要検証」と残している箇所** (🤔/TODO/OLD_CODE/#if 0)
-  3. **V9.60 で入った未検証の独自実験** (followPV ゲーティング、per-thread continuationHistory)
+  3. **既存の独自実験** (followPV ゲーティング、per-thread continuationHistory。
+     ただし両者ともV9.30相当にも存在し、V9.30→V9.60の差ではない)
   4. 将棋固有の指し手性質 (駒打ち・王手の多さ・持ち駒) を突いた独自ヒューリスティック
   5. チェスのSPSA値のまま持ち込まれている定数群の将棋向け再調整 (→ §3.4)
 
@@ -97,12 +104,13 @@
 - **根拠**: 作者コメント (L3677-3678)「🌈 以前のコードのほうが強い可能性がある」。
 - **リスク**: PvNodeでの-3は大きい。旧SFで長年実績のある形ではある。
 
-#### AB-04 `test/ab-04-no-followpv` — followPVゲーティングの除去 (純SF挙動)
+#### AB-04 `test/ab-04-no-followpv` — followPVゲーティングの除去
 
 - **場所**: search() Step 10 (IIR) と Step 14 (quiet枝刈りブロック)
-- **変更**: V9.60独自の `ss->followPV` (前回iterationのPVを辿るnodeでIIRとquiet枝刈りを抑制)
+- **変更**: `ss->followPV` (前回iterationのPVを辿るnodeでIIRとquiet枝刈りを抑制)
   を両条件から外す。followPV の計算自体は残す(最小差分)。
 - **根拠**: 公開された計測根拠が見当たらない実験的機構。探索効率とのトレードオフを検証。
+  2026-07-17の再照合でV9.30相当にも存在することが判明したため、版間差分ではなく独立候補として扱う。
 
 #### AB-05 `test/ab-05-nmp-eval-r` — null move探索のRにeval-beta項を追加
 
