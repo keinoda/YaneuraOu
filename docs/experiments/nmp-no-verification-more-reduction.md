@@ -3,7 +3,8 @@
 ## 実装
 
 - ブランチ: `feature/nmp-no-verification-more-reduction`
-- 基点: `master@9a349509`
+- 初回実装の基点: `master@9a349509`
+- 現在の比較基点: `master@dca723e5`（`nmpMinPly`初期化修正後）
 - 元実装:
   - [nodchip/tanuki- #4](https://github.com/nodchip/tanuki-/pull/4)
   - [nodchip/tanuki- #5](https://github.com/nodchip/tanuki-/pull/5)
@@ -54,6 +55,22 @@ make -C source -j8 \
 
 ## ShogiBench 固定値SPRT
 
+### 修正版比較（正本）
+
+- テスト: [ShogiBench #71](https://shogibench.fly.dev/test/71/)
+- 状態: 承認待ち（2026-07-17作成）
+- dev: `feature/nmp-no-verification-more-reduction@0631ed57`
+- base: `master@dca723e5`
+- 評価関数: `danbo-v16-progress` (`674A1218`)
+- 条件: `8.0+0.08`, Threads=1, Hash=64MB, ponder off
+- 開始局面集: `yaneuraou2025_ply24_shogi_sfen.epd`
+- SPRT: Elo `[0.00, 4.00]`, `alpha=0.05`, `beta=0.10`
+- workload size: 32
+
+base/devとも未初期化動作を含まないため、固定値SPRTの判断には#71を用いる。
+
+### 初期化修正前の比較（参考値）
+
 - テスト: [ShogiBench #68](https://shogibench.fly.dev/test/68/)
 - 状態: 承認済み・実行中（2026-07-17作成・承認）
 - dev: `feature/nmp-no-verification-more-reduction@a34962c1`
@@ -64,8 +81,8 @@ make -C source -j8 \
 - SPRT: Elo `[0.00, 4.00]`, `alpha=0.05`, `beta=0.10`
 - workload size: 32
 
-#66と同じ条件で作成した。この結果が負けまたは不明瞭でも、それだけで
-不採用としない。
+#66と同じ条件で作成したが、baseだけが後述の未初期化動作を含む。このため
+#68は最終判断に使わず、参考値としてのみ保存する。
 
 ### base側NMP初期化の注意
 
@@ -74,10 +91,9 @@ make -C source -j8 \
 `#if STOCKFISH`内へ移された初期化を復活させていない。通常のやねうら王
 ビルドでは最初のNMP条件で未初期化値を読む。
 
-devは#4として`nmpMinPly`自体を削除するため、#68は「現行masterへ#4+#5を
-差し込む実用効果」を測れるが、tanuki原実験の純粋な再現ではなく、この
-未初期化不整合を解消する効果も含む。#4+#5を最終不採用にする場合も、
-初期化だけの修正は別ブランチで評価する。
+devは#4として`nmpMinPly`自体を削除するため、#68はbaseだけに未定義動作が
+残る非対称な比較になっている。初期化修正は`master@dca723e5`へ直接反映し、
+#4+#5ブランチにも同masterを取り込んだ。以後の比較は#71を正本とする。
 
 ## 再SPSA後の最終評価
 
