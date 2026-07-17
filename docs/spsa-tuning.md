@@ -207,9 +207,24 @@ USI optionで指定し、定跡は無効化した。
 - `final.params` SHA-256:
   `ff3153104ff909d8b9174e83d53386691969b9158b746462de8b93749da8d0b5`
 
+### 8.3 ShogiBench smoke条件の直接再現
+
+ShogiBench #73で予定した固定`N=10000`、総64ペア、batch 16、seed 1を、
+同じinstance上でrshogiから直接実行した。
+
+- run dir:
+  `/root/spsa-yaneuraou-direct/runs/all148-nodes10000-pairs64-20260717T075925Z`
+- 64ペア128局、4 batches、最大32並列
+- 各batchのraw result: `-6`, `+6`, `-1`, `+8`
+- 各batchともactive `148/148`で、最終的に148件すべてが起点から変化
+- 各batchの平均更新量: `11.411361`, `7.596654`, `0.989338`, `6.709198`
+- `final.params` SHA-256:
+  `68cc284b729fc7a5bdbb05364b1145c1a32e44622b4e3dc377da6957fdf4a27b`
+
 以上により、rshogiのSPSAループからYO形式paramsを読み、摂動値をYaneuraOuへ
 USI optionとして渡し、対局結果からparamsを更新して`final.params`を確定する
-直接経路は動作した。少数局のため、得られた数値自体は棋力調整結果として使用しない。
+直接経路は、複数batchを含むShogiBench smoke相当の規模まで動作した。
+64ペアは収束や棋力を判断する規模ではないため、得られた数値自体は調整結果として使用しない。
 
 ShogiBench上の64ペアスモーク（#73）は別の統合段階であり、完走するまで
 ShogiBench経路および本実装全体を完成扱いしない。
