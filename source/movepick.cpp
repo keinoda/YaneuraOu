@@ -14,16 +14,27 @@ namespace YaneuraOu {
 using namespace Eval; // Eval::PieceValue
 
 namespace {
+// 小さい係数をQ8固定小数点で保持する。既存の整数係数は256倍した値で表す。
+constexpr int MovePickerScoreScale = 256;
+
+constexpr int move_picker_score_from_q8(int score) { return score / MovePickerScoreScale; }
+
 // V940の指し手オーダリング用パラメーター。
 TUNABLE_PARAM(MovePicker_quiet_partial_sort_1, -3560, -7120, 0)
 TUNABLE_PARAM(MovePicker_good_capture_see_1, 18, 1, 36)
 TUNABLE_PARAM(MovePicker_good_quiet_threshold_1, -14000, -28000, 0)
-TUNABLE_PARAM(MovePicker_low_ply_history_score_1, 8, 0, 16)
-TUNABLE_PARAM(MovePicker_quiet_score_1, 2, 0, 4)
-TUNABLE_PARAM(MovePicker_quiet_score_2, 2, 0, 4)
+TUNABLE_PARAM(MovePicker_low_ply_history_score_1, 2048, 0, 4096)
+TUNABLE_PARAM(MovePicker_quiet_score_1, 512, 0, 1024)
+TUNABLE_PARAM(MovePicker_quiet_score_2, 512, 0, 1024)
 TUNABLE_PARAM(MovePicker_quiet_score_3, -75, -150, 0)
 TUNABLE_PARAM(MovePicker_quiet_score_4, 16384, 0, 32768)
-TUNABLE_PARAM(MovePicker_capture_score_1, 7, 0, 14)
+TUNABLE_PARAM(MovePicker_capture_score_1, 1792, 0, 3584)
+
+// Q8化前の既定値と同じ切り捨て結果になることをコンパイル時にも確認する。
+static_assert(move_picker_score_from_q8(512 * 7183) == 2 * 7183);
+static_assert(move_picker_score_from_q8(512 * -7183) == 2 * -7183);
+static_assert(2048 * 7183 / (MovePickerScoreScale * 5) == 8 * 7183 / 5);
+static_assert(2048 * -7183 / (MovePickerScoreScale * 5) == 8 * -7183 / 5);
   
 // -----------------------
 //   指し手オーダリング
@@ -349,8 +360,10 @@ ExtMove* MovePicker::score(const MoveList<Type>& ml) {
 			// → しかしこのあとsee_ge()の引数に使うのだが、see_ge()ではpromotionの価値を考慮してないので、
 			//    ここでpromotionの価値まで足し込んでしまうとそこと整合性がとれなくなるのか…。
 
-			m.value = (*captureHistory)[pc][to][type_of(capturedPiece)]
-						+ MovePicker_capture_score_1 * int(Eval::PieceValue[capturedPiece]);
+			const int captureScoreQ8 =
+			  MovePickerScoreScale * int((*captureHistory)[pc][to][type_of(capturedPiece)])
+			  + MovePicker_capture_score_1 * int(Eval::PieceValue[capturedPiece]);
+			m.value = move_picker_score_from_q8(captureScoreQ8);
 			// →　係数を掛けてるのは、
 			// このあと、GOOD_CAPTURE で、
 			//	return pos.see_ge(*cur, Value(-cur->value))
@@ -370,16 +383,20 @@ ExtMove* MovePicker::score(const MoveList<Type>& ml) {
 			// →　指し手オーダリングは、quietな指し手の間での優劣を付けたいわけで、
 			//    駒を成るような指し手はどうせevaluate()で大きな値がつくからそっちを先に探索することになる。
 
-			m.value  =  MovePicker_quiet_score_1 * (*mainHistory)[us][m.raw()];
-            m.value +=  MovePicker_quiet_score_2 * sharedHistory->pawn_entry(pos)[pc][to];
-			m.value +=      (*continuationHistory[0])[pc][to];
-			m.value +=      (*continuationHistory[1])[pc][to];
-			m.value +=      (*continuationHistory[2])[pc][to];
-			m.value +=      (*continuationHistory[3])[pc][to];
-			m.value +=      (*continuationHistory[5])[pc][to];
+			int quietScoreQ8 = MovePicker_quiet_score_1 * int((*mainHistory)[us][m.raw()]);
+            quietScoreQ8 += MovePicker_quiet_score_2
+                          * int(sharedHistory->pawn_entry(pos)[pc][to]);
+			quietScoreQ8 += MovePickerScoreScale * int((*continuationHistory[0])[pc][to]);
+			quietScoreQ8 += MovePickerScoreScale * int((*continuationHistory[1])[pc][to]);
+			quietScoreQ8 += MovePickerScoreScale * int((*continuationHistory[2])[pc][to]);
+			quietScoreQ8 += MovePickerScoreScale * int((*continuationHistory[3])[pc][to]);
+			quietScoreQ8 += MovePickerScoreScale * int((*continuationHistory[5])[pc][to]);
 
 			// bonus for checks
-			m.value += ((pos.check_squares(pt) & to) && pos.see_ge(m, MovePicker_quiet_score_3)) * MovePicker_quiet_score_4;
+			quietScoreQ8 += ((pos.check_squares(pt) & to)
+                             && pos.see_ge(m, MovePicker_quiet_score_3))
+                          * MovePickerScoreScale * MovePicker_quiet_score_4;
+			m.value = move_picker_score_from_q8(quietScoreQ8);
 			// これ、効果があるのか検証したほうが良さげ。
 
 #if STOCKFISH
@@ -400,7 +417,9 @@ ExtMove* MovePicker::score(const MoveList<Type>& ml) {
 
 			// lowPlyHistoryも加算
 			if (ply < LOW_PLY_HISTORY_SIZE)
-                m.value += MovePicker_low_ply_history_score_1 * (*lowPlyHistory)[ply][m.raw()] / (1 + ply);
+				m.value += MovePicker_low_ply_history_score_1
+				         * int((*lowPlyHistory)[ply][m.raw()])
+				         / (MovePickerScoreScale * (1 + ply));
 			
 		}
 		else // Type == EVASIONS || EVASIONS_ALL

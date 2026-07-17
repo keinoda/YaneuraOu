@@ -95,6 +95,133 @@ class SourceContractTests(unittest.TestCase):
             with self.subTest(name=name):
                 self.assertGreater(parameters_by_name[name].minimum, 0)
 
+    def test_q8_parameter_contract(self):
+        _documents, parameters = load_source_contract(REPO_ROOT)
+        parameters_by_name = {parameter.name: parameter for parameter in parameters}
+        expected = {
+            "Search_static_evaluation_2a_1": (3328, 0, 6656),
+            "Search_static_evaluation_1a_1": (-83712, -167424, 0),
+            "Search_static_evaluation_1a_2": (39936, 0, 79872),
+            "Search_static_evaluation_1a_3": (9984, 0, 19968),
+            "Search_static_evaluation_1a_4": (1280, 0, 2560),
+            "MovePicker_low_ply_history_score_1": (2048, 0, 4096),
+            "MovePicker_quiet_score_1": (512, 0, 1024),
+            "MovePicker_quiet_score_2": (512, 0, 1024),
+            "MovePicker_capture_score_1": (1792, 0, 3584),
+        }
+        for name, contract in expected.items():
+            with self.subTest(name=name):
+                parameter = parameters_by_name[name]
+                self.assertEqual(
+                    (parameter.default, parameter.minimum, parameter.maximum), contract
+                )
+
+    def test_q8_default_formulas_preserve_integer_scores(self):
+        def trunc_div(numerator, denominator):
+            if numerator >= 0:
+                return numerator // denominator
+            return -((-numerator) // denominator)
+
+        for eval_sum in range(-1000, 1001):
+            old_eval_diff = min(max(-eval_sum, -327), 156) + 39
+            eval_diff_q8 = min(max(-eval_sum * 256, -83712), 39936) + 9984
+            with self.subTest(formula="main_history", eval_sum=eval_sum):
+                self.assertEqual(
+                    trunc_div(eval_diff_q8 * 1280, 256 * 256),
+                    old_eval_diff * 5,
+                )
+            with self.subTest(formula="pawn_history", eval_sum=eval_sum):
+                self.assertEqual(
+                    trunc_div(eval_diff_q8 * 3328, 256 * 256),
+                    old_eval_diff * 13,
+                )
+
+        for history in (-7183, -1, 0, 1, 7183):
+            for piece_value in (0, 90, 256, 1500):
+                with self.subTest(formula="capture", history=history, piece=piece_value):
+                    self.assertEqual(
+                        trunc_div(256 * history + 1792 * piece_value, 256),
+                        history + 7 * piece_value,
+                    )
+
+        for main_history in (-7183, -1, 0, 1, 7183):
+            for pawn_history in (-7183, 0, 7183):
+                continuation_and_check = 12345
+                with self.subTest(
+                    formula="quiet", main=main_history, pawn=pawn_history
+                ):
+                    self.assertEqual(
+                        trunc_div(
+                            512 * main_history
+                            + 512 * pawn_history
+                            + 256 * continuation_and_check,
+                            256,
+                        ),
+                        2 * main_history + 2 * pawn_history + continuation_and_check,
+                    )
+
+        for low_ply_history in (-7183, -1, 0, 1, 7183):
+            for ply in range(4):
+                with self.subTest(
+                    formula="low_ply", history=low_ply_history, ply=ply
+                ):
+                    self.assertEqual(
+                        trunc_div(2048 * low_ply_history, 256 * (1 + ply)),
+                        trunc_div(8 * low_ply_history, 1 + ply),
+                    )
+
+    def test_each_q8_parameter_has_an_effective_single_step_case(self):
+        def trunc_div(numerator, denominator):
+            if numerator >= 0:
+                return numerator // denominator
+            return -((-numerator) // denominator)
+
+        scale_q16 = 256 * 256
+        lower_eval_diff_q8 = -83712 + 9984
+        upper_eval_diff_q8 = 39936 + 9984
+        default_main = trunc_div(lower_eval_diff_q8 * 1280, scale_q16)
+        default_pawn = trunc_div(lower_eval_diff_q8 * 3328, scale_q16)
+
+        changed_scores = {
+            "Search_static_evaluation_1a_1": trunc_div(
+                (-83712 + 1 + 9984) * 1280, scale_q16
+            ),
+            "Search_static_evaluation_1a_2": trunc_div(
+                (upper_eval_diff_q8 - 1) * 1280, scale_q16
+            ),
+            "Search_static_evaluation_1a_3": trunc_div(
+                (lower_eval_diff_q8 + 1) * 1280, scale_q16
+            ),
+            "Search_static_evaluation_1a_4": trunc_div(
+                lower_eval_diff_q8 * (1280 + 1), scale_q16
+            ),
+            "Search_static_evaluation_2a_1": trunc_div(
+                lower_eval_diff_q8 * (3328 + 1), scale_q16
+            ),
+            "MovePicker_low_ply_history_score_1": trunc_div(
+                (2048 + 1) * 256, 256
+            ),
+            "MovePicker_quiet_score_1": trunc_div((512 + 1) * 256, 256),
+            "MovePicker_quiet_score_2": trunc_div((512 + 1) * 256, 256),
+            "MovePicker_capture_score_1": trunc_div((1792 + 1) * 256, 256),
+        }
+        default_scores = {
+            "Search_static_evaluation_1a_1": default_main,
+            "Search_static_evaluation_1a_2": trunc_div(
+                upper_eval_diff_q8 * 1280, scale_q16
+            ),
+            "Search_static_evaluation_1a_3": default_main,
+            "Search_static_evaluation_1a_4": default_main,
+            "Search_static_evaluation_2a_1": default_pawn,
+            "MovePicker_low_ply_history_score_1": 2048,
+            "MovePicker_quiet_score_1": 512,
+            "MovePicker_quiet_score_2": 512,
+            "MovePicker_capture_score_1": 1792,
+        }
+        for name, changed_score in changed_scores.items():
+            with self.subTest(name=name):
+                self.assertNotEqual(changed_score, default_scores[name])
+
     def test_generated_params_have_exact_format_and_no_not_used(self):
         output = generate(REPO_ROOT)
         lines = output.splitlines()
@@ -103,7 +230,9 @@ class SourceContractTests(unittest.TestCase):
         self.assertNotIn(NOT_USED_MARKER, output)
         self.assertEqual(lines[0], "QSearch_SEE_pruning_1,int,-73,-146,0,7.3,0.002")
         self.assertIn("Search_fail_low_quiet_bonus_13,int,1400,0,2800,140,0.002", lines)
-        self.assertEqual(lines[-1], "MovePicker_capture_score_1,int,7,0,14,0.7,0.002")
+        self.assertEqual(
+            lines[-1], "MovePicker_capture_score_1,int,1792,0,3584,179.2,0.002"
+        )
 
     def test_cli_is_independent_of_current_working_directory(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
@@ -238,7 +367,7 @@ class ApplyTests(TemporaryRepositoryTestCase):
         lines = generate(self.repo_root).splitlines()
         replacements = {
             "QSearch_SEE_pruning_1": ("-71.5", -72),
-            "MovePicker_capture_score_1": ("8.5", 9),
+            "MovePicker_capture_score_1": ("1793.5", 1794),
         }
         for index, line in enumerate(lines):
             fields = line.split(",")

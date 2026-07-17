@@ -38,6 +38,11 @@ namespace YaneuraOu {
 using namespace Search;
 using namespace Eval;  // Eval::PieceValue
 
+// 静的評価差からhistory bonusを作る式で使うQ8固定小数点の倍率。
+constexpr int SearchStaticEvaluationQ8Scale  = 256;
+constexpr int SearchStaticEvaluationQ16Scale = SearchStaticEvaluationQ8Scale
+                                              * SearchStaticEvaluationQ8Scale;
+
 // -------------------
 // 🌈 やねうら王独自追加
 // -------------------
@@ -164,11 +169,11 @@ TUNABLE_PARAM(Search_futility_1_5, 91703, 1, 183406)
 TUNABLE_PARAM(Search_razoring_1, 368, 0, 736)
 TUNABLE_PARAM(Search_razoring_2, 275, 0, 550)
 TUNABLE_PARAM(Search_static_evaluation3_1, 198, 0, 396)
-TUNABLE_PARAM(Search_static_evaluation_2a_1, 13, 0, 26)
-TUNABLE_PARAM(Search_static_evaluation_1a_1, -327, -654, 0)
-TUNABLE_PARAM(Search_static_evaluation_1a_2, 156, 0, 312)
-TUNABLE_PARAM(Search_static_evaluation_1a_3, 39, 0, 78)
-TUNABLE_PARAM(Search_static_evaluation_1a_4, 5, 0, 10)
+TUNABLE_PARAM(Search_static_evaluation_2a_1, 3328, 0, 6656)
+TUNABLE_PARAM(Search_static_evaluation_1a_1, -83712, -167424, 0)
+TUNABLE_PARAM(Search_static_evaluation_1a_2, 39936, 0, 79872)
+TUNABLE_PARAM(Search_static_evaluation_1a_3, 9984, 0, 19968)
+TUNABLE_PARAM(Search_static_evaluation_1a_4, 1280, 0, 2560)
 TUNABLE_PARAM(Search_tt_lookup2_1, -1177, -2354, 0)
 TUNABLE_PARAM(Search_tt_lookup1_1, 29, 0, 58)
 TUNABLE_PARAM(Search_tt_lookup1_2, 87, 0, 174)
@@ -3763,8 +3768,12 @@ if (prevSq != SQ_NONE && (ss - 1)->moveCount <= 4 && !priorCapture)
     {
 
 
-int evalDiff = std::clamp(-int((ss - 1)->staticEval + ss->staticEval), Search_static_evaluation_1a_1, Search_static_evaluation_1a_2) + Search_static_evaluation_1a_3;
-        mainHistory[~us][((ss - 1)->currentMove).raw()] << evalDiff * Search_static_evaluation_1a_4;
+const int evalDiffQ8 =
+  std::clamp(-int((ss - 1)->staticEval + ss->staticEval) * SearchStaticEvaluationQ8Scale,
+             Search_static_evaluation_1a_1, Search_static_evaluation_1a_2)
+  + Search_static_evaluation_1a_3;
+        mainHistory[~us][((ss - 1)->currentMove).raw()]
+          << evalDiffQ8 * Search_static_evaluation_1a_4 / SearchStaticEvaluationQ16Scale;
 
 
 
@@ -3773,7 +3782,9 @@ int evalDiff = std::clamp(-int((ss - 1)->staticEval + ss->staticEval), Search_st
 
 if (!ttHit && type_of(pos.piece_on(prevSq)) != PAWN
             && ((ss - 1)->currentMove).type_of() != PROMOTION)
-            sharedHistory.pawn_entry(pos)[pos.piece_on(prevSq)][prevSq] << evalDiff * Search_static_evaluation_2a_1;
+            sharedHistory.pawn_entry(pos)[pos.piece_on(prevSq)][prevSq]
+              << evalDiffQ8 * Search_static_evaluation_2a_1
+                   / SearchStaticEvaluationQ16Scale;
 
 
 
