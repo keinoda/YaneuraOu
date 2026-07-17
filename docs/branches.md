@@ -37,8 +37,13 @@
 
 ## 実験
 
-現在、実験ブランチはなし。以後は branch-policy.md §7 の運用
-(1テーマ=1ブランチ、A/Bテストは ShogiBench、判定後に統合または削除)に従う。
+| ブランチ | 説明 | 状態 |
+|---|---|---|
+| `codex/capture-single-extension-master` | 駒を取る手の二重・三重singular extensionを抑制 | ShogiBench #66で固定値SPRT実行中 |
+| `feature/nmp-no-verification-more-reduction` | NMP検証探索の削除 + reduction増加(tanuki #4+#5) | 実装・ローカルNNUEビルド・USI起動成功。ShogiBench #68実行中 |
+
+branch-policy.md §7 の運用(1テーマ=1ブランチ、A/Bテストは ShogiBench、
+固定値SPRTだけで不採用にせず再SPSA後に最終判定)に従う。
 改善テーマの候補は docs/search-improvement-plan.md を参照。
 
 ## 大会提出(命名規則の例外)

@@ -1435,9 +1435,7 @@ void Search::YaneuraOuWorker::pre_start_searching() {
 
     // 📝 StockfishではThreadPool::start_thinking()で行っているが、
     //     やねうら王では、派生classのpre_start_thinking()以降で行う。
-#if STOCKFISH
     nmpMinPly       = 0;
-#endif
     bestMoveChanges = 0;
     rootDepth = completedDepth = 0;
 
