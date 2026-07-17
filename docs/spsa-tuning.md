@@ -261,7 +261,23 @@ rshogiの目安である「対象パラメータ数×50」の下限は148件で7
   `NetworkDelay=0`、`NetworkDelay2=0`、`MinimumThinkingTime=100`、
   `RoundUpToFullSecond=false`、`FV_SCALE=28`
 - SPSA schedule: alpha `0.602`、gamma `0.101`、A-ratio `0.1`、mappingなし、全148件
-- 作成直後の状態: 未承認、0/7,680ペア
+- 完了: 2026-07-17、160/160 batches、7,680/7,680ペア、15,360局
+- 最終成績（plus側視点）: 7,511勝、7,395敗、454分、timeout 0、crash 0
+- 最終batch: raw result `-6`（`-6/48 = -0.125`）、平均更新量 `4.487348`
+- final.params: 148行すべて7カラム、有限値、定義範囲内
+- final.params SHA-256:
+  `cdf3004041cd68b3e433270677449b092b01213481bfdc57b655ddb18bc430ad`
+- 初期値からの絶対移動量（可動範囲比）: 中央値 `1.120%`、95%点 `3.530%`、
+  最大 `5.365%`
+- min/max到達: 0件、境界から1%以内: 0件、境界から5%以内: 0件
+
+累積の勝敗差116は決着局14,906局に対して約0.95標準偏差であり、plus/minus側の
+有意な偏りを示さない。監視中のraw resultは正負の両側へ変動し、最終batchの
+`-6`も単一batchの通常の揺らぎの範囲である。現行ShogiBenchは各batchの履歴を
+サーバーに保持せず直近値だけを残すため、完走後に16 batch移動平均を厳密再計算する
+ことはできない。この観測不足はShogiBenchの`codex/spsa-trajectory-chart`で
+`stats.csv` / `values.csv`履歴を保存・可視化する変更として別管理する。
 
 #75はmaster対照の軽量調整であり、この結果単独で探索実装を採否決定しない。
 同じ条件・seedで各featureを独立に調整し、調整後master対調整後featureの対局結果で判断する。
+また、#75のfinal.paramsをmasterへ適用しない。
