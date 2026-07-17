@@ -77,6 +77,24 @@ class SourceContractTests(unittest.TestCase):
             )
         )
 
+    def test_divisor_parameter_ranges_exclude_zero(self):
+        _documents, parameters = load_source_contract(REPO_ROOT)
+        parameters_by_name = {parameter.name: parameter for parameter in parameters}
+        divisor_names = {
+            "aspiration_window_2",
+            "Search_futility_1_5",
+            "Search_Continuation_history_based_pruning1_3",
+            "Search_Extensions1_3",
+            "Search_Extensions2_1",
+            "Search_Decrease_reduction_for_PvNodes_3_2",
+            "Search_fail_low_quiet_bonus_2",
+            "MovePicker_good_capture_see_1",
+        }
+        self.assertTrue(divisor_names.issubset(parameters_by_name))
+        for name in divisor_names:
+            with self.subTest(name=name):
+                self.assertGreater(parameters_by_name[name].minimum, 0)
+
     def test_generated_params_have_exact_format_and_no_not_used(self):
         output = generate(REPO_ROOT)
         lines = output.splitlines()

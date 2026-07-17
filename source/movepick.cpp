@@ -16,7 +16,7 @@ using namespace Eval; // Eval::PieceValue
 namespace {
 // V940の指し手オーダリング用パラメーター。
 TUNABLE_PARAM(MovePicker_quiet_partial_sort_1, -3560, -7120, 0)
-TUNABLE_PARAM(MovePicker_good_capture_see_1, 18, 0, 36)
+TUNABLE_PARAM(MovePicker_good_capture_see_1, 18, 1, 36)
 TUNABLE_PARAM(MovePicker_good_quiet_threshold_1, -14000, -28000, 0)
 TUNABLE_PARAM(MovePicker_low_ply_history_score_1, 8, 0, 16)
 TUNABLE_PARAM(MovePicker_quiet_score_1, 2, 0, 4)
