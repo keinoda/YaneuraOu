@@ -59,6 +59,18 @@ bool opening_target_active_at_root(const bool reached[COLOR_NB],
     return !hidden[root_color] && !reached[root_color];
 }
 
+constexpr int singular_extension_depth(bool is_capture,
+                                       bool double_extension,
+                                       bool triple_extension) {
+    return is_capture ? 1 : 1 + int(double_extension) + int(triple_extension);
+}
+
+// 駒を取る手は常に1段、取らない手は従来どおり最大3段まで延長する。
+static_assert(singular_extension_depth(true, false, false) == 1);
+static_assert(singular_extension_depth(true, true, true) == 1);
+static_assert(singular_extension_depth(false, false, false) == 1);
+static_assert(singular_extension_depth(false, true, true) == 3);
+
 }
 
 std::optional<std::string> SearchOptions::set_opening_target_sfen(Color c,
@@ -4372,8 +4384,10 @@ int tripleMargin = 116 + 399 * PvNode - 17 * !ttCapture + 119 * ss->ttPv - corrV
 
                 // 📝 2重延長を制限して探索の組合せ爆発を回避する必要がある。
 
-                extension =
-                    1 + (value < singularBeta - doubleMargin) + (value < singularBeta - tripleMargin);
+                const bool isCapture = bool(pos.capture(move));
+                extension = singular_extension_depth(
+                  isCapture, !isCapture && value < singularBeta - doubleMargin,
+                  !isCapture && value < singularBeta - tripleMargin);
 
                 depth++;
             }

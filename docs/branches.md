@@ -37,9 +37,13 @@
 
 ## 実験
 
-現在、実験ブランチはなし。以後は branch-policy.md §7 の運用
-(1テーマ=1ブランチ、A/Bテストは ShogiBench、判定後に統合または削除)に従う。
-改善テーマの候補は docs/search-improvement-plan.md を参照。
+| ブランチ | 説明 | 状態 |
+|---|---|---|
+| `codex/capture-single-extension-master` | 駒を取る手の二重・三重singular extensionを抑制 | ローカルビルド成功。ShogiBench評価待ち |
+
+branch-policy.md §7 の運用(1テーマ=1ブランチ、A/Bテストは ShogiBench、
+判定後に統合または削除)に従う。改善テーマの候補は
+docs/search-improvement-plan.md を参照。
 
 ## 大会提出(命名規則の例外)
 
