@@ -39,7 +39,7 @@
 
 | ブランチ | 説明 | 状態 |
 |---|---|---|
-| `codex/capture-single-extension-master` | 駒を取る手の二重・三重singular extensionを抑制 | 初期化修正前の#66は参考値。修正版#72は承認待ち |
+| `codex/capture-single-extension-master` | 駒を取る手の二重・三重singular extensionを抑制 | 初期化修正前の#66は参考値。修正版#72は2040局でユーザー打ち切り（767勝872敗401分、LLR -1.52、Elo -17.90 ±13.17）。SPRT境界には未到達で、再開せずpaired SPSAへ進む |
 | `feature/nmp-no-verification-more-reduction` | NMP検証探索の削除 + reduction増加(tanuki #4+#5) | 初期化修正前の#68は参考値。修正版#71は承認待ち |
 
 branch-policy.md §7 の運用(1テーマ=1ブランチ、A/Bテストは ShogiBench、
