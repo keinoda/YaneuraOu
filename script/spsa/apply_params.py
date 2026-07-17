@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""rshogi SPSA用paramsの整数値をTUNABLE_PARAMのdefへ適用する。"""
+"""rshogi SPSA用paramsの最終値をTUNABLE_PARAMのdefへ適用する。"""
 
 import argparse
 from decimal import Decimal
@@ -31,6 +31,7 @@ def prepare_application(params_path: Path, repo_root: Path = PROJECT_ROOT) -> Tu
 
     active_values: Dict[str, int] = {}
     known_not_used: List[str] = []
+    rounded_names: List[str] = []
     warnings: List[str] = []
     for entry in entries:
         if entry.name not in known_names:
@@ -57,6 +58,14 @@ def prepare_application(params_path: Path, repo_root: Path = PROJECT_ROOT) -> Tu
                     )
                 )
             active_values[entry.name] = entry.value
+            if entry.was_rounded:
+                rounded_names.append(entry.name)
+
+    if rounded_names:
+        warnings.append(
+            "int型の小数現在値{}件を最近傍整数へ丸めます"
+            "（0.5は0から遠い側）".format(len(rounded_names))
+        )
 
     missing_names = sorted(known_names - set(active_values))
     if missing_names:

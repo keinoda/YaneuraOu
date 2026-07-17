@@ -2,7 +2,7 @@
 """探索パラメーター用SPSAツールの共通処理。"""
 
 from dataclasses import dataclass
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 import os
 from pathlib import Path
 import re
@@ -60,6 +60,7 @@ class SourceDocument:
 class ParamsEntry:
     name: str
     value: int
+    was_rounded: bool
     minimum: Decimal
     maximum: Decimal
     c_end: Decimal
@@ -282,12 +283,6 @@ def parse_params_file(path: Path) -> Tuple[ParamsEntry, ...]:
         maximum = _parse_decimal(raw_maximum, "max", path, line_number)
         c_end = _parse_decimal(raw_c_end, "c_end", path, line_number)
         r_end = _parse_decimal(raw_r_end, "r_end", path, line_number)
-        if current_decimal != current_decimal.to_integral_value():
-            raise SpsaError(
-                "{}:{} の現在値は整数相当でなければなりません: {}={}".format(
-                    path, line_number, name, raw_current
-                )
-            )
         if minimum >= maximum:
             raise SpsaError(
                 "{}:{} の範囲が不正です: {} は min={}、max={}".format(
@@ -305,11 +300,16 @@ def parse_params_file(path: Path) -> Tuple[ParamsEntry, ...]:
         if r_end <= 0:
             raise SpsaError("{}:{} のr_endは正でなければなりません: {}".format(path, line_number, raw_r_end))
 
+        # rshogiはint型パラメーターもSPSA内部のθを小数のまま保存する。
+        # 焼き込み時だけC++のround()と同じく、0.5を0から遠い側へ丸める。
+        rounded_decimal = current_decimal.to_integral_value(rounding=ROUND_HALF_UP)
+
         first_lines[name] = line_number
         entries.append(
             ParamsEntry(
                 name=name,
-                value=int(current_decimal),
+                value=int(rounded_decimal),
+                was_rounded=current_decimal != rounded_decimal,
                 minimum=minimum,
                 maximum=maximum,
                 c_end=c_end,

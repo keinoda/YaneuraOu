@@ -113,6 +113,12 @@ python3 script/spsa/apply_params.py /absolute/path/to/final.params --dry-run
 python3 script/spsa/apply_params.py /absolute/path/to/final.params
 ```
 
+rshogiは`int`型パラメーターでもSPSA内部の連続値θを小数のまま
+`final.params`へ保存する。`apply_params.py`は小数値が元の範囲内であることを
+検証してから、本家の`int(round(...))`と同じく最近傍整数へ確定する。
+ちょうど0.5の場合は0から遠い側へ丸め、丸めた項目数を警告として表示する。
+小数を保持する`state.params`や`final.params`自体は書き換えない。
+
 既知の148名がactive行としてすべて揃った場合だけ、2つのソースファイルにある
 `TUNABLE_PARAM` の既定値を書き換える。未知名と未知の `[[NOT USED]]` 行は警告して
 無視するが、重複名、不正値、既知名の欠落、範囲定義の不一致があれば書き込まない。

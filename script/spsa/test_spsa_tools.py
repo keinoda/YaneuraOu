@@ -234,6 +234,37 @@ class ApplyTests(TemporaryRepositoryTestCase):
             with (self.repo_root / relative_path).open("r", encoding="utf-8", newline="") as source_file:
                 self.assertEqual(source_file.read(), expected)
 
+    def test_rounds_fractional_int_values_and_reports_count(self):
+        lines = generate(self.repo_root).splitlines()
+        replacements = {
+            "QSearch_SEE_pruning_1": ("-71.5", -72),
+            "MovePicker_capture_score_1": ("8.5", 9),
+        }
+        for index, line in enumerate(lines):
+            fields = line.split(",")
+            if fields[0] in replacements:
+                fields[2] = replacements[fields[0]][0]
+                lines[index] = ",".join(fields)
+        params_path = self.write_params("\n".join(lines) + "\n")
+
+        changed_count, changed_file_count, warnings = apply_parameters(
+            params_path, repo_root=self.repo_root
+        )
+
+        self.assertEqual(changed_count, 2)
+        self.assertEqual(changed_file_count, 2)
+        self.assertEqual(len(warnings), 1)
+        self.assertIn("小数現在値2件", warnings[0])
+        for name, (_raw_value, rounded_value) in replacements.items():
+            matching_lines = [
+                line
+                for relative_path, _expected_count in TARGET_FILES
+                for line in (self.repo_root / relative_path).read_text(encoding="utf-8").splitlines()
+                if "TUNABLE_PARAM({0},".format(name) in line
+            ]
+            self.assertEqual(len(matching_lines), 1)
+            self.assertIn(", {0},".format(rounded_value), matching_lines[0])
+
     def test_unknown_active_and_not_used_entries_warn_and_are_skipped(self):
         params_text = generate(self.repo_root)
         params_text += "FutureParam,int,1,0,2,0.1,0.002\n"
@@ -319,8 +350,25 @@ class ParamsValidationTests(unittest.TestCase):
     def test_rejects_malformed_columns(self):
         self.assert_invalid("A,int,1,0,2,0.1\n", "列数")
 
-    def test_rejects_non_integral_current_value_without_rounding(self):
-        self.assert_invalid("A,int,1.5,0,2,0.1,0.002\n", "整数相当")
+    def test_rounds_current_value_like_cpp_round(self):
+        cases = (
+            ("1.49", 1, True),
+            ("1.5", 2, True),
+            ("-1.49", -1, True),
+            ("-1.5", -2, True),
+            ("1.000000", 1, False),
+        )
+        for raw_value, expected, was_rounded in cases:
+            with self.subTest(raw_value=raw_value):
+                with tempfile.TemporaryDirectory() as temporary_directory:
+                    path = Path(temporary_directory) / "input.params"
+                    path.write_text(
+                        "A,int,{},-3,3,0.1,0.002\n".format(raw_value),
+                        encoding="utf-8",
+                    )
+                    entry = parse_params_file(path)[0]
+                self.assertEqual(entry.value, expected)
+                self.assertEqual(entry.was_rounded, was_rounded)
 
     def test_rejects_nan_and_infinity(self):
         for value in ("NaN", "Infinity", "-Infinity"):
@@ -331,7 +379,11 @@ class ParamsValidationTests(unittest.TestCase):
         self.assert_invalid("A,float,1,0,2,0.1,0.002\n", "int")
 
     def test_rejects_out_of_range_current_value(self):
-        self.assert_invalid("A,int,3,0,2,0.1,0.002\n", "範囲外")
+        for value in ("3", "2.1"):
+            with self.subTest(value=value):
+                self.assert_invalid(
+                    "A,int,{},0,2,0.1,0.002\n".format(value), "範囲外"
+                )
 
     def test_rejects_invalid_range_and_schedule(self):
         self.assert_invalid("A,int,1,1,1,0.1,0.002\n", "範囲が不正")
