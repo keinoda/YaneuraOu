@@ -2,12 +2,12 @@
 
 - 作成: 2026-07-14(第2回棚卸し。docs/branch-policy.md §6)
 - 更新: 2026-07-15(第3回棚卸し。同 §7)
-- 更新: 2026-07-17(実験ブランチ claude/time-management-large-models-7b9loq を追加)
+- 更新: 2026-07-17(確定ブランチ feature/full-time-mode を追加)
 - 目的: 生きているブランチの目的・状態の一覧
   (docs/repository-organization-plan.md P5 の実施)
 - 規則: docs/branch-policy.md。ブランチの追加・削除・処置のたびに本台帳を更新する
 - 実施状況: **第3回実施済み(2026-07-15)**。リモート照合済み
-  (refs/archive 16件・残ブランチ7本=本台帳と一致)
+  (refs/archive 16件・残ブランチ8本=本台帳と一致)
 
 ## 正本
 
@@ -44,7 +44,7 @@ branch-policy.md §7 の運用(1テーマ=1ブランチ、A/Bテストは ShogiB
 
 | ブランチ | 説明 |
 |---|---|
-| `claude/time-management-large-models-7b9loq` | 時間制御に FullTimeMode(動的係数を延長にのみ使い、totalTime に optimum 下限を設ける)を追加。大型評価関数モデルに余らせている持ち時間を渡す実験。ShogiBench での採否判定待ち |
+| `feature/full-time-mode` | 時間制御に FullTimeMode(動的係数を延長にのみ使い、totalTime に optimum 下限を設ける)を追加。大型評価関数モデルに余らせている持ち時間を渡す実験。ShogiBench での採否判定待ち |
 
 ## 大会提出(命名規則の例外)
 

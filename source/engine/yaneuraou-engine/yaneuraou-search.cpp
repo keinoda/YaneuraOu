@@ -49,6 +49,19 @@ using namespace Eval;  // Eval::PieceValue
 
 namespace {
 
+// FullTimeModeによる基準思考時間の下限制御。
+// OFFでは従来値をそのまま返し、ONでは動的係数による短縮だけを抑止する。
+constexpr double effective_total_time(double optimum, double adaptive, bool full_time_mode) {
+    return full_time_mode ? std::max(optimum, adaptive) : adaptive;
+}
+
+static_assert(effective_total_time(1000.0, 500.0, false) == 500.0,
+              "FullTimeModeがOFFなら従来の短縮を維持する");
+static_assert(effective_total_time(1000.0, 500.0, true) == 1000.0,
+              "FullTimeModeがONならoptimum未満へ短縮しない");
+static_assert(effective_total_time(1000.0, 1500.0, true) == 1500.0,
+              "FullTimeModeがONでも従来の延長を維持する");
+
 const char* opening_target_color_name(Color c) {
     return c == BLACK ? "Black" : "White";
 }
@@ -379,7 +392,8 @@ void SearchOptions::add_options(OptionsMap& options) {
 
     // 思考時間の動的係数(評価値の下降・最善手の変動/安定・best moveへのノード集中)を
     // 延長にだけ使い、短縮には使わないモード。
-    // trueのとき、totalTimeが基準思考時間optimum()を下回らなくなる。
+    // trueのとき、合法手が複数ある通常局面では、totalTimeが基準思考時間optimum()を
+    // 下回らなくなる。合法手が1手だけの場合は、従来の502ms上限を優先する。
     // 💡 大型評価関数モデルなどで、余らせている持ち時間を使い切りたいときに用いる。
     options.add("FullTimeMode", Option(false));
 }
@@ -2430,8 +2444,8 @@ delta     = 23 + threadIdx % 8 + std::abs(rootMoves[pvIdx].meanSquaredScore) / 6
             //     計算コスト差が大きく、ノード比率だけを見るhighBestMoveEffortが
             //     「実際に費やした計算量」の指標として不正確になりやすい。
             //     optimumを下限とすることでこの問題も実質的に無効化される。
-            double totalTime =
-              bool(options["FullTimeMode"]) ? std::max(optimum, adaptiveTime) : adaptiveTime;
+            double totalTime = effective_total_time(
+              optimum, adaptiveTime, bool(options["FullTimeMode"]));
 #endif
 
             // Cap used time in case of a single legal move for a better viewer experience
@@ -2483,10 +2497,7 @@ delta     = 23 + threadIdx % 8 + std::abs(rootMoves[pvIdx].meanSquaredScore) / 6
 					 を呼び出すこと。
 			*/
 
-            // 停止判定とincreaseDepthの判定とで、常に同じstopTimeを用いる。
-            const double stopTime = std::min(totalTime, double(mainThread->tm.maximum()));
-
-			if (elapsedTime > stopTime)
+			if (elapsedTime > std::min(totalTime, double(mainThread->tm.maximum())))
             {
 				if (mainThread->ponder)
                     mainThread->stopOnPonderhit = true;
@@ -2496,7 +2507,7 @@ delta     = 23 + threadIdx % 8 + std::abs(rootMoves[pvIdx].meanSquaredScore) / 6
             }
             else
                 main_manager()->increaseDepth =
-                  mainThread->ponder || elapsedTime <= stopTime * 0.503;
+                  mainThread->ponder || elapsedTime <= totalTime * 0.503;
 #endif
         }
 
