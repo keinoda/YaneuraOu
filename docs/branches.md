@@ -40,7 +40,7 @@
 | ブランチ | 説明 | 状態 |
 |---|---|---|
 | `codex/capture-single-extension-master` | 駒を取る手の二重・三重singular extensionを抑制 | 初期化修正前の#66は参考値。修正版#72は承認待ち |
-| `feature/nmp-no-verification-more-reduction` | NMP検証探索の削除 + reduction増加(tanuki #4+#5) | 初期化修正前の#68は参考値。修正版#71は承認待ち |
+| `feature/nmp-no-verification-more-reduction` | NMP検証探索の削除 + reduction増加(tanuki #4+#5) | 初期化修正前の#68は参考値。修正版#71は承認後、直接SPSA用にインスタンスを空けるため0局でユーザー停止。再開せずpaired SPSAへ進む |
 
 branch-policy.md §7 の運用(1テーマ=1ブランチ、A/Bテストは ShogiBench、
 固定値SPRTだけで不採用にせず再SPSA後に最終判定)に従う。
