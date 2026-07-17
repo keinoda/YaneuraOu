@@ -524,6 +524,12 @@ void SearchOptions::add_options(OptionsMap& options) {
                     enteringKingRule = to_entering_king_rule(o);
                     return std::nullopt;
                 }));
+
+    // 思考時間の動的係数(評価値の下降・最善手の変動/安定・best moveへのノード集中)を
+    // 延長にだけ使い、短縮には使わないモード。
+    // trueのとき、totalTimeが基準思考時間optimum()を下回らなくなる。
+    // 💡 大型評価関数モデルなどで、余らせている持ち時間を使い切りたいときに用いる。
+    options.add("FullTimeMode", Option(false));
 }
 
 
@@ -2563,8 +2569,25 @@ delta     = aspiration_window_1 + threadIdx % 8 + std::abs(rootMoves[pvIdx].mean
             double bestMoveInstability = 1.04 + 1.8956 * totBestMoveChanges / threads.size();
 			double highBestMoveEffort  = completedDepth >= 10 && nodesEffort >= 92425 ? 0.666 : 1.0;
 
+#if STOCKFISH
             double totalTime = mainThread->tm.optimum() * fallingEval * reduction
                              * bestMoveInstability * highBestMoveEffort;
+#else
+            // 基準思考時間optimumに動的係数を掛けたもの。係数次第でoptimumより短くなる。
+            const double optimum      = double(mainThread->tm.optimum());
+            const double adaptiveTime =
+              optimum * fallingEval * reduction * bestMoveInstability * highBestMoveEffort;
+
+            // FullTimeModeでは、動的係数は延長にだけ使い、短縮には使わない。
+            // すなわち、optimumより早くは止めない。
+            // 局面が難しそうな場合(adaptiveTime > optimum)は従来どおり延長する。
+            // 💡 大型評価関数モデルでは、full evalを行ったノードとTT値で済んだノードの
+            //     計算コスト差が大きく、ノード比率だけを見るhighBestMoveEffortが
+            //     「実際に費やした計算量」の指標として不正確になりやすい。
+            //     optimumを下限とすることでこの問題も実質的に無効化される。
+            double totalTime =
+              bool(options["FullTimeMode"]) ? std::max(optimum, adaptiveTime) : adaptiveTime;
+#endif
 
             // Cap used time in case of a single legal move for a better viewer experience
             // 視聴者体験を向上させるため、合法手が1つだけの場合に使用時間を上限で制限する
@@ -2615,7 +2638,10 @@ delta     = aspiration_window_1 + threadIdx % 8 + std::abs(rootMoves[pvIdx].mean
 					 を呼び出すこと。
 			*/
 
-			if (elapsedTime > std::min(totalTime, double(mainThread->tm.maximum())))
+            // 停止判定とincreaseDepthの判定とで、常に同じstopTimeを用いる。
+            const double stopTime = std::min(totalTime, double(mainThread->tm.maximum()));
+
+			if (elapsedTime > stopTime)
             {
 				if (mainThread->ponder)
                     mainThread->stopOnPonderhit = true;
@@ -2625,7 +2651,7 @@ delta     = aspiration_window_1 + threadIdx % 8 + std::abs(rootMoves[pvIdx].mean
             }
             else
                 main_manager()->increaseDepth =
-                  mainThread->ponder || elapsedTime <= totalTime * 0.503;
+                  mainThread->ponder || elapsedTime <= stopTime * 0.503;
 #endif
         }
 
