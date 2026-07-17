@@ -7,7 +7,7 @@
   (docs/repository-organization-plan.md P5 の実施)
 - 規則: docs/branch-policy.md。ブランチの追加・削除・処置のたびに本台帳を更新する
 - 実施状況: **第3回実施済み(2026-07-15)**。リモート照合済み
-  (refs/archive 16件・残ブランチ8本=本台帳と一致)
+  (refs/archive 16件・残ブランチ7本=本台帳と一致)
 
 ## 正本
 
