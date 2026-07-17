@@ -1280,9 +1280,6 @@ void Search::YaneuraOuWorker::pre_start_searching() {
 
     // 📝 StockfishではThreadPool::start_thinking()で行っているが、
     //     やねうら王では、派生classのpre_start_thinking()以降で行う。
-#if STOCKFISH
-    nmpMinPly       = 0;
-#endif
     bestMoveChanges = 0;
     rootDepth = completedDepth = 0;
 
@@ -3741,8 +3738,8 @@ auto futility_margin = [&](Depth d) {
     }
 
 	// -----------------------
-    // Step 9. Null move search with verification search
-    // Step 9. 検証探索を伴うnull move探索
+    // Step 9. Null move search
+    // Step 9. null move探索
     // -----------------------
 
     //  🖊 evalがbetaを超えているので1手パスしてもbetaは超えそう。だからnull moveを試す
@@ -3757,7 +3754,6 @@ if (cutNode && ss->staticEval >= beta - 22 * depth - 53 * improving + 278 && !ex
     // 💡 盤上にpawn以外の駒がある ≒ pawnだけの終盤ではない。
     // 🤔 将棋でもこれに相当する条件が必要かも。
 #endif
-        && ss->ply >= nmpMinPly
         // 同じ手番側に連続してnull moveを適用しない
         && !is_loss(beta)
     )
@@ -3767,7 +3763,7 @@ if (cutNode && ss->staticEval >= beta - 22 * depth - 53 * improving + 278 && !ex
         // Null move dynamic reduction based on depth
         // (残り探索)深さと評価値に基づくnull moveの動的なreduction
 
-        Depth R = 7 + depth / 3;
+        Depth R = 7 + depth / 2;
 
         ss->currentMove                   = Move::null();
         ss->continuationHistory           = &continuationHistory[0][0][NO_PIECE][0];
@@ -3792,37 +3788,9 @@ if (cutNode && ss->staticEval >= beta - 22 * depth - 53 * improving + 278 && !ex
 
         undo_null_move(pos);
 
-        if (nullValue >= beta && !is_win(nullValue))
-        // Do not return unproven mate or TB scores
-        // 証明されていないmate scoreやTB scoreはreturnで返さない。
-        {
-            // 1手パスしてもbetaを上回りそうであることがわかったので
-            // これをもう少しちゃんと検証しなおす。
-
-            if (nmpMinPly || depth < 16)
-                return nullValue;
-
-            ASSERT_LV3(!nmpMinPly);  // Recursive verification is not allowed
-                                     // 再帰的な検証は認めていない。
-
-            // Do verification search at high depths, with null move pruning disabled
-            // until ply exceeds nmpMinPly.
-            //
-            // 💡 null move枝刈りを無効化して、plyがnmpMinPlyを超えるまで
-            //     高いdepthで検証のための探索を行う。
-
-            nmpMinPly = ss->ply + 3 * (depth - R) / 4;
-
-            // 📝 nullMoveせずに(現在のnodeと同じ手番で)同じ深さで探索しなおして本当にbetaを超えるか検証する。
-            //     cutNodeにしない。
-
-            Value v = search<NonPV>(pos, ss, beta - 1, beta, depth - R, false);
-
-            nmpMinPly = 0;
-
-            if (v >= beta)
-                return nullValue;
-        }
+        // 証明されていないmate scoreは返さず、beta boundに丸める。
+        if (nullValue >= beta)
+            return is_win(nullValue) ? beta : nullValue;
     }
 
 	// ここでimproving計算しなおす。
