@@ -46,7 +46,7 @@ using namespace Eval;  // Eval::PieceValue
 // 📝 tune.pyとは、パラメーター自動調整フレームワークのスクリプトである。
 //     https://github.com/yaneurao/YaneuraOu-ScriptCollection/tree/main/SPSA
 //                            %%TUNE_DECLARATION%%
-// V940の探索パラメーター。既定値は本ブランチの分岐元masterの値を保持する。
+// V940の探索パラメーター。既定値は本実装の導入時点におけるmasterの値を保持する。
 TUNABLE_PARAM(QSearch_SEE_pruning_1, -73, -146, 0)
 TUNABLE_PARAM(QSearch_move_count_pruning_1, 2, 0, 4)
 TUNABLE_PARAM(Search_correction_history_bonus_1, 12, 0, 24)
