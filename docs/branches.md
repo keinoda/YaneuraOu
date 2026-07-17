@@ -39,10 +39,10 @@
 
 | ブランチ | 説明 | 状態 |
 |---|---|---|
-| `codex/capture-single-extension-master` | 駒を取る手の二重・三重singular extensionを抑制 | ローカルビルド成功。ShogiBench評価待ち |
+| `codex/capture-single-extension-master` | 駒を取る手の二重・三重singular extensionを抑制 | ShogiBench #66固定値SPRTは負け。最終判断はpaired SPSA後 |
 
 branch-policy.md §7 の運用(1テーマ=1ブランチ、A/Bテストは ShogiBench、
-判定後に統合または削除)に従う。改善テーマの候補は
+固定値SPRT単独では不採用にせず、総合判断後に統合または削除)に従う。改善テーマの候補は
 docs/search-improvement-plan.md を参照。
 
 ## 大会提出(命名規則の例外)
