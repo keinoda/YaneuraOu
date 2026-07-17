@@ -221,6 +221,11 @@ namespace Book
 		return ends_with(filename, ".ybb");
 	}
 
+	static bool is_db_book(const std::string& filename)
+	{
+		return ends_with(filename, ".db");
+	}
+
 	static std::string ybb_book_name_from_db_name(const std::string& db_filename)
 	{
 		if (!ends_with(db_filename, ".db"))
@@ -241,6 +246,46 @@ namespace Book
 			return ybb_filename;
 
 		return filename;
+	}
+
+	static std::string book_name_without_extension(const std::string& filename)
+	{
+		if (is_db_book(filename))
+			return filename.substr(0, filename.size() - std::string(".db").size());
+		if (is_ybb_book(filename))
+			return filename.substr(0, filename.size() - std::string(".ybb").size());
+		return std::string();
+	}
+
+	static std::string priority_book_filename(const std::string& stem, int index, const std::string& extension)
+	{
+		auto number = std::to_string(index);
+		while (number.size() < 3)
+			number = "0" + number;
+		return stem + "-" + number + extension;
+	}
+
+	static std::string resolve_priority_book_filename(const std::string& base_filename, int index)
+	{
+		const auto stem = book_name_without_extension(base_filename);
+		if (stem.empty())
+			return std::string();
+
+		const auto primary_extension   = is_ybb_book(base_filename) ? std::string(".ybb") : std::string(".db");
+		const auto secondary_extension = is_ybb_book(base_filename) ? std::string(".db") : std::string(".ybb");
+		const auto primary_filename    = priority_book_filename(stem, index, primary_extension);
+		const auto secondary_filename  = priority_book_filename(stem, index, secondary_extension);
+
+		if (Path::Exists(primary_filename))
+		{
+			if (Path::Exists(secondary_filename))
+				sync_cout << "info string priority book file exists twice. use : " << primary_filename << sync_endl;
+			return primary_filename;
+		}
+		if (Path::Exists(secondary_filename))
+			return secondary_filename;
+
+		return std::string();
 	}
 
 	static bool read_u16_le(std::istream& is, uint16_t& value)
@@ -1247,14 +1292,15 @@ namespace Book
 
 	void BookMoveSelector::set_options(OptionsMap& o) {
         options.set_ref(o);
-        // memory_bookのほうにもセットしておく。
-        memory_book.set_options(o);
+		for (auto& memory_book : memory_books)
+			memory_book->set_options(o);
     }
 
 	void BookMoveSelector::add_options(OptionsMap& o)
 	{
         // あとで使いたいから参照をコピーしておく。
         set_options(o);
+		const bool book_options_v2 = options.book_options_v2();
 
 		// エンジン側の定跡を有効化するか
 		// USI原案にこのオプションがあり、ShogiGUI、ShogiDroidで対応しているらしいので
@@ -1262,10 +1308,11 @@ namespace Book
 		options.add("USI_OwnBook", Option(true));
 
 		// 実現確率の低い狭い定跡を選択しない
-        options.add("NarrowBook", Option(false));
+		if (!book_options_v2)
+			options.add("NarrowBook", Option(false));
 
 		// 定跡の指し手を何手目まで用いるか
-        options.add("BookMoves", Option(16, 0, 10000));
+        options.add("BookMoves", Option(book_options_v2 ? 200 : 16, 0, 10000));
 
 		// 一定の確率で定跡を無視して自力で思考させる
         options.add("BookIgnoreRate", Option(0, 0, 100));
@@ -1292,7 +1339,7 @@ namespace Book
 			, "user_book1.ybb", "user_book2.ybb", "user_book3.ybb", "book.bin" };
 
 #if !defined(__EMSCRIPTEN__)
-		options.add("BookFile", Option(book_list, book_list[1]));
+		options.add("BookFile", Option(book_list, book_options_v2 ? "user_book1.db" : book_list[1]));
 #else
 		// WASM では no_book をデフォルトにする
         options.add("BookFile", Option(book_list, book_list[0]));
@@ -1307,20 +1354,35 @@ namespace Book
 
 		//  BookEvalDiff: 定跡の指し手で1番目の候補の指し手と、2番目以降の候補の指し手との評価値の差が、
 		//    この範囲内であれば採用する。(1番目の候補の指し手しか選ばれて欲しくないときは0を指定する)
+		//  BOOK_OPTIONS=V2では、BookEvalDiffの代わりにBookEvalBlackDiff/BookEvalWhiteDiffで先後別に指定する。
 		//  BookEvalBlackLimit : 定跡の指し手のうち、先手のときの評価値の下限。これより評価値が低くなる指し手は選択しない。
 		//  BookEvalWhiteLimit : 同じく後手の下限。
 		//  BookDepthLimit : 定跡に登録されている指し手のdepthがこれを下回るなら採用しない。0を指定するとdepth無視。
+		//  BOOK_OPTIONS=V2では、depthの下限を先後別に指定する。
 
-		options.add("BookEvalDiff", Option(30, 0, 99999));
+		if (book_options_v2)
+		{
+			options.add("BookEvalBlackDiff", Option(0, 0, 99999));
+			options.add("BookEvalWhiteDiff", Option(0, 0, 99999));
+		}
+		else
+			options.add("BookEvalDiff", Option(30, 0, 99999));
         options.add("BookEvalBlackLimit", Option(0, -99999, 99999));
         options.add("BookEvalWhiteLimit", Option(-140, -99999, 99999));
-        options.add("BookDepthLimit", Option(16, 0, 99999));
+		if (book_options_v2)
+		{
+			options.add("BookDepthBlackLimit", Option(0, 0, 99999));
+			options.add("BookDepthWhiteLimit", Option(5, 0, 99999));
+		}
+		else
+			options.add("BookDepthLimit", Option(16, 0, 99999));
 
 		// 定跡をメモリに丸読みしないオプション。(default = false)
         options.add("BookOnTheFly", Option(false));
 
 		// 定跡データベースの採択率に比例して指し手を選択するオプション
-        options.add("ConsiderBookMoveCount", Option(false));
+		if (!book_options_v2)
+			options.add("ConsiderBookMoveCount", Option(false));
 
 		// 定跡にヒットしたときにPVを何手目まで表示するか。あまり長いと時間がかかりうる。
         options.add("BookPvMoves", Option(8, 1, MAX_PLY));
@@ -1328,7 +1390,7 @@ namespace Book
 		// 定跡データベース上のply(開始局面からの手数)を無視するオプション。
 		// 例) 局面図が同じなら、DBの36手目の局面に40手目でもヒットする。
 		// これ変更したときに定跡ファイルの読み直しが必要になるのだが…(´ω｀)
-        options.add("IgnoreBookPly", Option(false));
+        options.add("IgnoreBookPly", Option(book_options_v2));
 
 		// 反転させた局面が定跡DBに登録されていたら、それにヒットするようになるオプション。
         options.add("FlippedBook", Option(true));
@@ -1350,7 +1412,31 @@ namespace Book
 	// 定跡ファイルの読み込み。
 	void BookMoveSelector::read_book()
 	{
-		memory_book.read_book(get_book_name(), bool(options["BookOnTheFly"]));
+		const auto new_book_names    = get_book_names();
+		const bool new_on_the_fly    = bool(options["BookOnTheFly"]);
+		const bool new_ignoreBookPly = bool(options["IgnoreBookPly"]);
+
+		if (book_names == new_book_names
+			&& book_on_the_fly == new_on_the_fly
+			&& ignoreBookPly == new_ignoreBookPly)
+			return;
+
+		memory_books.clear();
+		book_names.clear();
+		book_on_the_fly = new_on_the_fly;
+		ignoreBookPly = new_ignoreBookPly;
+
+		for (const auto& book_name : new_book_names)
+		{
+			auto memory_book = std::unique_ptr<MemoryBook>(new MemoryBook());
+			memory_book->set_options(options.get_ref());
+
+			if (memory_book->read_book(book_name, new_on_the_fly).is_ok())
+			{
+				memory_books.push_back(std::move(memory_book));
+				book_names.push_back(book_name);
+			}
+		}
 	}
 
 	// 定跡ファイル名を返す。
@@ -1360,6 +1446,35 @@ namespace Book
         std::string abs_book_dir =
             Path::Combine(Directory::GetBinaryFolder(), std::string(options["BookDir"]));
 		return Path::Combine( abs_book_dir , std::string(options["BookFile"]));
+	}
+
+	std::vector<std::string> BookMoveSelector::get_book_names() const
+	{
+		const auto base_book_name = get_book_name();
+		std::vector<std::string> names;
+
+		for (int index = 0;; ++index)
+		{
+			const auto priority_book_name = resolve_priority_book_filename(base_book_name, index);
+			if (priority_book_name.empty())
+				break;
+			names.push_back(priority_book_name);
+		}
+
+		names.push_back(base_book_name);
+		return names;
+	}
+
+	BookMovesPtr BookMoveSelector::find_in_books(Position& pos)
+	{
+		for (auto& memory_book : memory_books)
+		{
+			auto book_moves = memory_book->find(pos);
+			if (book_moves != nullptr && book_moves->size() != 0)
+				return book_moves;
+		}
+
+		return BookMovesPtr();
 	}
 
 
@@ -1494,7 +1609,7 @@ namespace Book
 			}
 		}
 
-		auto it = memory_book.find(rootPos);
+		auto it = find_in_books(rootPos);
 		if (it == nullptr || it->size()==0)
 			return false;
 
@@ -1596,7 +1711,7 @@ namespace Book
 				std::vector<Move> line;
 				for (int ply = 2; ply <= rep_check_ply; ++ply)
 				{
-					auto it_line = memory_book.find(pos);
+					auto it_line = find_in_books(pos);
 					if (it_line == nullptr || it_line->size() == 0)
 						break;
 					Move best_move  = Move::none();
@@ -1759,8 +1874,11 @@ namespace Book
 
 		} else {
 
+			const bool book_options_v2 = options.book_options_v2();
+
 			// 狭い定跡を用いるのか？
-			bool narrowBook = options["NarrowBook"];
+			// BOOK_OPTIONS=V2ではNarrowBookを廃止し、常にfalse相当とする。
+			bool narrowBook = book_options_v2 ? false : bool(options["NarrowBook"]);
 
 			// この局面における定跡の指し手のうち、条件に合わないものを取り除いたあとの指し手の数
 			if (narrowBook && has_move_count)
@@ -1785,7 +1903,11 @@ namespace Book
 			// 評価値の差などを反映。
 
 			// 定跡として採用するdepthの下限。0 = 無視。
-			auto depth_limit = int(options["BookDepthLimit"]);
+			// BOOK_OPTIONS=V2では、先手局面/後手局面で別々の下限を持つ。
+			const auto depth_limit_name = book_options_v2
+				? (rootPos.side_to_move() == BLACK ? std::string("BookDepthBlackLimit") : std::string("BookDepthWhiteLimit"))
+				: std::string("BookDepthLimit");
+			auto depth_limit = int(options[depth_limit_name]);
 
 			// 同じ評価値のDepth違いの指し手があると片側が無いこと扱いされてしまうとまずい。(そんな定跡DBがおかしいと言う話はあるが…)
 			// そこで、bestmoveのdepthがdepth_limit未満の時にだけ、この定跡局面を無視する。
@@ -1797,7 +1919,7 @@ namespace Book
 				)
 			{
                 updates.onUpdateString(std::string_view(
-                    "info string BookDepthLimit is lower than the depth of this node."));
+                    "info string " + depth_limit_name + " is lower than the depth of this node."));
 				move_list.clear();
 			}
 			else {
@@ -1805,7 +1927,11 @@ namespace Book
 				// 品質判定(EvalDiff)は「元の定跡値」で行う。repetitionで実効値に置換された手が
 				// 消えた結果、元のbestから大きく劣る手が繰り上がって採用されるのを防ぐ。
 				// DB仕様により move_list[0] の元の定跡値がベスト。
-				auto eval_diff = int(options["BookEvalDiff"]);
+				// BOOK_OPTIONS=V2では先手局面/後手局面で別々の差分を持つ。
+				const auto eval_diff_name = book_options_v2
+					? (rootPos.side_to_move() == BLACK ? std::string("BookEvalBlackDiff") : std::string("BookEvalWhiteDiff"))
+					: std::string("BookEvalDiff");
+				auto eval_diff = int(options[eval_diff_name]);
 				auto value_limit1 = book_value_of(move_list[0]) - eval_diff;
 				// 先手・後手の評価値下限の指し手を採用するわけにはいかない。
 				// 下限(EvalLimit)は「実効値」で判定する。千日手等への置換で価値が下限を
@@ -1829,7 +1955,7 @@ namespace Book
 
 				// 候補手が1手でも減ったなら減った理由を出力
 				if (n != move_list.size())
-                    updates.onUpdateString(std::string_view("BookEvalDiff = " + std::to_string(eval_diff)
+                    updates.onUpdateString(std::string_view(eval_diff_name + " = " + std::to_string(eval_diff)
 						+ " , " + stm_string + " = " + std::to_string(value_limit2)
 						+ " , " + std::to_string(n) + " moves to " + std::to_string(move_list.size()) + " moves."));
 			}
@@ -1876,7 +2002,10 @@ namespace Book
 
 			// 定跡ファイルの採択率に応じて指し手を選択するか
 			// (置換手が実効ベストとして確定している場合は抽選しない)
-			if (!forced_rep_move && (forceHit || options["ConsiderBookMoveCount"]))
+			// BOOK_OPTIONS=V2ではConsiderBookMoveCountを廃止し、常にfalse相当とする。
+			const bool consider_book_move_count =
+				options.book_options_v2() ? false : bool(options["ConsiderBookMoveCount"]);
+			if (!forced_rep_move && (forceHit || consider_book_move_count))
 			{
 				// 1-passで採択率に従って指し手を決めるオンラインアルゴリズム
 				// http://yaneuraou.yaneu.com/2015/01/03/stockfish-dd-book-%E5%AE%9A%E8%B7%A1%E9%83%A8/
@@ -1916,7 +2045,7 @@ namespace Book
 					StateInfo si;
 					rootPos.do_move(best,si);
 
-					auto it = memory_book.find(rootPos);
+					auto it = find_in_books(rootPos);
 					if (it != nullptr && it->size())
 						// 1つ目に登録されている指し手が一番いい指し手であろう。
 						ponderMove = (*it)[0].move;
