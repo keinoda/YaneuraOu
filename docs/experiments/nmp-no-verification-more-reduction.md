@@ -55,7 +55,7 @@ make -C source -j8 \
 ## ShogiBench 固定値SPRT
 
 - テスト: [ShogiBench #68](https://shogibench.fly.dev/test/68/)
-- 状態: 承認待ち（2026-07-17作成）
+- 状態: 承認済み・実行中（2026-07-17作成・承認）
 - dev: `feature/nmp-no-verification-more-reduction@a34962c1`
 - base: `master@9a349509`
 - 評価関数: `danbo-v16-progress` (`674A1218`)
