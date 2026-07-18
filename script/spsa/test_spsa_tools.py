@@ -52,10 +52,10 @@ class TemporaryRepositoryTestCase(unittest.TestCase):
 
 
 class SourceContractTests(unittest.TestCase):
-    def test_real_repository_has_exactly_139_plus_9_unique_parameters(self):
+    def test_real_repository_has_exactly_137_plus_9_unique_parameters(self):
         documents, parameters = load_source_contract(REPO_ROOT)
         names = {parameter.name for parameter in parameters}
-        self.assertEqual([len(document.parameters) for document in documents], [139, 9])
+        self.assertEqual([len(document.parameters) for document in documents], [137, 9])
         self.assertEqual(len(parameters), EXPECTED_PARAMETER_COUNT)
         self.assertEqual(len(names), EXPECTED_PARAMETER_COUNT)
         self.assertTrue(
@@ -99,15 +99,15 @@ class SourceContractTests(unittest.TestCase):
         _documents, parameters = load_source_contract(REPO_ROOT)
         parameters_by_name = {parameter.name: parameter for parameter in parameters}
         expected = {
-            "Search_static_evaluation_2a_1": (3328, 0, 6656),
-            "Search_static_evaluation_1a_1": (-83712, -167424, 0),
-            "Search_static_evaluation_1a_2": (39936, 0, 79872),
-            "Search_static_evaluation_1a_3": (9984, 0, 19968),
-            "Search_static_evaluation_1a_4": (1280, 0, 2560),
-            "MovePicker_low_ply_history_score_1": (2048, 0, 4096),
-            "MovePicker_quiet_score_1": (512, 0, 1024),
-            "MovePicker_quiet_score_2": (512, 0, 1024),
-            "MovePicker_capture_score_1": (1792, 0, 3584),
+            "Search_static_evaluation_2a_1": (3846, 0, 6656),
+            "Search_static_evaluation_1a_1": (-64812, -167424, 0),
+            "Search_static_evaluation_1a_2": (29320, 0, 79872),
+            "Search_static_evaluation_1a_3": (9876, 0, 19968),
+            "Search_static_evaluation_1a_4": (1368, 0, 2560),
+            "MovePicker_low_ply_history_score_1": (1993, 0, 4096),
+            "MovePicker_quiet_score_1": (471, 0, 1024),
+            "MovePicker_quiet_score_2": (474, 0, 1024),
+            "MovePicker_capture_score_1": (1981, 0, 3584),
         }
         for name, contract in expected.items():
             with self.subTest(name=name):
@@ -228,10 +228,10 @@ class SourceContractTests(unittest.TestCase):
         self.assertTrue(output.endswith("\n"))
         self.assertEqual(len(lines), EXPECTED_PARAMETER_COUNT)
         self.assertNotIn(NOT_USED_MARKER, output)
-        self.assertEqual(lines[0], "QSearch_SEE_pruning_1,int,-73,-146,0,7.3,0.002")
-        self.assertIn("Search_fail_low_quiet_bonus_13,int,1400,0,2800,140,0.002", lines)
+        self.assertEqual(lines[0], "QSearch_SEE_pruning_1,int,-70,-146,0,7.3,0.002")
+        self.assertIn("Search_fail_low_quiet_bonus_13,int,1370,0,2800,140,0.002", lines)
         self.assertEqual(
-            lines[-1], "MovePicker_capture_score_1,int,1792,0,3584,179.2,0.002"
+            lines[-1], "MovePicker_capture_score_1,int,1981,0,3584,179.2,0.002"
         )
 
     def test_cli_is_independent_of_current_working_directory(self):
@@ -280,23 +280,23 @@ class SourceContractValidationTests(TemporaryRepositoryTestCase):
 
     def test_rejects_non_integer_macro_value(self):
         self.replace_in_search_source(
-            "TUNABLE_PARAM(QSearch_SEE_pruning_1, -73, -146, 0)",
-            "TUNABLE_PARAM(QSearch_SEE_pruning_1, -73.5, -146, 0)",
+            "TUNABLE_PARAM(QSearch_SEE_pruning_1, -70, -146, 0)",
+            "TUNABLE_PARAM(QSearch_SEE_pruning_1, -70.5, -146, 0)",
         )
         with self.assertRaisesRegex(SpsaError, "構文を解釈できません"):
             load_source_contract(self.repo_root)
 
     def test_rejects_invalid_range_and_out_of_range_default(self):
         self.replace_in_search_source(
-            "TUNABLE_PARAM(QSearch_SEE_pruning_1, -73, -146, 0)",
-            "TUNABLE_PARAM(QSearch_SEE_pruning_1, -73, 0, -146)",
+            "TUNABLE_PARAM(QSearch_SEE_pruning_1, -70, -146, 0)",
+            "TUNABLE_PARAM(QSearch_SEE_pruning_1, -70, 0, -146)",
         )
         with self.assertRaisesRegex(SpsaError, "範囲が不正"):
             load_source_contract(self.repo_root)
 
         # 最初の異常を戻してから、既定値だけを範囲外にする。
         self.replace_in_search_source(
-            "TUNABLE_PARAM(QSearch_SEE_pruning_1, -73, 0, -146)",
+            "TUNABLE_PARAM(QSearch_SEE_pruning_1, -70, 0, -146)",
             "TUNABLE_PARAM(QSearch_SEE_pruning_1, 1, -146, 0)",
         )
         with self.assertRaisesRegex(SpsaError, "既定値が範囲外"):

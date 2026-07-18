@@ -9,6 +9,7 @@ import sys
 from typing import Dict, List, Optional, Sequence, Tuple
 
 from spsa_common import (
+    EXPECTED_PARAMETER_COUNT,
     PROJECT_ROOT,
     SourceDocument,
     SpsaError,
@@ -74,8 +75,8 @@ def prepare_application(params_path: Path, repo_root: Path = PROJECT_ROOT) -> Tu
             details.append("既知名がNOT USED: {}".format(", ".join(sorted(known_not_used))))
         details.append("不足: {}".format(", ".join(missing_names)))
         raise SpsaError(
-            "有効な既知パラメーター148件が揃っていないため適用しません（{}）".format(
-                "、".join(details)
+            "有効な既知パラメーター{}件が揃っていないため適用しません（{}）".format(
+                EXPECTED_PARAMETER_COUNT, "、".join(details)
             )
         )
 
@@ -119,7 +120,9 @@ def apply_parameters(params_path: Path, repo_root: Path = PROJECT_ROOT, dry_run:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="paramsの有効な既知148名を、固定2ファイルのdef値へ適用します。"
+        description="paramsの有効な既知{}名を、固定2ファイルのdef値へ適用します。".format(
+            EXPECTED_PARAMETER_COUNT
+        )
     )
     parser.add_argument("params", type=Path, help="適用するparamsファイル")
     parser.add_argument(

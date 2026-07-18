@@ -52,145 +52,143 @@ constexpr int SearchStaticEvaluationQ16Scale = SearchStaticEvaluationQ8Scale
 //     https://github.com/yaneurao/YaneuraOu-ScriptCollection/tree/main/SPSA
 //                            %%TUNE_DECLARATION%%
 // V940の探索パラメーター。既定値は本実装の導入時点におけるmasterの値を保持する。
-TUNABLE_PARAM(QSearch_SEE_pruning_1, -73, -146, 0)
+TUNABLE_PARAM(QSearch_SEE_pruning_1, -70, -146, 0)
 TUNABLE_PARAM(QSearch_move_count_pruning_1, 2, 0, 4)
-TUNABLE_PARAM(Search_correction_history_bonus_1, 12, 0, 24)
-TUNABLE_PARAM(Search_correction_history_bonus_2, 17, 0, 34)
-TUNABLE_PARAM(Search_correction_history_bonus_3, 1069, 0, 2138)
-TUNABLE_PARAM(Search_fail_low_capture_bonus_1, 1018, 0, 2036)
-TUNABLE_PARAM(Search_fail_low_quiet_bonus_1, -232, -464, 0)
-TUNABLE_PARAM(Search_fail_low_quiet_bonus_2, 108, 1, 216)
-TUNABLE_PARAM(Search_fail_low_quiet_bonus_3, 59, 0, 118)
-TUNABLE_PARAM(Search_fail_low_quiet_bonus_4, 454, 0, 908)
-TUNABLE_PARAM(Search_fail_low_quiet_bonus_5, 169, 0, 338)
-TUNABLE_PARAM(Search_fail_low_quiet_bonus_6, 8, 0, 16)
-TUNABLE_PARAM(Search_fail_low_quiet_bonus_7, 145, 0, 290)
-TUNABLE_PARAM(Search_fail_low_quiet_bonus_8, 110, 0, 220)
-TUNABLE_PARAM(Search_fail_low_quiet_bonus_9, 154, 0, 308)
-TUNABLE_PARAM(Search_fail_low_quiet_bonus_10, 73, 0, 146)
-TUNABLE_PARAM(Search_fail_low_quiet_bonus_11, 135, 0, 270)
-TUNABLE_PARAM(Search_fail_low_quiet_bonus_12, 80, 0, 160)
-TUNABLE_PARAM(Search_fail_low_quiet_bonus_13, 1400, 0, 2800)
-TUNABLE_PARAM(Search_fail_low_quiet_bonus_14, 221, 0, 442)
-TUNABLE_PARAM(Search_fail_low_quiet_bonus_15, 235, 0, 470)
+TUNABLE_PARAM(Search_correction_history_bonus_1, 13, 0, 24)
+TUNABLE_PARAM(Search_correction_history_bonus_2, 16, 0, 34)
+TUNABLE_PARAM(Search_correction_history_bonus_3, 1018, 0, 2138)
+TUNABLE_PARAM(Search_fail_low_capture_bonus_1, 1195, 0, 2036)
+TUNABLE_PARAM(Search_fail_low_quiet_bonus_1, -203, -464, 0)
+TUNABLE_PARAM(Search_fail_low_quiet_bonus_2, 80, 1, 216)
+TUNABLE_PARAM(Search_fail_low_quiet_bonus_3, 71, 0, 118)
+TUNABLE_PARAM(Search_fail_low_quiet_bonus_4, 428, 0, 908)
+TUNABLE_PARAM(Search_fail_low_quiet_bonus_5, 181, 0, 338)
+TUNABLE_PARAM(Search_fail_low_quiet_bonus_6, 7, 0, 16)
+TUNABLE_PARAM(Search_fail_low_quiet_bonus_7, 143, 0, 290)
+TUNABLE_PARAM(Search_fail_low_quiet_bonus_8, 98, 0, 220)
+TUNABLE_PARAM(Search_fail_low_quiet_bonus_9, 149, 0, 308)
+TUNABLE_PARAM(Search_fail_low_quiet_bonus_10, 79, 0, 146)
+TUNABLE_PARAM(Search_fail_low_quiet_bonus_11, 151, 0, 270)
+TUNABLE_PARAM(Search_fail_low_quiet_bonus_12, 61, 0, 160)
+TUNABLE_PARAM(Search_fail_low_quiet_bonus_13, 1370, 0, 2800)
+TUNABLE_PARAM(Search_fail_low_quiet_bonus_14, 251, 0, 442)
+TUNABLE_PARAM(Search_fail_low_quiet_bonus_15, 239, 0, 470)
 TUNABLE_PARAM(Search_fail_low_quiet_bonus_16, 290, 0, 580)
-TUNABLE_PARAM(Search_LMR_research_thresholds_1, 48, 0, 96)
-TUNABLE_PARAM(Search_LMR_research_thresholds_2, 9, 0, 18)
-TUNABLE_PARAM(Search_All_node_reduction_scale_1, 273, 0, 546)
-TUNABLE_PARAM(Search_Capture_SEE_pruning_margin_1, 167, 0, 334)
-TUNABLE_PARAM(Search_Capture_SEE_pruning_margin_2, 34, 0, 68)
-TUNABLE_PARAM(Search_IIR_1, 6, 0, 12)
-TUNABLE_PARAM(Search_IIR_2, 3, 0, 6)
-TUNABLE_PARAM(Search_nullmove_4_1, 3, 0, 6)
-TUNABLE_PARAM(Search_nullmove_3_1, 16, 0, 32)
-TUNABLE_PARAM(Search_nullmove_2_1, 7, 0, 14)
-TUNABLE_PARAM(YaneuraOuWorker_clear1_1, -678, -1356, 0)
-TUNABLE_PARAM(YaneuraOuWorker_clear1_2, -1238, -2476, 0)
-TUNABLE_PARAM(YaneuraOuWorker_clear1_3, 6, 0, 12)
-TUNABLE_PARAM(update_quiet_histories_2b_1, 839, 0, 1678)
-TUNABLE_PARAM(update_quiet_histories_2b_2, 489, 0, 978)
-TUNABLE_PARAM(update_quiet_histories_1a_1, 874, 0, 1748)
-TUNABLE_PARAM(update_quiet_histories_1a_2, 844, 0, 1688)
-TUNABLE_PARAM(conthist_bonuses_1, 991, 0, 1982)
-TUNABLE_PARAM(conthist_bonuses_2, 680, 0, 1360)
-TUNABLE_PARAM(conthist_bonuses_3, 283, 0, 566)
-TUNABLE_PARAM(conthist_bonuses_4, 667, 0, 1334)
-TUNABLE_PARAM(conthist_bonuses_5, 87, 0, 174)
-TUNABLE_PARAM(conthist_bonuses_6, 893, 0, 1786)
-TUNABLE_PARAM(update_all_stats_1c_1, 196, 0, 392)
-TUNABLE_PARAM(update_all_stats_1c_2, 44, 0, 88)
-TUNABLE_PARAM(update_all_stats_1c_3, 1529, 0, 3058)
-TUNABLE_PARAM(update_all_stats_1c_4, 550, 0, 1100)
-TUNABLE_PARAM(update_all_stats_1c_5, 481, 0, 962)
-TUNABLE_PARAM(update_all_stats_1c_6, 205, 0, 410)
-TUNABLE_PARAM(update_all_stats_1c_7, 2122, 0, 4244)
-TUNABLE_PARAM(YaneuraOuWorker_reduction_1, 762, 0, 1524)
-TUNABLE_PARAM(YaneuraOuWorker_reduction_2, 322, 0, 644)
-TUNABLE_PARAM(YaneuraOuWorker_reduction_3, 1349, 0, 2698)
-TUNABLE_PARAM(Search_standPat_1, 79, 0, 158)
-TUNABLE_PARAM(Search_ttMoveHistoryBonus_1, 658, 0, 1316)
-TUNABLE_PARAM(Search_ttMoveHistoryBonus_2, -862, -1724, 0)
-TUNABLE_PARAM(Search_Full_depth_search_threshold_2b_1, 2529, 0, 5058)
-TUNABLE_PARAM(Search_Full_depth_search_threshold_2b_2, 3700, 0, 7400)
-TUNABLE_PARAM(Search_Full_depth_search_threshold_1a_1, 1221, 0, 2442)
-TUNABLE_PARAM(Search_Post_LMR_continuation_history_updates_1, 800, 0, 1600)
-TUNABLE_PARAM(Search_Decrease_reduction_for_PvNodes_9_1, 373, 0, 746)
-TUNABLE_PARAM(Search_Decrease_reduction_for_PvNodes_8_1, 866, 0, 1732)
-TUNABLE_PARAM(Search_Decrease_reduction_for_PvNodes_7_1, 1726, 0, 3452)
-TUNABLE_PARAM(Search_Decrease_reduction_for_PvNodes_6a_1, 251, 0, 502)
-TUNABLE_PARAM(Search_Decrease_reduction_for_PvNodes_6a_2, 1490, 0, 2980)
-TUNABLE_PARAM(Search_Decrease_reduction_for_PvNodes_6a_3, 637, 0, 1274)
-TUNABLE_PARAM(Search_Decrease_reduction_for_PvNodes_5_1, 1543, 0, 3086)
-TUNABLE_PARAM(Search_Decrease_reduction_for_PvNodes_4_1, 2279, 0, 4558)
-TUNABLE_PARAM(Search_Decrease_reduction_for_PvNodes_4_2, 1510, 0, 3020)
-TUNABLE_PARAM(Search_Decrease_reduction_for_PvNodes_3_1, 13, 0, 26)
-TUNABLE_PARAM(Search_Decrease_reduction_for_PvNodes_3_2, 28147, 1, 56294)
-TUNABLE_PARAM(Search_Decrease_reduction_for_PvNodes_2_1, 1032, 0, 2064)
-TUNABLE_PARAM(Search_Decrease_reduction_for_PvNodes_1_1, 2236, 0, 4472)
-TUNABLE_PARAM(Search_Decrease_reduction_for_PvNodes_1_2, 1204, 0, 2408)
-TUNABLE_PARAM(Search_Decrease_reduction_for_PvNodes_1_3, 441, 0, 882)
-TUNABLE_PARAM(Search_Decrease_reduction_for_PvNodes_1_4, 794, 0, 1588)
-TUNABLE_PARAM(Search_Decrease_reduction_for_PvNodes_1_5, 1271, 0, 2542)
-TUNABLE_PARAM(Search_Extensions4_1, 116, 0, 232)
-TUNABLE_PARAM(Search_Extensions4_2, 399, 0, 798)
-TUNABLE_PARAM(Search_Extensions4_3, 17, 0, 34)
-TUNABLE_PARAM(Search_Extensions4_4, 119, 0, 238)
-TUNABLE_PARAM(Search_Extensions4_5, 38, 0, 76)
+TUNABLE_PARAM(Search_LMR_research_thresholds_1, 54, 0, 96)
+TUNABLE_PARAM(Search_LMR_research_thresholds_2, 10, 0, 18)
+TUNABLE_PARAM(Search_All_node_reduction_scale_1, 275, 0, 546)
+TUNABLE_PARAM(Search_Capture_SEE_pruning_margin_1, 140, 0, 334)
+TUNABLE_PARAM(Search_Capture_SEE_pruning_margin_2, 37, 0, 68)
+TUNABLE_PARAM(Search_IIR_1, 5, 0, 12)
+TUNABLE_PARAM(Search_IIR_2, 2, 0, 6)
+TUNABLE_PARAM(Search_nullmove_2_1, 8, 0, 14)
+TUNABLE_PARAM(YaneuraOuWorker_clear1_1, -697, -1356, 0)
+TUNABLE_PARAM(YaneuraOuWorker_clear1_2, -1477, -2476, 0)
+TUNABLE_PARAM(YaneuraOuWorker_clear1_3, 7, 0, 12)
+TUNABLE_PARAM(update_quiet_histories_2b_1, 731, 0, 1678)
+TUNABLE_PARAM(update_quiet_histories_2b_2, 586, 0, 978)
+TUNABLE_PARAM(update_quiet_histories_1a_1, 830, 0, 1748)
+TUNABLE_PARAM(update_quiet_histories_1a_2, 846, 0, 1688)
+TUNABLE_PARAM(conthist_bonuses_1, 935, 0, 1982)
+TUNABLE_PARAM(conthist_bonuses_2, 764, 0, 1360)
+TUNABLE_PARAM(conthist_bonuses_3, 336, 0, 566)
+TUNABLE_PARAM(conthist_bonuses_4, 822, 0, 1334)
+TUNABLE_PARAM(conthist_bonuses_5, 97, 0, 174)
+TUNABLE_PARAM(conthist_bonuses_6, 907, 0, 1786)
+TUNABLE_PARAM(update_all_stats_1c_1, 201, 0, 392)
+TUNABLE_PARAM(update_all_stats_1c_2, 48, 0, 88)
+TUNABLE_PARAM(update_all_stats_1c_3, 1474, 0, 3058)
+TUNABLE_PARAM(update_all_stats_1c_4, 629, 0, 1100)
+TUNABLE_PARAM(update_all_stats_1c_5, 536, 0, 962)
+TUNABLE_PARAM(update_all_stats_1c_6, 191, 0, 410)
+TUNABLE_PARAM(update_all_stats_1c_7, 1812, 0, 4244)
+TUNABLE_PARAM(YaneuraOuWorker_reduction_1, 880, 0, 1524)
+TUNABLE_PARAM(YaneuraOuWorker_reduction_2, 366, 0, 644)
+TUNABLE_PARAM(YaneuraOuWorker_reduction_3, 1353, 0, 2698)
+TUNABLE_PARAM(Search_standPat_1, 99, 0, 158)
+TUNABLE_PARAM(Search_ttMoveHistoryBonus_1, 812, 0, 1316)
+TUNABLE_PARAM(Search_ttMoveHistoryBonus_2, -875, -1724, 0)
+TUNABLE_PARAM(Search_Full_depth_search_threshold_2b_1, 2351, 0, 5058)
+TUNABLE_PARAM(Search_Full_depth_search_threshold_2b_2, 4201, 0, 7400)
+TUNABLE_PARAM(Search_Full_depth_search_threshold_1a_1, 1133, 0, 2442)
+TUNABLE_PARAM(Search_Post_LMR_continuation_history_updates_1, 788, 0, 1600)
+TUNABLE_PARAM(Search_Decrease_reduction_for_PvNodes_9_1, 361, 0, 746)
+TUNABLE_PARAM(Search_Decrease_reduction_for_PvNodes_8_1, 1058, 0, 1732)
+TUNABLE_PARAM(Search_Decrease_reduction_for_PvNodes_7_1, 1574, 0, 3452)
+TUNABLE_PARAM(Search_Decrease_reduction_for_PvNodes_6a_1, 270, 0, 502)
+TUNABLE_PARAM(Search_Decrease_reduction_for_PvNodes_6a_2, 1620, 0, 2980)
+TUNABLE_PARAM(Search_Decrease_reduction_for_PvNodes_6a_3, 422, 0, 1274)
+TUNABLE_PARAM(Search_Decrease_reduction_for_PvNodes_5_1, 1545, 0, 3086)
+TUNABLE_PARAM(Search_Decrease_reduction_for_PvNodes_4_1, 2238, 0, 4558)
+TUNABLE_PARAM(Search_Decrease_reduction_for_PvNodes_4_2, 1302, 0, 3020)
+TUNABLE_PARAM(Search_Decrease_reduction_for_PvNodes_3_1, 12, 0, 26)
+TUNABLE_PARAM(Search_Decrease_reduction_for_PvNodes_3_2, 28574, 1, 56294)
+TUNABLE_PARAM(Search_Decrease_reduction_for_PvNodes_2_1, 1091, 0, 2064)
+TUNABLE_PARAM(Search_Decrease_reduction_for_PvNodes_1_1, 1909, 0, 4472)
+TUNABLE_PARAM(Search_Decrease_reduction_for_PvNodes_1_2, 1276, 0, 2408)
+TUNABLE_PARAM(Search_Decrease_reduction_for_PvNodes_1_3, 537, 0, 882)
+TUNABLE_PARAM(Search_Decrease_reduction_for_PvNodes_1_4, 846, 0, 1588)
+TUNABLE_PARAM(Search_Decrease_reduction_for_PvNodes_1_5, 1281, 0, 2542)
+TUNABLE_PARAM(Search_Extensions4_1, 100, 0, 232)
+TUNABLE_PARAM(Search_Extensions4_2, 375, 0, 798)
+TUNABLE_PARAM(Search_Extensions4_3, 16, 0, 34)
+TUNABLE_PARAM(Search_Extensions4_4, 121, 0, 238)
+TUNABLE_PARAM(Search_Extensions4_5, 47, 0, 76)
 TUNABLE_PARAM(Search_Extensions3_1, 3, 0, 6)
-TUNABLE_PARAM(Search_Extensions3_2, 195, 0, 390)
-TUNABLE_PARAM(Search_Extensions3_3, 246, 0, 492)
-TUNABLE_PARAM(Search_Extensions3_4, 831, 0, 1662)
-TUNABLE_PARAM(Search_Extensions3_5, 16, 0, 32)
-TUNABLE_PARAM(Search_Extensions2_1, 278065, 1, 556130)
+TUNABLE_PARAM(Search_Extensions3_2, 209, 0, 390)
+TUNABLE_PARAM(Search_Extensions3_3, 264, 0, 492)
+TUNABLE_PARAM(Search_Extensions3_4, 641, 0, 1662)
+TUNABLE_PARAM(Search_Extensions3_5, 14, 0, 32)
+TUNABLE_PARAM(Search_Extensions2_1, 259982, 1, 556130)
 TUNABLE_PARAM(Search_Extensions1_1, 73, 0, 146)
-TUNABLE_PARAM(Search_Extensions1_2, 117, 0, 234)
-TUNABLE_PARAM(Search_Extensions1_3, 33, 1, 66)
-TUNABLE_PARAM(Search_Continuation_history_based_pruning3_1, -41, -82, 0)
-TUNABLE_PARAM(Search_Continuation_history_based_pruning2_1, 60, 0, 120)
-TUNABLE_PARAM(Search_Continuation_history_based_pruning2_2, 77, 0, 154)
-TUNABLE_PARAM(Search_Continuation_history_based_pruning1_1, -3911, -7822, 0)
-TUNABLE_PARAM(Search_Continuation_history_based_pruning1_2, 36, 0, 72)
-TUNABLE_PARAM(Search_Continuation_history_based_pruning1_3, 3593, 1, 7186)
-TUNABLE_PARAM(Search_futility_value_1, 383, 0, 766)
-TUNABLE_PARAM(Search_futility_value_2, 405, 0, 810)
-TUNABLE_PARAM(Search_futility_value_3, 145, 0, 290)
-TUNABLE_PARAM(Search_decrease_reduction_for_tt_pv_1, 469, 0, 938)
-TUNABLE_PARAM(Search_small_Probcut_1, 242, 0, 484)
-TUNABLE_PARAM(Search_Probcut_1, 128, 0, 256)
-TUNABLE_PARAM(Search_Probcut_2, 79, 0, 158)
-TUNABLE_PARAM(Search_nullmove_1_1, 22, 0, 44)
-TUNABLE_PARAM(Search_nullmove_1_2, 53, 0, 106)
-TUNABLE_PARAM(Search_nullmove_1_3, 278, 0, 556)
-TUNABLE_PARAM(Search_futility_1_1, 46, 0, 92)
-TUNABLE_PARAM(Search_futility_1_2, 24, 0, 48)
-TUNABLE_PARAM(Search_futility_1_3, 2686, 0, 5372)
-TUNABLE_PARAM(Search_futility_1_4, 362, 0, 724)
-TUNABLE_PARAM(Search_futility_1_5, 91703, 1, 183406)
-TUNABLE_PARAM(Search_razoring_1, 368, 0, 736)
-TUNABLE_PARAM(Search_razoring_2, 275, 0, 550)
-TUNABLE_PARAM(Search_static_evaluation3_1, 198, 0, 396)
-TUNABLE_PARAM(Search_static_evaluation_2a_1, 3328, 0, 6656)
-TUNABLE_PARAM(Search_static_evaluation_1a_1, -83712, -167424, 0)
-TUNABLE_PARAM(Search_static_evaluation_1a_2, 39936, 0, 79872)
-TUNABLE_PARAM(Search_static_evaluation_1a_3, 9984, 0, 19968)
-TUNABLE_PARAM(Search_static_evaluation_1a_4, 1280, 0, 2560)
-TUNABLE_PARAM(Search_tt_lookup2_1, -1177, -2354, 0)
-TUNABLE_PARAM(Search_tt_lookup1_1, 29, 0, 58)
-TUNABLE_PARAM(Search_tt_lookup1_2, 87, 0, 174)
-TUNABLE_PARAM(Search_tt_lookup1_3, 1005, 0, 2010)
-TUNABLE_PARAM(YaneuraOuWorker_clear3_1, 2760, 0, 5520)
-TUNABLE_PARAM(YaneuraOuWorker_clear2_1, -663, -1326, 0)
-TUNABLE_PARAM(aspiration_window_1, 23, 0, 46)
-TUNABLE_PARAM(aspiration_window_2, 6792, 1, 13584)
-TUNABLE_PARAM(lowPlyHistory_fill_1, 84, 0, 168)
-TUNABLE_PARAM(update_correction_history2_1, 120, 0, 240)
-TUNABLE_PARAM(update_correction_history2_2, 55, 0, 110)
-TUNABLE_PARAM(update_correction_history1_1, 181, 0, 362)
-TUNABLE_PARAM(update_correction_history_nonPawnWeight_1, 162, 0, 324)
-TUNABLE_PARAM(correction_value_1, 7494, 0, 14988)
-TUNABLE_PARAM(correction_value_2, 7423, 0, 14846)
-TUNABLE_PARAM(correction_value_3, 10975, 0, 21950)
-TUNABLE_PARAM(correction_value_4, 14031, 0, 28062)
+TUNABLE_PARAM(Search_Extensions1_2, 103, 0, 234)
+TUNABLE_PARAM(Search_Extensions1_3, 29, 1, 66)
+TUNABLE_PARAM(Search_Continuation_history_based_pruning3_1, -46, -82, 0)
+TUNABLE_PARAM(Search_Continuation_history_based_pruning2_1, 71, 0, 120)
+TUNABLE_PARAM(Search_Continuation_history_based_pruning2_2, 64, 0, 154)
+TUNABLE_PARAM(Search_Continuation_history_based_pruning1_1, -4372, -7822, 0)
+TUNABLE_PARAM(Search_Continuation_history_based_pruning1_2, 33, 0, 72)
+TUNABLE_PARAM(Search_Continuation_history_based_pruning1_3, 3855, 1, 7186)
+TUNABLE_PARAM(Search_futility_value_1, 411, 0, 766)
+TUNABLE_PARAM(Search_futility_value_2, 342, 0, 810)
+TUNABLE_PARAM(Search_futility_value_3, 117, 0, 290)
+TUNABLE_PARAM(Search_decrease_reduction_for_tt_pv_1, 410, 0, 938)
+TUNABLE_PARAM(Search_small_Probcut_1, 207, 0, 484)
+TUNABLE_PARAM(Search_Probcut_1, 146, 0, 256)
+TUNABLE_PARAM(Search_Probcut_2, 85, 0, 158)
+TUNABLE_PARAM(Search_nullmove_1_1, 18, 0, 44)
+TUNABLE_PARAM(Search_nullmove_1_2, 61, 0, 106)
+TUNABLE_PARAM(Search_nullmove_1_3, 294, 0, 556)
+TUNABLE_PARAM(Search_futility_1_1, 44, 0, 92)
+TUNABLE_PARAM(Search_futility_1_2, 28, 0, 48)
+TUNABLE_PARAM(Search_futility_1_3, 2196, 0, 5372)
+TUNABLE_PARAM(Search_futility_1_4, 416, 0, 724)
+TUNABLE_PARAM(Search_futility_1_5, 71783, 1, 183406)
+TUNABLE_PARAM(Search_razoring_1, 289, 0, 736)
+TUNABLE_PARAM(Search_razoring_2, 195, 0, 550)
+TUNABLE_PARAM(Search_static_evaluation3_1, 178, 0, 396)
+TUNABLE_PARAM(Search_static_evaluation_2a_1, 3846, 0, 6656)
+TUNABLE_PARAM(Search_static_evaluation_1a_1, -64812, -167424, 0)
+TUNABLE_PARAM(Search_static_evaluation_1a_2, 29320, 0, 79872)
+TUNABLE_PARAM(Search_static_evaluation_1a_3, 9876, 0, 19968)
+TUNABLE_PARAM(Search_static_evaluation_1a_4, 1368, 0, 2560)
+TUNABLE_PARAM(Search_tt_lookup2_1, -1189, -2354, 0)
+TUNABLE_PARAM(Search_tt_lookup1_1, 30, 0, 58)
+TUNABLE_PARAM(Search_tt_lookup1_2, 90, 0, 174)
+TUNABLE_PARAM(Search_tt_lookup1_3, 1109, 0, 2010)
+TUNABLE_PARAM(YaneuraOuWorker_clear3_1, 2869, 0, 5520)
+TUNABLE_PARAM(YaneuraOuWorker_clear2_1, -742, -1326, 0)
+TUNABLE_PARAM(aspiration_window_1, 28, 0, 46)
+TUNABLE_PARAM(aspiration_window_2, 7383, 1, 13584)
+TUNABLE_PARAM(lowPlyHistory_fill_1, 71, 0, 168)
+TUNABLE_PARAM(update_correction_history2_1, 113, 0, 240)
+TUNABLE_PARAM(update_correction_history2_2, 67, 0, 110)
+TUNABLE_PARAM(update_correction_history1_1, 192, 0, 362)
+TUNABLE_PARAM(update_correction_history_nonPawnWeight_1, 149, 0, 324)
+TUNABLE_PARAM(correction_value_1, 6537, 0, 14988)
+TUNABLE_PARAM(correction_value_2, 6501, 0, 14846)
+TUNABLE_PARAM(correction_value_3, 11171, 0, 21950)
+TUNABLE_PARAM(correction_value_4, 12483, 0, 28062)
 
 // setoption後にisreadyで再構築が必要なコピー型派生値。
 static TUNE_CONSTEXPR std::array<ConthistBonus, 6> conthist_bonuses = {
@@ -1440,7 +1438,6 @@ void Search::YaneuraOuWorker::pre_start_searching() {
 
     // 📝 StockfishではThreadPool::start_thinking()で行っているが、
     //     やねうら王では、派生classのpre_start_thinking()以降で行う。
-    nmpMinPly       = 0;
     bestMoveChanges = 0;
     rootDepth = completedDepth = 0;
 
@@ -3905,8 +3902,8 @@ auto futility_margin = [&](Depth d) {
     }
 
 	// -----------------------
-    // Step 9. Null move search with verification search
-    // Step 9. 検証探索を伴うnull move探索
+    // Step 9. Null move search
+    // Step 9. null move探索
     // -----------------------
 
     //  🖊 evalがbetaを超えているので1手パスしてもbetaは超えそう。だからnull moveを試す
@@ -3921,7 +3918,6 @@ if (cutNode && ss->staticEval >= beta - Search_nullmove_1_1 * depth - Search_nul
     // 💡 盤上にpawn以外の駒がある ≒ pawnだけの終盤ではない。
     // 🤔 将棋でもこれに相当する条件が必要かも。
 #endif
-        && ss->ply >= nmpMinPly
         // 同じ手番側に連続してnull moveを適用しない
         && !is_loss(beta)
     )
@@ -3931,7 +3927,7 @@ if (cutNode && ss->staticEval >= beta - Search_nullmove_1_1 * depth - Search_nul
         // Null move dynamic reduction based on depth
         // (残り探索)深さと評価値に基づくnull moveの動的なreduction
 
-        Depth R = Search_nullmove_2_1 + depth / 3;
+        Depth R = Search_nullmove_2_1 + depth / 2;
 
         ss->currentMove                   = Move::null();
         ss->continuationHistory           = &continuationHistory[0][0][NO_PIECE][0];
@@ -3956,37 +3952,9 @@ if (cutNode && ss->staticEval >= beta - Search_nullmove_1_1 * depth - Search_nul
 
         undo_null_move(pos);
 
-        if (nullValue >= beta && !is_win(nullValue))
-        // Do not return unproven mate or TB scores
-        // 証明されていないmate scoreやTB scoreはreturnで返さない。
-        {
-            // 1手パスしてもbetaを上回りそうであることがわかったので
-            // これをもう少しちゃんと検証しなおす。
-
-            if (nmpMinPly || depth < Search_nullmove_3_1)
-                return nullValue;
-
-            ASSERT_LV3(!nmpMinPly);  // Recursive verification is not allowed
-                                     // 再帰的な検証は認めていない。
-
-            // Do verification search at high depths, with null move pruning disabled
-            // until ply exceeds nmpMinPly.
-            //
-            // 💡 null move枝刈りを無効化して、plyがnmpMinPlyを超えるまで
-            //     高いdepthで検証のための探索を行う。
-
-            nmpMinPly = ss->ply + Search_nullmove_4_1 * (depth - R) / 4;
-
-            // 📝 nullMoveせずに(現在のnodeと同じ手番で)同じ深さで探索しなおして本当にbetaを超えるか検証する。
-            //     cutNodeにしない。
-
-            Value v = search<NonPV>(pos, ss, beta - 1, beta, depth - R, false);
-
-            nmpMinPly = 0;
-
-            if (v >= beta)
-                return nullValue;
-        }
+        // 証明されていないmate scoreは返さず、beta boundに丸める。
+        if (nullValue >= beta)
+            return is_win(nullValue) ? beta : nullValue;
     }
 
 	// ここでimproving計算しなおす。

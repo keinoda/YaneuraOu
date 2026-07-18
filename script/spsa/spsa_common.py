@@ -15,10 +15,10 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 # パラメーター定義を探す対象は、この2ファイルだけに固定する。
 TARGET_FILES: Tuple[Tuple[Path, int], ...] = (
-    (Path("source/engine/yaneuraou-engine/yaneuraou-search.cpp"), 139),
+    (Path("source/engine/yaneuraou-engine/yaneuraou-search.cpp"), 137),
     (Path("source/movepick.cpp"), 9),
 )
-EXPECTED_PARAMETER_COUNT = 148
+EXPECTED_PARAMETER_COUNT = 146
 NOT_USED_MARKER = "[[NOT USED]]"
 
 _IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
@@ -153,7 +153,7 @@ def _parse_source_document(repo_root: Path, relative_path: Path, expected_count:
 
 
 def load_source_contract(repo_root: Path = PROJECT_ROOT) -> Tuple[Tuple[SourceDocument, ...], Tuple[TunableParameter, ...]]:
-    """固定2ファイルから148個の有効なパラメーター契約を読み込む。"""
+    """固定2ファイルから全有効パラメーターの契約を読み込む。"""
 
     documents = tuple(
         _parse_source_document(repo_root, relative_path, expected_count)

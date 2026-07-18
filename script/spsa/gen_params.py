@@ -6,7 +6,14 @@ from pathlib import Path
 import sys
 from typing import Optional, Sequence
 
-from spsa_common import PROJECT_ROOT, SpsaError, load_source_contract, publish_new_file, render_params
+from spsa_common import (
+    EXPECTED_PARAMETER_COUNT,
+    PROJECT_ROOT,
+    SpsaError,
+    load_source_contract,
+    publish_new_file,
+    render_params,
+)
 
 
 def generate(repo_root: Path = PROJECT_ROOT) -> str:
@@ -16,7 +23,9 @@ def generate(repo_root: Path = PROJECT_ROOT) -> str:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="固定2ファイルの148個のTUNABLE_PARAMからparamsを生成します。"
+        description="固定2ファイルの{}個のTUNABLE_PARAMからparamsを生成します。".format(
+            EXPECTED_PARAMETER_COUNT
+        )
     )
     parser.add_argument("-o", "--output", type=Path, help="出力先。省略時は標準出力へ出力します。")
     parser.add_argument(
@@ -39,7 +48,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             sys.stdout.write(output)
         else:
             publish_new_file(args.output, output, args.force)
-            print("生成完了: {}（148件）".format(args.output))
+            print("生成完了: {}（{}件）".format(args.output, EXPECTED_PARAMETER_COUNT))
     except SpsaError as exc:
         print("エラー: {}".format(exc), file=sys.stderr)
         return 1
