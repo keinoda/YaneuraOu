@@ -3,6 +3,7 @@
 
 # normal     : 通常使用版(配布用の実行ファイルはこちら)
 # tournament : 大会で使う用(通常版よりややEloが高いが使える機能に制限がある)
+# tune       : SPSAチューニング用(探索パラメーターをUSIオプション化。tournamentとは併用不可)
 
 # === ビルドオプション (build options) ===
 
@@ -635,7 +636,7 @@ OBJC_OBJECTS = $(addprefix $(OBJDIR)/, $(OBJC_SOURCES:.mm=.o))
 DEPENDS  = $(OBJECTS:.o=.d)
 
 all: clean $(TARGET)
-.PHONY : all normal tournament prof profgen profuse pgo clean
+.PHONY : all normal tournament tune prof profgen profuse pgo clean
 
 $(TARGET): $(OBJECTS) $(CUDA_OBJECTS) $(OBJC_OBJECTS)
 	$(COMPILER) -o $@ $^ $(LDFLAGS) $(CPPFLAGS) $(LIBS)
@@ -669,6 +670,10 @@ normal: run_python_script
 # トーナメント用
 tournament: run_python_script
 	$(MAKE) CPPFLAGS='$(CPPFLAGS) $(LTOFLAGS) -DFOR_TOURNAMENT' LDFLAGS='$(LDFLAGS) $(LTOFLAGS)' $(TARGET)
+
+# チューニング用(探索パラメーターをUSIオプションとして公開する)
+tune: run_python_script
+	$(MAKE) CPPFLAGS='$(CPPFLAGS) $(LTOFLAGS) -DENABLE_TUNE' LDFLAGS='$(LDFLAGS) $(LTOFLAGS)' $(TARGET)
 
 #　とりあえずPGOはAVX2とSSE4.2専用
 prof:

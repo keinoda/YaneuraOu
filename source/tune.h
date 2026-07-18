@@ -300,6 +300,34 @@ constexpr void tune_check_args(Args&&...) {
 
 #define UPDATE_ON_LAST() bool UNIQUE(p, __LINE__) = Tune::update_on_last = true
 
+// --------------------
+//  🌈 やねうら王独自拡張: TUNABLE_PARAM
+// --------------------
+
+// 探索パラメーターを「チューニングビルドでのみUSIオプション化」するためのマクロ。
+//
+//   TUNABLE_PARAM(name, def, mn, mx)
+//
+// - ENABLE_TUNE を定義してビルド(make tune)すると、int変数+TUNE()による
+//   USIオプション登録になる。setoptionで実行時に変更できる。
+//   (OptionsMapへの反映は既存の Tune::init(options) が行う)
+// - 定義しない通常/tournamentビルドでは constexpr 定数となり、従来どおり
+//   コンパイル時に畳み込まれる(実行時コストゼロ・探索挙動は従来と完全一致)。
+//
+// TUNE_CONSTEXPR は、TUNABLE_PARAM変数から作られる派生値(配列・テーブル等)に
+// 付ける修飾子。通常ビルドでは constexpr、チューニングビルドでは無修飾(可変)に
+// なる(isready での再転写=setoption反映を可能にするため)。
+
+#if defined(ENABLE_TUNE)
+    #define TUNABLE_PARAM(name, def, mn, mx) \
+        int name = def; \
+        TUNE(SetRange(mn, mx), name, SetDefaultRange);
+    #define TUNE_CONSTEXPR
+#else
+    #define TUNABLE_PARAM(name, def, mn, mx) constexpr int name = def;
+    #define TUNE_CONSTEXPR constexpr
+#endif
+
 }  // namespace Stockfish
 
 #endif  // #ifndef TUNE_H_INCLUDED

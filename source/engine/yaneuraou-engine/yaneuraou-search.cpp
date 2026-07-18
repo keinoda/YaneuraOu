@@ -46,6 +46,151 @@ using namespace Eval;  // Eval::PieceValue
 // 📝 tune.pyとは、パラメーター自動調整フレームワークのスクリプトである。
 //     https://github.com/yaneurao/YaneuraOu-ScriptCollection/tree/main/SPSA
 //                            %%TUNE_DECLARATION%%
+// V940の探索パラメーター。既定値は本実装の導入時点におけるmasterの値を保持する。
+TUNABLE_PARAM(QSearch_SEE_pruning_1, -73, -146, 0)
+TUNABLE_PARAM(QSearch_move_count_pruning_1, 2, 0, 4)
+TUNABLE_PARAM(Search_correction_history_bonus_1, 12, 0, 24)
+TUNABLE_PARAM(Search_correction_history_bonus_2, 17, 0, 34)
+TUNABLE_PARAM(Search_correction_history_bonus_3, 1069, 0, 2138)
+TUNABLE_PARAM(Search_fail_low_capture_bonus_1, 1018, 0, 2036)
+TUNABLE_PARAM(Search_fail_low_quiet_bonus_1, -232, -464, 0)
+TUNABLE_PARAM(Search_fail_low_quiet_bonus_2, 108, 1, 216)
+TUNABLE_PARAM(Search_fail_low_quiet_bonus_3, 59, 0, 118)
+TUNABLE_PARAM(Search_fail_low_quiet_bonus_4, 454, 0, 908)
+TUNABLE_PARAM(Search_fail_low_quiet_bonus_5, 169, 0, 338)
+TUNABLE_PARAM(Search_fail_low_quiet_bonus_6, 8, 0, 16)
+TUNABLE_PARAM(Search_fail_low_quiet_bonus_7, 145, 0, 290)
+TUNABLE_PARAM(Search_fail_low_quiet_bonus_8, 110, 0, 220)
+TUNABLE_PARAM(Search_fail_low_quiet_bonus_9, 154, 0, 308)
+TUNABLE_PARAM(Search_fail_low_quiet_bonus_10, 73, 0, 146)
+TUNABLE_PARAM(Search_fail_low_quiet_bonus_11, 135, 0, 270)
+TUNABLE_PARAM(Search_fail_low_quiet_bonus_12, 80, 0, 160)
+TUNABLE_PARAM(Search_fail_low_quiet_bonus_13, 1400, 0, 2800)
+TUNABLE_PARAM(Search_fail_low_quiet_bonus_14, 221, 0, 442)
+TUNABLE_PARAM(Search_fail_low_quiet_bonus_15, 235, 0, 470)
+TUNABLE_PARAM(Search_fail_low_quiet_bonus_16, 290, 0, 580)
+TUNABLE_PARAM(Search_LMR_research_thresholds_1, 48, 0, 96)
+TUNABLE_PARAM(Search_LMR_research_thresholds_2, 9, 0, 18)
+TUNABLE_PARAM(Search_All_node_reduction_scale_1, 273, 0, 546)
+TUNABLE_PARAM(Search_Capture_SEE_pruning_margin_1, 167, 0, 334)
+TUNABLE_PARAM(Search_Capture_SEE_pruning_margin_2, 34, 0, 68)
+TUNABLE_PARAM(Search_IIR_1, 6, 0, 12)
+TUNABLE_PARAM(Search_IIR_2, 3, 0, 6)
+TUNABLE_PARAM(Search_nullmove_4_1, 3, 0, 6)
+TUNABLE_PARAM(Search_nullmove_3_1, 16, 0, 32)
+TUNABLE_PARAM(Search_nullmove_2_1, 7, 0, 14)
+TUNABLE_PARAM(YaneuraOuWorker_clear1_1, -678, -1356, 0)
+TUNABLE_PARAM(YaneuraOuWorker_clear1_2, -1238, -2476, 0)
+TUNABLE_PARAM(YaneuraOuWorker_clear1_3, 6, 0, 12)
+TUNABLE_PARAM(update_quiet_histories_2b_1, 839, 0, 1678)
+TUNABLE_PARAM(update_quiet_histories_2b_2, 489, 0, 978)
+TUNABLE_PARAM(update_quiet_histories_1a_1, 874, 0, 1748)
+TUNABLE_PARAM(update_quiet_histories_1a_2, 844, 0, 1688)
+TUNABLE_PARAM(conthist_bonuses_1, 991, 0, 1982)
+TUNABLE_PARAM(conthist_bonuses_2, 680, 0, 1360)
+TUNABLE_PARAM(conthist_bonuses_3, 283, 0, 566)
+TUNABLE_PARAM(conthist_bonuses_4, 667, 0, 1334)
+TUNABLE_PARAM(conthist_bonuses_5, 87, 0, 174)
+TUNABLE_PARAM(conthist_bonuses_6, 893, 0, 1786)
+TUNABLE_PARAM(update_all_stats_1c_1, 196, 0, 392)
+TUNABLE_PARAM(update_all_stats_1c_2, 44, 0, 88)
+TUNABLE_PARAM(update_all_stats_1c_3, 1529, 0, 3058)
+TUNABLE_PARAM(update_all_stats_1c_4, 550, 0, 1100)
+TUNABLE_PARAM(update_all_stats_1c_5, 481, 0, 962)
+TUNABLE_PARAM(update_all_stats_1c_6, 205, 0, 410)
+TUNABLE_PARAM(update_all_stats_1c_7, 2122, 0, 4244)
+TUNABLE_PARAM(YaneuraOuWorker_reduction_1, 762, 0, 1524)
+TUNABLE_PARAM(YaneuraOuWorker_reduction_2, 322, 0, 644)
+TUNABLE_PARAM(YaneuraOuWorker_reduction_3, 1349, 0, 2698)
+TUNABLE_PARAM(Search_standPat_1, 79, 0, 158)
+TUNABLE_PARAM(Search_ttMoveHistoryBonus_1, 658, 0, 1316)
+TUNABLE_PARAM(Search_ttMoveHistoryBonus_2, -862, -1724, 0)
+TUNABLE_PARAM(Search_Full_depth_search_threshold_2b_1, 2529, 0, 5058)
+TUNABLE_PARAM(Search_Full_depth_search_threshold_2b_2, 3700, 0, 7400)
+TUNABLE_PARAM(Search_Full_depth_search_threshold_1a_1, 1221, 0, 2442)
+TUNABLE_PARAM(Search_Post_LMR_continuation_history_updates_1, 800, 0, 1600)
+TUNABLE_PARAM(Search_Decrease_reduction_for_PvNodes_9_1, 373, 0, 746)
+TUNABLE_PARAM(Search_Decrease_reduction_for_PvNodes_8_1, 866, 0, 1732)
+TUNABLE_PARAM(Search_Decrease_reduction_for_PvNodes_7_1, 1726, 0, 3452)
+TUNABLE_PARAM(Search_Decrease_reduction_for_PvNodes_6a_1, 251, 0, 502)
+TUNABLE_PARAM(Search_Decrease_reduction_for_PvNodes_6a_2, 1490, 0, 2980)
+TUNABLE_PARAM(Search_Decrease_reduction_for_PvNodes_6a_3, 637, 0, 1274)
+TUNABLE_PARAM(Search_Decrease_reduction_for_PvNodes_5_1, 1543, 0, 3086)
+TUNABLE_PARAM(Search_Decrease_reduction_for_PvNodes_4_1, 2279, 0, 4558)
+TUNABLE_PARAM(Search_Decrease_reduction_for_PvNodes_4_2, 1510, 0, 3020)
+TUNABLE_PARAM(Search_Decrease_reduction_for_PvNodes_3_1, 13, 0, 26)
+TUNABLE_PARAM(Search_Decrease_reduction_for_PvNodes_3_2, 28147, 1, 56294)
+TUNABLE_PARAM(Search_Decrease_reduction_for_PvNodes_2_1, 1032, 0, 2064)
+TUNABLE_PARAM(Search_Decrease_reduction_for_PvNodes_1_1, 2236, 0, 4472)
+TUNABLE_PARAM(Search_Decrease_reduction_for_PvNodes_1_2, 1204, 0, 2408)
+TUNABLE_PARAM(Search_Decrease_reduction_for_PvNodes_1_3, 441, 0, 882)
+TUNABLE_PARAM(Search_Decrease_reduction_for_PvNodes_1_4, 794, 0, 1588)
+TUNABLE_PARAM(Search_Decrease_reduction_for_PvNodes_1_5, 1271, 0, 2542)
+TUNABLE_PARAM(Search_Extensions4_1, 116, 0, 232)
+TUNABLE_PARAM(Search_Extensions4_2, 399, 0, 798)
+TUNABLE_PARAM(Search_Extensions4_3, 17, 0, 34)
+TUNABLE_PARAM(Search_Extensions4_4, 119, 0, 238)
+TUNABLE_PARAM(Search_Extensions4_5, 38, 0, 76)
+TUNABLE_PARAM(Search_Extensions3_1, 3, 0, 6)
+TUNABLE_PARAM(Search_Extensions3_2, 195, 0, 390)
+TUNABLE_PARAM(Search_Extensions3_3, 246, 0, 492)
+TUNABLE_PARAM(Search_Extensions3_4, 831, 0, 1662)
+TUNABLE_PARAM(Search_Extensions3_5, 16, 0, 32)
+TUNABLE_PARAM(Search_Extensions2_1, 278065, 1, 556130)
+TUNABLE_PARAM(Search_Extensions1_1, 73, 0, 146)
+TUNABLE_PARAM(Search_Extensions1_2, 117, 0, 234)
+TUNABLE_PARAM(Search_Extensions1_3, 33, 1, 66)
+TUNABLE_PARAM(Search_Continuation_history_based_pruning3_1, -41, -82, 0)
+TUNABLE_PARAM(Search_Continuation_history_based_pruning2_1, 60, 0, 120)
+TUNABLE_PARAM(Search_Continuation_history_based_pruning2_2, 77, 0, 154)
+TUNABLE_PARAM(Search_Continuation_history_based_pruning1_1, -3911, -7822, 0)
+TUNABLE_PARAM(Search_Continuation_history_based_pruning1_2, 36, 0, 72)
+TUNABLE_PARAM(Search_Continuation_history_based_pruning1_3, 3593, 1, 7186)
+TUNABLE_PARAM(Search_futility_value_1, 383, 0, 766)
+TUNABLE_PARAM(Search_futility_value_2, 405, 0, 810)
+TUNABLE_PARAM(Search_futility_value_3, 145, 0, 290)
+TUNABLE_PARAM(Search_decrease_reduction_for_tt_pv_1, 469, 0, 938)
+TUNABLE_PARAM(Search_small_Probcut_1, 242, 0, 484)
+TUNABLE_PARAM(Search_Probcut_1, 128, 0, 256)
+TUNABLE_PARAM(Search_Probcut_2, 79, 0, 158)
+TUNABLE_PARAM(Search_nullmove_1_1, 22, 0, 44)
+TUNABLE_PARAM(Search_nullmove_1_2, 53, 0, 106)
+TUNABLE_PARAM(Search_nullmove_1_3, 278, 0, 556)
+TUNABLE_PARAM(Search_futility_1_1, 46, 0, 92)
+TUNABLE_PARAM(Search_futility_1_2, 24, 0, 48)
+TUNABLE_PARAM(Search_futility_1_3, 2686, 0, 5372)
+TUNABLE_PARAM(Search_futility_1_4, 362, 0, 724)
+TUNABLE_PARAM(Search_futility_1_5, 91703, 1, 183406)
+TUNABLE_PARAM(Search_razoring_1, 368, 0, 736)
+TUNABLE_PARAM(Search_razoring_2, 275, 0, 550)
+TUNABLE_PARAM(Search_static_evaluation3_1, 198, 0, 396)
+TUNABLE_PARAM(Search_static_evaluation_2a_1, 13, 0, 26)
+TUNABLE_PARAM(Search_static_evaluation_1a_1, -327, -654, 0)
+TUNABLE_PARAM(Search_static_evaluation_1a_2, 156, 0, 312)
+TUNABLE_PARAM(Search_static_evaluation_1a_3, 39, 0, 78)
+TUNABLE_PARAM(Search_static_evaluation_1a_4, 5, 0, 10)
+TUNABLE_PARAM(Search_tt_lookup2_1, -1177, -2354, 0)
+TUNABLE_PARAM(Search_tt_lookup1_1, 29, 0, 58)
+TUNABLE_PARAM(Search_tt_lookup1_2, 87, 0, 174)
+TUNABLE_PARAM(Search_tt_lookup1_3, 1005, 0, 2010)
+TUNABLE_PARAM(YaneuraOuWorker_clear3_1, 2760, 0, 5520)
+TUNABLE_PARAM(YaneuraOuWorker_clear2_1, -663, -1326, 0)
+TUNABLE_PARAM(aspiration_window_1, 23, 0, 46)
+TUNABLE_PARAM(aspiration_window_2, 6792, 1, 13584)
+TUNABLE_PARAM(lowPlyHistory_fill_1, 84, 0, 168)
+TUNABLE_PARAM(update_correction_history2_1, 120, 0, 240)
+TUNABLE_PARAM(update_correction_history2_2, 55, 0, 110)
+TUNABLE_PARAM(update_correction_history1_1, 181, 0, 362)
+TUNABLE_PARAM(update_correction_history_nonPawnWeight_1, 162, 0, 324)
+TUNABLE_PARAM(correction_value_1, 7494, 0, 14988)
+TUNABLE_PARAM(correction_value_2, 7423, 0, 14846)
+TUNABLE_PARAM(correction_value_3, 10975, 0, 21950)
+TUNABLE_PARAM(correction_value_4, 14031, 0, 28062)
+
+// setoption後にisreadyで再構築が必要なコピー型派生値。
+static TUNE_CONSTEXPR std::array<ConthistBonus, 6> conthist_bonuses = {
+      {{1, conthist_bonuses_1}, {2, conthist_bonuses_2}, {3, conthist_bonuses_3},
+       {4, conthist_bonuses_4}, {5, conthist_bonuses_5}, {6, conthist_bonuses_6}}};
 
 namespace {
 
@@ -620,6 +765,16 @@ void YaneuraOuEngine::isready() {
 
 	// 🌈 tune.pyによってここ以下に自動的にエンジンオプションが追加される。
     //                      %%TUNE_ISREADY%%
+#if defined(ENABLE_TUNE)
+    // TUNABLE_PARAMの変更をコピー型派生値へ転写する。
+    {
+        const int weights[6] = {
+          conthist_bonuses_1, conthist_bonuses_2, conthist_bonuses_3,
+          conthist_bonuses_4, conthist_bonuses_5, conthist_bonuses_6};
+        for (size_t i = 0; i < conthist_bonuses.size(); ++i)
+            conthist_bonuses[i].weight = weights[i];
+    }
+#endif
 
 
     sync_cout << "readyok" << sync_endl;
@@ -1092,7 +1247,7 @@ int correction_value(const YaneuraOuWorker& w, const Position& pos, const Stack*
 
 
 
-return 7494 * pcv + 7423 * micv + 10975 * (wnpcv + bnpcv) + 14031 * cntcv;
+return correction_value_1 * pcv + correction_value_2 * micv + correction_value_3 * (wnpcv + bnpcv) + correction_value_4 * cntcv;
 
 
 
@@ -1116,7 +1271,7 @@ void update_correction_history(const Position&          pos,
 
 
 
-constexpr int nonPawnWeight = 162;
+
 
 
 
@@ -1127,9 +1282,9 @@ constexpr int nonPawnWeight = 162;
 
 
 shared.pawn_correction_entry(pos).at(us).pawn << bonus;
-    shared.minor_piece_correction_entry(pos).at(us).minor << bonus * 181 / 128;
-    shared.nonpawn_correction_entry<WHITE>(pos).at(us).nonPawnWhite << bonus * nonPawnWeight / 128;
-    shared.nonpawn_correction_entry<BLACK>(pos).at(us).nonPawnBlack << bonus * nonPawnWeight / 128;
+    shared.minor_piece_correction_entry(pos).at(us).minor << bonus * update_correction_history1_1 / 128;
+    shared.nonpawn_correction_entry<WHITE>(pos).at(us).nonPawnWhite << bonus * update_correction_history_nonPawnWeight_1 / 128;
+    shared.nonpawn_correction_entry<BLACK>(pos).at(us).nonPawnBlack << bonus * update_correction_history_nonPawnWeight_1 / 128;
 
 
 
@@ -1141,8 +1296,8 @@ if (m.is_ok())
     {
         const Square to = m.to_sq();
         const Piece  pc = pos.piece_on(to);
-        (*(ss - 2)->continuationCorrectionHistory)[pc][to] << bonus * 120 / 128;
-        (*(ss - 4)->continuationCorrectionHistory)[pc][to] << bonus * 55 / 128;
+        (*(ss - 2)->continuationCorrectionHistory)[pc][to] << bonus * update_correction_history2_1 / 128;
+        (*(ss - 4)->continuationCorrectionHistory)[pc][to] << bonus * update_correction_history2_2 / 128;
     }
 
 
@@ -1946,7 +2101,7 @@ bool Search::YaneuraOuWorker::iterative_deepening() {
 
 
 // 💡 lowPlyHistoryは、試合開始時に1回だけではなく、"go"の度に初期化したほうが強い。
-    lowPlyHistory.fill(84);
+    lowPlyHistory.fill(lowPlyHistory_fill_1);
 
 
 
@@ -2082,7 +2237,7 @@ bool Search::YaneuraOuWorker::iterative_deepening() {
             // aspiration windowの開始サイズをリセットする。
 
 
-delta     = 23 + threadIdx % 8 + std::abs(rootMoves[pvIdx].meanSquaredScore) / 6792;
+delta     = aspiration_window_1 + threadIdx % 8 + std::abs(rootMoves[pvIdx].meanSquaredScore) / aspiration_window_2;
 
 
 
@@ -2570,17 +2725,17 @@ void YaneuraOuWorker::clear() {
 
 	// TODO : あとで調整する。pawnHistory.fill(-1238@);も。
 	mainHistory.fill(mainHistoryDefault);
-    captureHistory.fill(-678);
+    captureHistory.fill(YaneuraOuWorker_clear1_1);
 
     // Each thread is responsible for clearing their part of shared history
     sharedHistory.correctionHistory.clear_range(0, numaThreadIdx, numaTotal);
-    sharedHistory.pawnHistory.clear_range(-1238, numaThreadIdx, numaTotal);
+    sharedHistory.pawnHistory.clear_range(YaneuraOuWorker_clear1_2, numaThreadIdx, numaTotal);
 
 	ttMoveHistory = 0;
 
     for (auto& to : continuationCorrectionHistory)
         for (auto& h : to)
-            h.fill(6);
+            h.fill(YaneuraOuWorker_clear1_3);
 
     //     ほとんどの履歴エントリがいずれにせよ後で負になるため、
     //     開始値を「正しい」方向に少しシフトさせるため、負の数で埋めている。
@@ -2594,7 +2749,7 @@ for (bool inCheck : {false, true})
         for (StatsType c : {NoCaptures, Captures})
             for (auto& to : continuationHistory[inCheck][c])
                 for (auto& h : to)
-                    h.fill(-663);
+                    h.fill(YaneuraOuWorker_clear2_1);
 
 
 
@@ -2604,7 +2759,7 @@ for (bool inCheck : {false, true})
 
 // reductions tableの初期化(これはWorkerごとが持つように変更された)
     for (size_t i = 1; i < reductions.size(); ++i)
-        reductions[i] = int(2760 / 128.0 * std::log(i));
+        reductions[i] = int(YaneuraOuWorker_clear3_1 / 128.0 * std::log(i));
 
 
 
@@ -3198,7 +3353,7 @@ Value YaneuraOuWorker::search(Position& pos, Stack* ss, Value alpha, Value beta,
 
 if (!ttCapture)
                 update_quiet_histories(pos, ss, *this, ttData.move,
-                                       std::min(29 * depth - 87, 1005));
+                                       std::min(Search_tt_lookup1_1 * depth - Search_tt_lookup1_2, Search_tt_lookup1_3));
 
 
 
@@ -3212,7 +3367,7 @@ if (!ttCapture)
 
 
 if (prevSq != SQ_NONE && (ss - 1)->moveCount <= 4 && !priorCapture)
-                update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq, -1177);
+                update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq, Search_tt_lookup2_1);
 
 
 
@@ -3608,8 +3763,8 @@ if (prevSq != SQ_NONE && (ss - 1)->moveCount <= 4 && !priorCapture)
     {
 
 
-int evalDiff = std::clamp(-int((ss - 1)->staticEval + ss->staticEval), -327, 156) + 39;
-        mainHistory[~us][((ss - 1)->currentMove).raw()] << evalDiff * 5;
+int evalDiff = std::clamp(-int((ss - 1)->staticEval + ss->staticEval), Search_static_evaluation_1a_1, Search_static_evaluation_1a_2) + Search_static_evaluation_1a_3;
+        mainHistory[~us][((ss - 1)->currentMove).raw()] << evalDiff * Search_static_evaluation_1a_4;
 
 
 
@@ -3618,7 +3773,7 @@ int evalDiff = std::clamp(-int((ss - 1)->staticEval + ss->staticEval), -327, 156
 
 if (!ttHit && type_of(pos.piece_on(prevSq)) != PAWN
             && ((ss - 1)->currentMove).type_of() != PROMOTION)
-            sharedHistory.pawn_entry(pos)[pos.piece_on(prevSq)][prevSq] << evalDiff * 13;
+            sharedHistory.pawn_entry(pos)[pos.piece_on(prevSq)][prevSq] << evalDiff * Search_static_evaluation_2a_1;
 
 
 
@@ -3670,7 +3825,7 @@ if (!ttHit && type_of(pos.piece_on(prevSq)) != PAWN
         depth++;
 
 
-if (priorReduction >= 2 && depth >= 2 && ss->staticEval + (ss - 1)->staticEval > 198)
+if (priorReduction >= 2 && depth >= 2 && ss->staticEval + (ss - 1)->staticEval > Search_static_evaluation3_1)
         depth--;
 
 
@@ -3689,7 +3844,7 @@ if (priorReduction >= 2 && depth >= 2 && ss->staticEval + (ss - 1)->staticEval >
 
 
 
-if (!PvNode && eval < alpha - 368 - 275 * depth * depth)
+if (!PvNode && eval < alpha - Search_razoring_1 - Search_razoring_2 * depth * depth)
         return qsearch<NonPV>(pos, ss, alpha, beta);
 
 
@@ -3722,11 +3877,11 @@ if (!PvNode && eval < alpha - 368 - 275 * depth * depth)
 
 
 auto futility_margin = [&](Depth d) {
-            Value futilityMult = 46 - 24 * !ss->ttHit;
+            Value futilityMult = Search_futility_1_1 - Search_futility_1_2 * !ss->ttHit;
 
             return futilityMult * d                                //
-                 - (2686 * improving + 362 * opponentWorsening) * futilityMult / 1024
-                 + std::abs(correctionValue) / 91703;
+                 - (Search_futility_1_3 * improving + Search_futility_1_4 * opponentWorsening) * futilityMult / 1024
+                 + std::abs(correctionValue) / Search_futility_1_5;
         };
 
 
@@ -3746,7 +3901,7 @@ auto futility_margin = [&](Depth d) {
     //  🖊 evalがbetaを超えているので1手パスしてもbetaは超えそう。だからnull moveを試す
 
 
-if (cutNode && ss->staticEval >= beta - 22 * depth - 53 * improving + 278 && !excludedMove
+if (cutNode && ss->staticEval >= beta - Search_nullmove_1_1 * depth - Search_nullmove_1_2 * improving + Search_nullmove_1_3 && !excludedMove
 
 
 
@@ -3765,7 +3920,7 @@ if (cutNode && ss->staticEval >= beta - 22 * depth - 53 * improving + 278 && !ex
         // Null move dynamic reduction based on depth
         // (残り探索)深さと評価値に基づくnull moveの動的なreduction
 
-        Depth R = 7 + depth / 3;
+        Depth R = Search_nullmove_2_1 + depth / 3;
 
         ss->currentMove                   = Move::null();
         ss->continuationHistory           = &continuationHistory[0][0][NO_PIECE][0];
@@ -3797,7 +3952,7 @@ if (cutNode && ss->staticEval >= beta - 22 * depth - 53 * improving + 278 && !ex
             // 1手パスしてもbetaを上回りそうであることがわかったので
             // これをもう少しちゃんと検証しなおす。
 
-            if (nmpMinPly || depth < 16)
+            if (nmpMinPly || depth < Search_nullmove_3_1)
                 return nullValue;
 
             ASSERT_LV3(!nmpMinPly);  // Recursive verification is not allowed
@@ -3809,7 +3964,7 @@ if (cutNode && ss->staticEval >= beta - 22 * depth - 53 * improving + 278 && !ex
             // 💡 null move枝刈りを無効化して、plyがnmpMinPlyを超えるまで
             //     高いdepthで検証のための探索を行う。
 
-            nmpMinPly = ss->ply + 3 * (depth - R) / 4;
+            nmpMinPly = ss->ply + Search_nullmove_4_1 * (depth - R) / 4;
 
             // 📝 nullMoveせずに(現在のnodeと同じ手番で)同じ深さで探索しなおして本当にbetaを超えるか検証する。
             //     cutNodeにしない。
@@ -3838,7 +3993,7 @@ if (cutNode && ss->staticEval >= beta - 22 * depth - 53 * improving + 278 && !ex
     // 十分な探索深さがある場合、置換表（TTMove）に手がないPVノードやCutノードについては探索深さを削減する。
     //（*Scaler）IIR をよりアグレッシブにすると、スケーリング効率が悪化する。
 
-    if (!ss->followPV && !allNode && depth >= 6 && !ttData.move && priorReduction <= 3)
+    if (!ss->followPV && !allNode && depth >= Search_IIR_1 && !ttData.move && priorReduction <= Search_IIR_2)
         depth--;
 
 #if OLD_CODE
@@ -3878,7 +4033,7 @@ if (cutNode && ss->staticEval >= beta - 22 * depth - 53 * improving + 278 && !ex
     // probCutに使うbeta値。
 
 
-probCutBeta = beta + 128 - 79 * improving;
+probCutBeta = beta + Search_Probcut_1 - Search_Probcut_2 * improving;
 
 
 
@@ -3962,7 +4117,7 @@ moves_loop:  // When in check, search starts here
 
 
 
-probCutBeta = beta + 242;
+probCutBeta = beta + Search_small_Probcut_1;
 
 
 
@@ -4107,7 +4262,7 @@ probCutBeta = beta + 242;
 
 
 if (ss->ttPv)
-            r += 469;
+            r += Search_decrease_reduction_for_tt_pv_1;
 
 
 
@@ -4157,8 +4312,8 @@ if (ss->ttPv)
 
 
 
-Value futilityValue = ss->staticEval + 383 + 405 * lmrDepth
-                                        + PieceValue[capturedPiece] + 145 * captHist / 1024;
+Value futilityValue = ss->staticEval + Search_futility_value_1 + Search_futility_value_2 * lmrDepth
+                                        + PieceValue[capturedPiece] + Search_futility_value_3 * captHist / 1024;
 
 
 
@@ -4174,7 +4329,7 @@ Value futilityValue = ss->staticEval + 383 + 405 * lmrDepth
                 // 駒取りや王手に対するSEE（静的交換評価）に基づく枝刈り
 				// ステイルメイト（引き分け）を狙うために、最後の駒を犠牲にする手の枝刈りは避ける
 
-                int margin = std::max(167 * depth + captHist * 34 / 1024, 0);
+                int margin = std::max(Search_Capture_SEE_pruning_margin_1 * depth + captHist * Search_Capture_SEE_pruning_margin_2 / 1024, 0);
 #if STOCKFISH
 				if ((alpha >= VALUE_DRAW || pos.non_pawn_material(us) != PieceValue[movedPiece])
 #else
@@ -4198,15 +4353,15 @@ Value futilityValue = ss->staticEval + 383 + 405 * lmrDepth
 
 
 
-if (history < -3911 * depth)
+if (history < Search_Continuation_history_based_pruning1_1 * depth)
                     continue;
 
-                history += 36 * mainHistory[us][move.raw()] / 32;
+                history += Search_Continuation_history_based_pruning1_2 * mainHistory[us][move.raw()] / 32;
 
 				// (*Scaler): Generally, lower divisors scales well
 				// 一般に、割る数（divisor）が小さいほどスケールしやすい。
 
-                lmrDepth += history / 3593;
+                lmrDepth += history / Search_Continuation_history_based_pruning1_3;
 
 
 
@@ -4214,8 +4369,8 @@ if (history < -3911 * depth)
 
 
 
-Value futilityValue = ss->staticEval + 42 + 151 * !bestMove + 60 * lmrDepth
-                                    + 77 * (ss->staticEval > alpha);
+Value futilityValue = ss->staticEval + 42 + 151 * !bestMove + Search_Continuation_history_based_pruning2_1 * lmrDepth
+                                    + Search_Continuation_history_based_pruning2_2 * (ss->staticEval > alpha);
 
 
 
@@ -4254,7 +4409,7 @@ Value futilityValue = ss->staticEval + 42 + 151 * !bestMove + 60 * lmrDepth
 
 
 
-if (!pos.see_ge(move, -41 * lmrDepth * lmrDepth))
+if (!pos.see_ge(move, Search_Continuation_history_based_pruning3_1 * lmrDepth * lmrDepth))
                     continue;
 
 
@@ -4322,7 +4477,7 @@ if (!pos.see_ge(move, -41 * lmrDepth * lmrDepth))
 
 
 
-Value singularBeta  = ttData.value - (73 + 117 * (ss->ttPv && !PvNode)) * depth / 33;
+Value singularBeta  = ttData.value - (Search_Extensions1_1 + Search_Extensions1_2 * (ss->ttPv && !PvNode)) * depth / Search_Extensions1_3;
             Depth singularDepth = newDepth / 2;
 
 
@@ -4346,23 +4501,23 @@ Value singularBeta  = ttData.value - (73 + 117 * (ss->ttPv && !PvNode)) * depth 
             {
 
 
-int corrValAdj   = std::abs(correctionValue) / 278065;
+int corrValAdj   = std::abs(correctionValue) / Search_Extensions2_1;
 
 
 
 
 
 
-int doubleMargin = 3 + 195 * PvNode - 246 * !ttCapture - corrValAdj
-                                 - 831 * ttMoveHistory / 116517 - (ss->ply > rootDepth) * 16;
+int doubleMargin = Search_Extensions3_1 + Search_Extensions3_2 * PvNode - Search_Extensions3_3 * !ttCapture - corrValAdj
+                                 - Search_Extensions3_4 * ttMoveHistory / 116517 - (ss->ply > rootDepth) * Search_Extensions3_5;
 
 
 
 
 
 
-int tripleMargin = 116 + 399 * PvNode - 17 * !ttCapture + 119 * ss->ttPv - corrValAdj
-                                 - (ss->ply > rootDepth) * 38;
+int tripleMargin = Search_Extensions4_1 + Search_Extensions4_2 * PvNode - Search_Extensions4_3 * !ttCapture + Search_Extensions4_4 * ss->ttPv - corrValAdj
+                                 - (ss->ply > rootDepth) * Search_Extensions4_5;
 
 
 
@@ -4467,8 +4622,8 @@ int tripleMargin = 116 + 399 * PvNode - 17 * !ttCapture + 119 * ss->ttPv - corrV
 
 
 if (ss->ttPv)
-            r -= 2236 + PvNode * 1204 + (ttData.value > alpha) * 441
-               + (ttData.depth >= depth) * (794 + cutNode * 1271);
+            r -= Search_Decrease_reduction_for_PvNodes_1_1 + PvNode * Search_Decrease_reduction_for_PvNodes_1_2 + (ttData.value > alpha) * Search_Decrease_reduction_for_PvNodes_1_3
+               + (ttData.depth >= depth) * (Search_Decrease_reduction_for_PvNodes_1_4 + cutNode * Search_Decrease_reduction_for_PvNodes_1_5);
 
 
 
@@ -4479,7 +4634,7 @@ if (ss->ttPv)
 
 
 
-r += 1032;  // Base reduction offset to compensate for other tweaks
+r += Search_Decrease_reduction_for_PvNodes_2_1;  // Base reduction offset to compensate for other tweaks
 
 
 
@@ -4488,8 +4643,8 @@ r += 1032;  // Base reduction offset to compensate for other tweaks
 
 
 
-r -= moveCount * 13;
-        r -= std::abs(correctionValue) / 28147;
+r -= moveCount * Search_Decrease_reduction_for_PvNodes_3_1;
+        r -= std::abs(correctionValue) / Search_Decrease_reduction_for_PvNodes_3_2;
 
 
 
@@ -4509,7 +4664,7 @@ r -= moveCount * 13;
 
 
 if (cutNode)
-            r += 2279 + 1510 * !ttData.move;
+            r += Search_Decrease_reduction_for_PvNodes_4_1 + Search_Decrease_reduction_for_PvNodes_4_2 * !ttData.move;
 
 
 
@@ -4521,7 +4676,7 @@ if (cutNode)
 
 
 if (ttCapture)
-            r += 1543;
+            r += Search_Decrease_reduction_for_PvNodes_5_1;
 
 
 
@@ -4533,7 +4688,7 @@ if (ttCapture)
 
 
 if ((ss + 1)->cutoffCnt > 1)
-            r += 251 + 1490 * ((ss + 1)->cutoffCnt > 2) + 637 * allNode;
+            r += Search_Decrease_reduction_for_PvNodes_6a_1 + Search_Decrease_reduction_for_PvNodes_6a_2 * ((ss + 1)->cutoffCnt > 2) + Search_Decrease_reduction_for_PvNodes_6a_3 * allNode;
 
 
 
@@ -4545,7 +4700,7 @@ if ((ss + 1)->cutoffCnt > 1)
 
 
 if (move == ttData.move)
-            r -= 1726;
+            r -= Search_Decrease_reduction_for_PvNodes_7_1;
 
 
 
@@ -4554,7 +4709,7 @@ if (move == ttData.move)
 
 
 if (capture)
-            ss->statScore = 866 * int(PieceValue[pos.captured_piece()]) / 128
+            ss->statScore = Search_Decrease_reduction_for_PvNodes_8_1 * int(PieceValue[pos.captured_piece()]) / 128
                           + captureHistory[movedPiece][move.to_sq()][type_of(pos.captured_piece())];
 
 
@@ -4572,7 +4727,7 @@ if (capture)
 
 
 
-r -= ss->statScore * 373 / 4096;
+r -= ss->statScore * Search_Decrease_reduction_for_PvNodes_9_1 / 4096;
 
 
 
@@ -4580,7 +4735,7 @@ r -= ss->statScore * 373 / 4096;
 
         // Scale up reductions for expected ALL nodes
         if (allNode)
-            r += r * 273 / (256 * depth + 260);
+            r += r * Search_All_node_reduction_scale_1 / (256 * depth + 260);
 
 		// -----------------------
         // Step 17. Late moves reduction / extension (LMR)
@@ -4636,8 +4791,8 @@ r -= ss->statScore * 373 / 4096;
                 // LMRの結果に基づいて完全な探索深さを調整します -
                 // 結果が十分に良ければ深く探索し、十分に悪ければ浅く探索します。
 
-                const bool doDeeperSearch    = d < newDepth && value > bestValue + 48;
-                const bool doShallowerSearch = value < bestValue + 9;
+                const bool doDeeperSearch    = d < newDepth && value > bestValue + Search_LMR_research_thresholds_1;
+                const bool doShallowerSearch = value < bestValue + Search_LMR_research_thresholds_2;
 
                 newDepth += doDeeperSearch - doShallowerSearch;
 
@@ -4649,7 +4804,7 @@ r -= ss->statScore * 373 / 4096;
 
 
 
-update_continuation_histories(ss, movedPiece, move.to_sq(), 800);
+update_continuation_histories(ss, movedPiece, move.to_sq(), Search_Post_LMR_continuation_history_updates_1);
 
 
 
@@ -4670,7 +4825,7 @@ update_continuation_histories(ss, movedPiece, move.to_sq(), 800);
 
 
 if (!ttData.move)
-                r += 1221;
+                r += Search_Full_depth_search_threshold_1a_1;
 
 
 
@@ -4682,7 +4837,7 @@ if (!ttData.move)
             // 期待される削減が大きい場合、ここで探索深さを1減らすことに注意してください。
 
 			value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha,
-                                   newDepth - (r > 2529) - (r > 3700 && newDepth > 2), !cutNode);
+                                   newDepth - (r > Search_Full_depth_search_threshold_2b_1) - (r > Search_Full_depth_search_threshold_2b_2 && newDepth > 2), !cutNode);
 
 
 
@@ -4968,7 +5123,7 @@ if (!ttData.move)
 
 
 if (!PvNode)
-            ttMoveHistory << (bestMove == ttData.move ? 658 : -862);
+            ttMoveHistory << (bestMove == ttData.move ? Search_ttMoveHistoryBonus_1 : Search_ttMoveHistoryBonus_2);
 
 
 
@@ -4986,25 +5141,25 @@ if (!PvNode)
 	*/
     else if (!priorCapture && prevSq != SQ_NONE)
     {
-        int bonusScale = -232;
-        bonusScale -= (ss - 1)->statScore / 108;
-        bonusScale += std::min(59 * depth, 454);
-        bonusScale += 169 * ((ss - 1)->moveCount > 8);
-        bonusScale += 145 * (!ss->inCheck && bestValue <= ss->staticEval - 110);
-        bonusScale += 154 * (!(ss - 1)->inCheck && bestValue <= -(ss - 1)->staticEval - 73);
+        int bonusScale = Search_fail_low_quiet_bonus_1;
+        bonusScale -= (ss - 1)->statScore / Search_fail_low_quiet_bonus_2;
+        bonusScale += std::min(Search_fail_low_quiet_bonus_3 * depth, Search_fail_low_quiet_bonus_4);
+        bonusScale += Search_fail_low_quiet_bonus_5 * ((ss - 1)->moveCount > Search_fail_low_quiet_bonus_6);
+        bonusScale += Search_fail_low_quiet_bonus_7 * (!ss->inCheck && bestValue <= ss->staticEval - Search_fail_low_quiet_bonus_8);
+        bonusScale += Search_fail_low_quiet_bonus_9 * (!(ss - 1)->inCheck && bestValue <= -(ss - 1)->staticEval - Search_fail_low_quiet_bonus_10);
 
         bonusScale = std::max(bonusScale, 0);
 
-        const int scaledBonus = std::min(135 * depth - 80, 1400) * bonusScale;
+        const int scaledBonus = std::min(Search_fail_low_quiet_bonus_11 * depth - Search_fail_low_quiet_bonus_12, Search_fail_low_quiet_bonus_13) * bonusScale;
 
         update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,
-                                      scaledBonus * 221 / 16384);
+                                      scaledBonus * Search_fail_low_quiet_bonus_14 / 16384);
 
-        mainHistory[~us][((ss - 1)->currentMove).raw()] << scaledBonus * 235 / 32768;
+        mainHistory[~us][((ss - 1)->currentMove).raw()] << scaledBonus * Search_fail_low_quiet_bonus_15 / 32768;
 
 		// TODO : これで合ってるか？あとで検証する。
         if (type_of(pos.piece_on(prevSq)) != PAWN && ((ss - 1)->currentMove).type_of() != PROMOTION)
-            sharedHistory.pawn_entry(pos)[pos.piece_on(prevSq)][prevSq] << scaledBonus * 290 / 8192;
+            sharedHistory.pawn_entry(pos)[pos.piece_on(prevSq)][prevSq] << scaledBonus * Search_fail_low_quiet_bonus_16 / 8192;
     }
 
     // Bonus for prior capture countermove that caused the fail low
@@ -5014,7 +5169,7 @@ if (!PvNode)
     {
         Piece capturedPiece = pos.captured_piece();
         assert(capturedPiece != NO_PIECE);
-        captureHistory[pos.piece_on(prevSq)][prevSq][type_of(capturedPiece)] << 1018;
+        captureHistory[pos.piece_on(prevSq)][prevSq][type_of(capturedPiece)] << Search_fail_low_capture_bonus_1;
     }
 
     // ⚠ 将棋ではtable probeを使っていないので、maxValueは使わない。
@@ -5078,10 +5233,10 @@ if (!PvNode)
         && (bestValue > ss->staticEval) == bool(bestMove))
     {
         auto bonus =
-          std::clamp(int(bestValue - ss->staticEval) * depth * (bestMove ? 12 : 17) / 128,
+          std::clamp(int(bestValue - ss->staticEval) * depth * (bestMove ? Search_correction_history_bonus_1 : Search_correction_history_bonus_2) / 128,
                      -CORRECTION_HISTORY_LIMIT / 4, CORRECTION_HISTORY_LIMIT / 4);
 
-        update_correction_history(pos, ss, *this, 1069 * bonus / 1024);
+        update_correction_history(pos, ss, *this, Search_correction_history_bonus_3 * bonus / 1024);
     }
 
 	// 👉 qsearch()内の末尾にあるassertの文の説明を読むこと。
@@ -5514,7 +5669,7 @@ Value Search::YaneuraOuWorker::qsearch(Position& pos, Stack* ss, Value alpha, Va
 
 
 
-futilityBase = ss->staticEval + 79;
+futilityBase = ss->staticEval + Search_standPat_1;
 
 
 
@@ -5609,7 +5764,7 @@ futilityBase = ss->staticEval + 79;
 				// move.to_sq() != prevSq のときなので、つまりは、直前に動かされた駒を取り返す以外の指し手。
 				// これを読み始めると組み合わせ爆発してしまうので3手目以降は調べない。(枝刈りする)
 
-				if (moveCount > 2)
+				if (moveCount > QSearch_move_count_pruning_1)
                     continue;
 
 				/*
@@ -5670,7 +5825,7 @@ futilityBase = ss->staticEval + 79;
 					 captureの時の歩損は、歩で取る、同角、同角みたいな局面なのでそこにはあまり意味なさげ。
 			*/
 
-            if (!pos.see_ge(move, -73))
+            if (!pos.see_ge(move, QSearch_SEE_pruning_1))
                 continue;
         }
 
@@ -5833,7 +5988,7 @@ futilityBase = ss->staticEval + 79;
 
 int Search::YaneuraOuWorker::reduction(bool i, Depth d, int mn, int delta) const {
     int reductionScale = reductions[d] * reductions[mn];
-    return reductionScale - delta * 762 / rootDelta + !i * reductionScale * 322 / 512 + 1349;
+    return reductionScale - delta * YaneuraOuWorker_reduction_1 / rootDelta + !i * reductionScale * YaneuraOuWorker_reduction_2 / 512 + YaneuraOuWorker_reduction_3;
 }
 
 
@@ -5998,8 +6153,8 @@ void update_all_stats(const Position&          pos,
 
 
 int bonus =
-      std::min(196 * depth - 44, 1529) + 550 * (bestMove == ttMove) + (ss - 1)->statScore / 32;
-    int malus = std::min(481 * depth - 205, 2122);
+      std::min(update_all_stats_1c_1 * depth - update_all_stats_1c_2, update_all_stats_1c_3) + update_all_stats_1c_4 * (bestMove == ttMove) + (ss - 1)->statScore / 32;
+    int malus = std::min(update_all_stats_1c_5 * depth - update_all_stats_1c_6, update_all_stats_1c_7);
 
 
 
@@ -6080,8 +6235,7 @@ int bonus =
 void update_continuation_histories(Stack* ss, Piece pc, Square to, int bonus) {
 
 
-static constexpr std::array<ConthistBonus, 6> conthist_bonuses = {
-      {{1, 991}, {2, 680}, {3, 283}, {4, 667}, {5, 87}, {6, 893}}};
+
 
 
 
@@ -6117,9 +6271,9 @@ void update_quiet_histories(
 
 
 if (ss->ply < LOW_PLY_HISTORY_SIZE)
-        workerThread.lowPlyHistory[ss->ply][move.raw()] << bonus * 874 / 1024;
+        workerThread.lowPlyHistory[ss->ply][move.raw()] << bonus * update_quiet_histories_1a_1 / 1024;
 
-    update_continuation_histories(ss, pos.moved_piece(move), move.to_sq(), bonus * 844 / 1024);
+    update_continuation_histories(ss, pos.moved_piece(move), move.to_sq(), bonus * update_quiet_histories_1a_2 / 1024);
 
 
 
@@ -6128,7 +6282,7 @@ if (ss->ply < LOW_PLY_HISTORY_SIZE)
 
 
 workerThread.sharedHistory.pawn_entry(pos)[pos.moved_piece(move)][move.to_sq()]
-      << bonus * (bonus > 0 ? 839 : 489) / 1024;
+      << bonus * (bonus > 0 ? update_quiet_histories_2b_1 : update_quiet_histories_2b_2) / 1024;
 
 
 
