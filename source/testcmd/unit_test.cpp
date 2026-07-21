@@ -8,6 +8,9 @@
 #include "../misc.h"
 #include "../book/book.h"
 #include "../tt.h"
+#if defined(EVAL_NNUE)
+#include "../tanuki_progress.h"
+#endif
 
 using namespace std;
 namespace YaneuraOu {
@@ -154,6 +157,11 @@ namespace Test
 
 		// Misc tools
 		tester.run(Misc::UnitTest);
+
+#if defined(EVAL_NNUE)
+		// progress LayerStack選択
+		tester.run(::Tanuki::Progress::UnitTest);
+#endif
 
 		// 指し手生成のテスト
 		//tester.run(MoveGen::UnitTest)

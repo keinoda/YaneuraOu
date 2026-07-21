@@ -316,11 +316,13 @@ namespace {
     }
 
 #if defined(SFNNwoPSQT)
-    // レイヤースタックの選択。双方の玉の段に応じて9通りに分岐させる。
+    // 実行時オプションに従ってレイヤースタックを選択する。
     static int stack_index_for_nnue(const Position& pos) {
         switch (Tanuki::Progress::CurrentBucketMode()) {
         case Tanuki::Progress::BucketMode::Progress8KPAbs:
             return Tanuki::Progress::LayerStackIndex(pos);
+        case Tanuki::Progress::BucketMode::Progress8Ek:
+            return Tanuki::Progress::LayerStackIndexProgress8Ek(pos);
         case Tanuki::Progress::BucketMode::KingRank9: {
             constexpr int kFToIndex[] = {0, 0, 0, 3, 3, 3, 6, 6, 6};
             constexpr int kEToIndex[] = {0, 0, 0, 1, 1, 1, 2, 2, 2};

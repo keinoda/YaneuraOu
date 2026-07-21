@@ -13,6 +13,7 @@
 
 #include "misc.h"
 #include "position.h"
+#include "testcmd/unit_test.h"
 
 using namespace YaneuraOu;
 
@@ -41,6 +42,7 @@ enum class BucketModeRequest {
     Auto,
     KingRank9,
     Progress8KPAbs,
+    Progress8Ek,
 };
 
 BucketModeRequest g_bucket_mode_request = BucketModeRequest::Progress8KPAbs;
@@ -57,6 +59,8 @@ const char* bucket_mode_name(Tanuki::Progress::BucketMode mode) {
         return "kingrank9";
     case Tanuki::Progress::BucketMode::Progress8KPAbs:
         return "progress8kpabs";
+    case Tanuki::Progress::BucketMode::Progress8Ek:
+        return "progress8ek";
     }
     return "unknown";
 }
@@ -87,12 +91,22 @@ void resolve_bucket_mode(bool warn) {
     case BucketModeRequest::Progress8KPAbs:
         mode = Tanuki::Progress::BucketMode::Progress8KPAbs;
         break;
+    case BucketModeRequest::Progress8Ek:
+        mode = Tanuki::Progress::BucketMode::Progress8Ek;
+        break;
     }
 
     if (mode == Tanuki::Progress::BucketMode::KingRank9 && g_layer_stacks < 9) {
         const auto fallback = fallback_bucket_mode();
         if (warn)
             warn_bucket_fallback("kingrank9", 9, fallback);
+        mode = fallback;
+    }
+
+    if (mode == Tanuki::Progress::BucketMode::Progress8Ek && g_layer_stacks < 9) {
+        const auto fallback = fallback_bucket_mode();
+        if (warn)
+            warn_bucket_fallback("progress8ek", 9, fallback);
         mode = fallback;
     }
 
@@ -103,11 +117,15 @@ void resolve_bucket_mode(bool warn) {
         mode = fallback;
     }
 
-    if (mode == Tanuki::Progress::BucketMode::Progress8KPAbs && !g_progress_loaded) {
+    if ((mode == Tanuki::Progress::BucketMode::Progress8KPAbs
+         || mode == Tanuki::Progress::BucketMode::Progress8Ek)
+        && !g_progress_loaded) {
+        const char* requested = bucket_mode_name(mode);
         const auto fallback = g_layer_stacks >= 9 ? Tanuki::Progress::BucketMode::KingRank9
                                                   : Tanuki::Progress::BucketMode::First;
         if (warn)
-            sync_cout << "info string Warning: LS_BUCKET_MODE progress8kpabs requires a loaded progress file, falling back to "
+            sync_cout << "info string Warning: LS_BUCKET_MODE " << requested
+                      << " requires a loaded progress file, falling back to "
                       << bucket_mode_name(fallback) << sync_endl;
         mode = fallback;
     }
@@ -192,10 +210,12 @@ bool add_options(YaneuraOu::OptionsMap& options) {
     options.add(kLsProgressCoeff, YaneuraOu::Option(kInternalPath));
 #if defined(SFNNwoPSQT)
     options.add(kLsBucketMode,
-                YaneuraOu::Option(std::vector<std::string>{"auto", "kingrank9", "progress8kpabs"}, "progress8kpabs",
+                YaneuraOu::Option(std::vector<std::string>{"auto", "kingrank9", "progress8kpabs", "progress8ek"}, "progress8kpabs",
                                   [](const YaneuraOu::Option& o) {
                                       const std::string mode = std::string(o);
-                                      if (mode == "progress8kpabs")
+                                      if (mode == "progress8ek")
+                                          g_bucket_mode_request = BucketModeRequest::Progress8Ek;
+                                      else if (mode == "progress8kpabs")
                                           g_bucket_mode_request = BucketModeRequest::Progress8KPAbs;
                                       else if (mode == "kingrank9")
                                           g_bucket_mode_request = BucketModeRequest::KingRank9;
@@ -284,6 +304,45 @@ int LayerStackIndex(const YaneuraOu::Position& pos) {
 
     int idx = table_index_linear_q16(sum_q16);
     return idx;
+}
+
+bool IsMutualEnteringKing(const YaneuraOu::Position& pos) {
+    const auto black_king_rank = YaneuraOu::rank_of(pos.square<YaneuraOu::KING>(YaneuraOu::BLACK));
+    const auto white_king_rank = YaneuraOu::rank_of(pos.square<YaneuraOu::KING>(YaneuraOu::WHITE));
+    return black_king_rank <= YaneuraOu::RANK_5 && white_king_rank >= YaneuraOu::RANK_5;
+}
+
+int LayerStackIndexProgress8Ek(const YaneuraOu::Position& pos) {
+    // 相入玉局面ではprogress係数を参照せず、9番目のLayerStackを選ぶ。
+    if (IsMutualEnteringKing(pos))
+        return 8;
+    return LayerStackIndex(pos);
+}
+
+void UnitTest(YaneuraOu::Test::UnitTester& tester, YaneuraOu::IEngine&) {
+    auto section = tester.section("Tanuki::Progress");
+
+    YaneuraOu::Position pos;
+    YaneuraOu::StateInfo state;
+    auto set = [&](const std::string& sfen) { pos.set(sfen, &state); };
+
+    set("lnsg1gsnl/1r5b1/ppppppppp/9/K7k/9/PPPPPPPPP/1B5R1/LNSG1GSNL b - 1");
+    tester.test("双方の玉が五段目なら相入玉", IsMutualEnteringKing(pos));
+    tester.test("相入玉は9番目のLayerStack", LayerStackIndexProgress8Ek(pos) == 8);
+
+    set("lnsg1gsnl/1r5b1/ppppppppp/K8/9/8k/PPPPPPPPP/1B5R1/LNSG1GSNL w - 1");
+    tester.test("双方の玉が五段目を越えても相入玉", IsMutualEnteringKing(pos));
+    tester.test("相入玉判定は手番に依存しない", LayerStackIndexProgress8Ek(pos) == 8);
+
+    set("lnsg1gsnl/1r5b1/ppppppppp/9/8k/K8/PPPPPPPPP/1B5R1/LNSG1GSNL b - 1");
+    tester.test("先手玉が六段目なら相入玉ではない", !IsMutualEnteringKing(pos));
+    tester.test("非相入玉は従来のprogress indexと一致",
+                LayerStackIndexProgress8Ek(pos) == LayerStackIndex(pos));
+
+    set("lnsg1gsnl/1r5b1/ppppppppp/8k/K8/9/PPPPPPPPP/1B5R1/LNSG1GSNL b - 1");
+    tester.test("後手玉が四段目なら相入玉ではない", !IsMutualEnteringKing(pos));
+    tester.test("後手境界外も従来indexと一致",
+                LayerStackIndexProgress8Ek(pos) == LayerStackIndex(pos));
 }
 
 }  // namespace Progress

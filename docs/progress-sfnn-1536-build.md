@@ -102,6 +102,9 @@ SFNNwoPSQT ビルドでは、レイヤースタックの選択方式を `LS_BUCK
 
 - `progress8kpabs`(既定): `Tanuki::Progress::LayerStackIndex()` による 0..7 の8分岐。
   `LayerStacks >= 8` が必要。
+- `progress8ek`: 双方の玉が五段目以上へ進出している局面を先に判定して8へ送り、
+  それ以外を`progress8kpabs`と同じ0..7へ送る。`LayerStacks >= 9`が必要。
+  `auto`から暗黙には選択されない。
 - `auto`: `isready` で `LS_PROGRESS_COEFF` の読み込みに成功した場合は
   `progress8kpabs`、失敗した場合は `kingrank9` として動作する。
 - `kingrank9`: 双方の玉の段による 0..8 の9分岐。`LayerStacks >= 9` が必要。
