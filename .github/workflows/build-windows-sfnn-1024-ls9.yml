@@ -60,7 +60,7 @@ jobs:
           test -s YaneuraOu-by-gcc.exe
           cp YaneuraOu-by-gcc.exe "../../artifact/${OUTPUT_NAME}"
           file "../../artifact/${OUTPUT_NAME}" | tee ../../artifact/file.txt
-          sha256sum "../../artifact/${OUTPUT_NAME}" > ../../artifact/SHA256SUMS
+          (cd ../../artifact && sha256sum "${OUTPUT_NAME}" > SHA256SUMS)
           printf '%s\n' \
             "commit=${GITHUB_SHA}" \
             "YANEURAOU_EDITION=${EDITION}" \
