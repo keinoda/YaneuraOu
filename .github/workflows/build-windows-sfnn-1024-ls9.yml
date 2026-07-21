@@ -1,0 +1,81 @@
+name: Build Windows SFNN 1024x15x64 LS9
+
+on:
+  workflow_dispatch:
+  # workflowをdefault branchへ取り込む前でも、追加したbranchへの初回pushで検証できるようにする。
+  push:
+    paths:
+      - ".github/workflows/build-windows-sfnn-1024-ls9.yml"
+
+permissions:
+  contents: read
+
+env:
+  EDITION: YANEURAOU_ENGINE_SFNN_halfkahm2_1024_15_64_ls9
+  TARGET_CPU: AVX512
+  COMPILER: clang++
+  OUTPUT_NAME: YaneuraOu-SFNN-halfkahm2-1024-15-64-ls9-tournament-avx512.exe
+
+jobs:
+  build-windows:
+    runs-on: windows-2022
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout時の改行変換を無効化
+        shell: pwsh
+        run: git config --global core.autocrlf input
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          path: main
+
+      - name: MSYS2環境を準備
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            base-devel
+            mingw-w64-x86_64-toolchain
+            mingw-w64-x86_64-clang
+            mingw-w64-x86_64-lld
+            mingw-w64-x86_64-python
+
+      - name: Windows tournament版をビルド
+        shell: msys2 {0}
+        run: |
+          set -euxo pipefail
+          mkdir -p artifact
+          cd main/source
+          mingw32-make -j"$(nproc)" tournament \
+            OS=Windows_NT \
+            YANEURAOU_EDITION="${EDITION}" \
+            PYTHON=python3 \
+            TARGET_CPU="${TARGET_CPU}" \
+            COMPILER="${COMPILER}" \
+            "EXTRA_CPPFLAGS=-DHASH_KEY_BITS=128 -DTT_CLUSTER_SIZE=4 -DUSE_LAZY_EVALUATE" \
+            2>&1 | tee ../../artifact/build.log
+          test -s YaneuraOu-by-gcc.exe
+          cp YaneuraOu-by-gcc.exe "../../artifact/${OUTPUT_NAME}"
+          file "../../artifact/${OUTPUT_NAME}" | tee ../../artifact/file.txt
+          sha256sum "../../artifact/${OUTPUT_NAME}" > ../../artifact/SHA256SUMS
+          printf '%s\n' \
+            "commit=${GITHUB_SHA}" \
+            "YANEURAOU_EDITION=${EDITION}" \
+            "PYTHON=python3" \
+            "TARGET_CPU=${TARGET_CPU}" \
+            "COMPILER=${COMPILER}" \
+            "target=tournament" \
+            "EXTRA_CPPFLAGS=-DHASH_KEY_BITS=128 -DTT_CLUSTER_SIZE=4 -DUSE_LAZY_EVALUATE" \
+            > ../../artifact/BUILD_ARGS.txt
+
+      - name: ビルド成果物を保存
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-sfnn-1024-ls9-avx512-${{ github.sha }}
+          path: artifact/
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
