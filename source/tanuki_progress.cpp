@@ -18,11 +18,8 @@ using namespace YaneuraOu;
 
 namespace {
 
-// 進行度係数ファイルのパス。LS_* 系 (LS_BUCKET_MODE 等) の命名に合わせた
-// LS_PROGRESS_COEFF が正式名。ProgressFilePath は旧名で、後方互換のため残す
-// (既存の eval_options.txt / GUI 設定を壊さない)。両方指定時は LS_PROGRESS_COEFF が優先。
+// 進行度係数ファイルのパス。LS_* 系 (LS_BUCKET_MODE 等) の命名に合わせる。
 constexpr char kLsProgressCoeff[] = "LS_PROGRESS_COEFF";
-constexpr char kProgressFilePath[] = "ProgressFilePath";
 constexpr char kLsBucketMode[] = "LS_BUCKET_MODE";
 constexpr char kInternalPath[] = "<internal>";
 
@@ -193,7 +190,6 @@ namespace Progress {
 bool add_options(YaneuraOu::OptionsMap& options) {
     g_options = &options;
     options.add(kLsProgressCoeff, YaneuraOu::Option(kInternalPath));
-    options.add(kProgressFilePath, YaneuraOu::Option(kInternalPath));
 #if defined(SFNNwoPSQT)
     options.add(kLsBucketMode,
                 YaneuraOu::Option(std::vector<std::string>{"auto", "kingrank9", "progress8kpabs"}, "progress8kpabs",
@@ -232,9 +228,7 @@ bool Load() {
         return false;
     }
 
-    std::string file_path = (*g_options)[kLsProgressCoeff];
-    if (file_path == kInternalPath)
-        file_path = std::string((*g_options)[kProgressFilePath]);
+    const std::string file_path = (*g_options)[kLsProgressCoeff];
 
     if (file_path == kInternalPath) {
         if (gEmbeddedProgressSize != kRawWeightsBytes) {
