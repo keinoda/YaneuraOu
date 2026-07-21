@@ -12,14 +12,18 @@ permissions:
 
 env:
   EDITION: YANEURAOU_ENGINE_SFNN_halfkahm2_1024_15_64_ls9
-  TARGET_CPU: AVX512
   COMPILER: clang++
-  OUTPUT_NAME: YaneuraOu-SFNN-halfkahm2-1024-15-64-ls9-tournament-avx512.exe
 
 jobs:
   build-windows:
     runs-on: windows-2022
     timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        target_cpu:
+          - AVX2
+          - SSE42
 
     steps:
       - name: Checkout時の改行変換を無効化
@@ -45,6 +49,9 @@ jobs:
 
       - name: Windows tournament版をビルド
         shell: msys2 {0}
+        env:
+          TARGET_CPU: ${{ matrix.target_cpu }}
+          OUTPUT_NAME: YaneuraOu-SFNN-halfkahm2-1024-15-64-ls9-tournament-${{ matrix.target_cpu }}.exe
         run: |
           set -euxo pipefail
           mkdir -p artifact
@@ -74,7 +81,7 @@ jobs:
       - name: ビルド成果物を保存
         uses: actions/upload-artifact@v4
         with:
-          name: windows-sfnn-1024-ls9-avx512-${{ github.sha }}
+          name: windows-sfnn-1024-ls9-${{ matrix.target_cpu }}-${{ github.sha }}
           path: artifact/
           if-no-files-found: error
           retention-days: 30
