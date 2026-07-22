@@ -456,9 +456,6 @@ ifneq (,$(IS_NNUE_EDITION))
 		else ifeq ($(ENGINE_ARCH_UPPER),SFNN1536)
 			CPPFLAGS += -DYANEURAOU_ENGINE_SFNN1536
 			CPPFLAGS += -DSFNNwoPSQT
-			ENGINE_NAME := YaneuraOu_Progress
-			CPPFLAGS += -DENGINE_AUTHOR_FROM_MAKEFILE=keinoda
-			CPPFLAGS += -DENGINE_VERSION=\"v9.41-progress\"
 		else
 			# 知らないNNUEのarchitectureなので、architecture headerを動的に生成する。
 			ARCH_HEADER_FILE = \"architectures/$(NNUE_ARCH).h\"
