@@ -43,16 +43,25 @@ def main() -> None:
         raise SystemExit(f"usiokを確認できませんでした:\n{output}")
 
     current_option = re.findall(
-        r"^option name LS_PROGRESS_COEFF(?:\s|$)", output, flags=re.MULTILINE
+        r"^option name LS_PROGRESS_COEFF type string default (.*)$",
+        output,
+        flags=re.MULTILINE,
     )
     if len(current_option) != 1:
         raise SystemExit(
             f"LS_PROGRESS_COEFFの登録数が1ではありません: {len(current_option)}"
         )
+    if current_option[0].strip() != "progress.bin":
+        raise SystemExit(
+            "LS_PROGRESS_COEFFの既定値がprogress.binではありません: "
+            f"{current_option[0].strip()}"
+        )
     if re.search(r"^option name ProgressFilePath(?:\s|$)", output, flags=re.MULTILINE):
         raise SystemExit("削除対象のProgressFilePathがUSIオプションに残っています")
 
-    print("PASS: LS_PROGRESS_COEFFのみがUSIオプションとして登録されています")
+    print(
+        "PASS: LS_PROGRESS_COEFFのみが既定値progress.binで登録されています"
+    )
 
 
 if __name__ == "__main__":

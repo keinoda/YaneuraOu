@@ -3,13 +3,10 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
-#include <cstring>
 #include <fstream>
+#include <optional>
 #include <string>
 #include <vector>
-
-#define INCBIN_SILENCE_BITCODE_WARNING
-#include "incbin/incbin.h"
 
 #include "misc.h"
 #include "position.h"
@@ -23,6 +20,7 @@ namespace {
 constexpr char kLsProgressCoeff[] = "LS_PROGRESS_COEFF";
 constexpr char kLsBucketMode[] = "LS_BUCKET_MODE";
 constexpr char kInternalPath[] = "<internal>";
+constexpr char kDefaultProgressFile[] = "progress.bin";
 
 // logit((i+1)/8) を Q16.16 に丸めた閾値 + 番兵
 static constexpr int64_t kMaxAbsSumQ16 =
@@ -192,13 +190,17 @@ int table_index_linear_q16(int32_t sum_q16) {
     return idx;
 }
 
-#if !defined(_MSC_VER)
-INCBIN(EmbeddedProgress, "progress.bin");
-#else
-const unsigned char gEmbeddedProgressData[1] = {0};
-const unsigned char* const gEmbeddedProgressEnd = &gEmbeddedProgressData[1];
-const unsigned int gEmbeddedProgressSize = 1;
-#endif
+std::optional<std::string> resolve_progress_file_path(const std::string& configured_path,
+                                                      const std::string& eval_dir) {
+    if (configured_path.empty() || configured_path == kInternalPath)
+        return std::nullopt;
+
+    // ファイル名だけを指定した場合は、NNUE本体と同じEvalDirを基準にする。
+    if (Path::GetFileName(configured_path) == configured_path)
+        return Path::Combine(eval_dir, configured_path);
+
+    return configured_path;
+}
 
 }  // namespace
 
@@ -207,7 +209,7 @@ namespace Progress {
 
 bool add_options(YaneuraOu::OptionsMap& options) {
     g_options = &options;
-    options.add(kLsProgressCoeff, YaneuraOu::Option(kInternalPath));
+    options.add(kLsProgressCoeff, YaneuraOu::Option(kDefaultProgressFile));
 #if defined(SFNNwoPSQT)
     options.add(kLsBucketMode,
                 YaneuraOu::Option(std::vector<std::string>{"auto", "kingrank9", "progress8kpabs", "progress8ek"}, "progress8kpabs",
@@ -248,29 +250,31 @@ bool Load() {
         return false;
     }
 
-    const std::string file_path = (*g_options)[kLsProgressCoeff];
-
-    if (file_path == kInternalPath) {
-        if (gEmbeddedProgressSize != kRawWeightsBytes) {
-            sync_cout << "info string Embedded progress size mismatch. expected=" << kRawWeightsBytes
-                      << " actual=" << gEmbeddedProgressSize << sync_endl;
-            g_progress_loaded = false;
-            resolve_bucket_mode(g_layer_stacks_configured);
-            return false;
-        }
-
-        std::vector<double> raw_weights(kWeightCount);
-        std::memcpy(raw_weights.data(), gEmbeddedProgressData, kRawWeightsBytes);
-        load_weights_from_raw(raw_weights.data());
-        sync_cout << "info string loading progress file : <internal>" << sync_endl;
-        g_progress_loaded = true;
+    const std::string configured_path = (*g_options)[kLsProgressCoeff];
+    const auto file_path =
+        resolve_progress_file_path(configured_path, std::string((*g_options)["EvalDir"]));
+    if (!file_path) {
+        sync_cout << "info string LS_PROGRESS_COEFF requires an external progress file; "
+                     "<internal> and empty paths are not supported."
+                  << sync_endl;
+        g_progress_loaded = false;
         resolve_bucket_mode(g_layer_stacks_configured);
-        return true;
+        return false;
     }
 
-    std::ifstream stream(file_path, std::ios::binary);
+    std::ifstream stream;
+    std::string loaded_path;
+    for (const auto& candidate : Path::ExpandPathCandidates(*file_path)) {
+        stream.open(candidate, std::ios::binary);
+        if (stream.is_open()) {
+            loaded_path = candidate;
+            break;
+        }
+        stream.clear();
+    }
+
     if (!stream.is_open()) {
-        sync_cout << "info string Failed to open the progress file. file_path=" << file_path << sync_endl;
+        sync_cout << "info string Failed to open the progress file. file_path=" << *file_path << sync_endl;
         g_progress_loaded = false;
         resolve_bucket_mode(g_layer_stacks_configured);
         return false;
@@ -279,14 +283,14 @@ bool Load() {
     std::vector<double> raw_weights(kWeightCount);
     stream.read(reinterpret_cast<char*>(raw_weights.data()), kRawWeightsBytes);
     if (!stream) {
-        sync_cout << "info string Failed to read the progress file. file_path=" << file_path << sync_endl;
+        sync_cout << "info string Failed to read the progress file. file_path=" << loaded_path << sync_endl;
         g_progress_loaded = false;
         resolve_bucket_mode(g_layer_stacks_configured);
         return false;
     }
 
     load_weights_from_raw(raw_weights.data());
-    sync_cout << "info string loading progress file : " << file_path << sync_endl;
+    sync_cout << "info string loading progress file : " << loaded_path << sync_endl;
     g_progress_loaded = true;
     resolve_bucket_mode(g_layer_stacks_configured);
     return true;
@@ -321,6 +325,13 @@ int LayerStackIndexProgress8Ek(const YaneuraOu::Position& pos) {
 
 void UnitTest(YaneuraOu::Test::UnitTester& tester, YaneuraOu::IEngine&) {
     auto section = tester.section("Tanuki::Progress");
+
+    tester.test("既定パスはEvalDir基準",
+                resolve_progress_file_path("progress.bin", "eval") == "eval/progress.bin");
+    tester.test("ディレクトリ付きパスを維持",
+                resolve_progress_file_path("custom/progress.bin", "eval") == "custom/progress.bin");
+    tester.test("internal指定を拒否",
+                !resolve_progress_file_path("<internal>", "eval"));
 
     YaneuraOu::Position pos;
     YaneuraOu::StateInfo state;
