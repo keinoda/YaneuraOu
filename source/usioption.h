@@ -105,6 +105,9 @@ class Option {
     //     この変数は、そのためのもの。
     size_t idx;
 
+    // USIのoption行へ出力するか。
+    bool visible_in_usi = true;
+
     // このOptionの設定値が変更された時に呼び出されるevent handler。
     OnChange on_change;
 
@@ -138,6 +141,9 @@ class OptionsMap {
 
     // Optionを一つ追加する。options_mapに追加される。
     void add(const std::string& option_name, const Option& option);
+
+    // setoptionでは利用できるが、USIのoption行には出力しないOptionを追加する。
+    void add_hidden(const std::string& option_name, const Option& option);
 
     // 保持しているOptionのなかで、このoption_nameを持つものの数。
     // 💡 ある名前のoption項目を持っているかどうかを調べるのに使う。
@@ -223,6 +229,7 @@ public:
 
 	const Option& operator[](const std::string& option_name) const { return (*options)[option_name]; };
 	void add(const std::string& option_name, const Option& option) { return (*options).add(option_name, option); }
+	void add_hidden(const std::string& option_name, const Option& option) { return (*options).add_hidden(option_name, option); }
 	std::size_t count(const std::string& option_name) const { return (*options).count(option_name); }
 	bool book_options_v2() const { return (*options).book_options_v2(); }
 
