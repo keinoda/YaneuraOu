@@ -151,6 +151,9 @@ INCLUDE       = # -I../include
 EXTRA_CPPFLAGS =
 EXTRA_LDFLAGS  =
 
+NAGISA_V3_EDITION := YANEURAOU_ENGINE_SFNN_halfkahm2_1024_15_64_ls9
+NAGISA_V3_EXTRA_CPPFLAGS := -DHASH_KEY_BITS=128 -DTT_CLUSTER_SIZE=4 -DUSE_LAZY_EVALUATE
+
 CPPFLAGS += $(EXTRA_CPPFLAGS)
 LDFLAGS  += $(EXTRA_LDFLAGS)
 COMPILER_MACHINE := $(shell $(COMPILER) -dumpmachine 2>/dev/null)
@@ -633,7 +636,7 @@ OBJC_OBJECTS = $(addprefix $(OBJDIR)/, $(OBJC_SOURCES:.mm=.o))
 DEPENDS  = $(OBJECTS:.o=.d)
 
 all: clean $(TARGET)
-.PHONY : all normal tournament tune prof profgen profuse pgo clean
+.PHONY : all normal tournament tune nagisa-v3 prof profgen profuse pgo clean
 
 $(TARGET): $(OBJECTS) $(CUDA_OBJECTS) $(OBJC_OBJECTS)
 	$(COMPILER) -o $@ $^ $(LDFLAGS) $(CPPFLAGS) $(LIBS)
@@ -667,6 +670,15 @@ normal: run_python_script
 # トーナメント用
 tournament: run_python_script
 	$(MAKE) CPPFLAGS='$(CPPFLAGS) $(LTOFLAGS) -DFOR_TOURNAMENT' LDFLAGS='$(LDFLAGS) $(LTOFLAGS)' $(TARGET)
+
+# NAGISA_V3配布用
+nagisa-v3:
+	+$(MAKE) tournament \
+		YANEURAOU_EDITION='$(NAGISA_V3_EDITION)' \
+		PYTHON=python3 \
+		TARGET_CPU='$(TARGET_CPU)' \
+		COMPILER=clang++ \
+		EXTRA_CPPFLAGS='$(NAGISA_V3_EXTRA_CPPFLAGS)'
 
 # チューニング用(探索パラメーターをUSIオプションとして公開する)
 tune: run_python_script

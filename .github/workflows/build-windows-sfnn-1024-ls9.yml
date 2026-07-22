@@ -1,18 +1,13 @@
-name: Build Windows SFNN 1024x15x64 LS9
+name: Build NAGISA_V3 Windows
 
 on:
   workflow_dispatch:
-  # workflowをdefault branchへ取り込む前でも、追加したbranchへの初回pushで検証できるようにする。
   push:
-    paths:
-      - ".github/workflows/build-windows-sfnn-1024-ls9.yml"
+    branches:
+      - codex/nagisa-v3-release
 
 permissions:
   contents: read
-
-env:
-  EDITION: YANEURAOU_ENGINE_SFNN_halfkahm2_1024_15_64_ls9
-  COMPILER: clang++
 
 jobs:
   build-windows:
@@ -51,29 +46,32 @@ jobs:
         shell: msys2 {0}
         env:
           TARGET_CPU: ${{ matrix.target_cpu }}
-          OUTPUT_NAME: YaneuraOu-SFNN-halfkahm2-1024-15-64-ls9-tournament-${{ matrix.target_cpu }}.exe
+          OUTPUT_NAME: NAGISA_V3-Windows-${{ matrix.target_cpu }}.exe
         run: |
           set -euxo pipefail
           mkdir -p artifact
           cd main/source
-          mingw32-make -j"$(nproc)" tournament \
+          mingw32-make -j"$(nproc)" nagisa-v3 \
             OS=Windows_NT \
-            YANEURAOU_EDITION="${EDITION}" \
-            PYTHON=python3 \
             TARGET_CPU="${TARGET_CPU}" \
-            COMPILER="${COMPILER}" \
-            "EXTRA_CPPFLAGS=-DHASH_KEY_BITS=128 -DTT_CLUSTER_SIZE=4 -DUSE_LAZY_EVALUATE" \
             2>&1 | tee ../../artifact/build.log
           test -s YaneuraOu-by-gcc.exe
           cp YaneuraOu-by-gcc.exe "../../artifact/${OUTPUT_NAME}"
+          printf 'usi\nquit\n' | ./YaneuraOu-by-gcc.exe | tee ../../artifact/usi.txt
+          grep -F 'id name NAGISA_V3 NNUE 9.60' ../../artifact/usi.txt
+          grep -F 'id author nagisa' ../../artifact/usi.txt
+          grep -F 'option name LS_BUCKET_MODE type combo default progress8kpabs' ../../artifact/usi.txt
+          grep -F 'var progress8ek' ../../artifact/usi.txt
+          grep -F 'usiok' ../../artifact/usi.txt
           file "../../artifact/${OUTPUT_NAME}" | tee ../../artifact/file.txt
           (cd ../../artifact && sha256sum "${OUTPUT_NAME}" > SHA256SUMS)
           printf '%s\n' \
             "commit=${GITHUB_SHA}" \
-            "YANEURAOU_EDITION=${EDITION}" \
+            "make_target=nagisa-v3" \
+            "YANEURAOU_EDITION=YANEURAOU_ENGINE_SFNN_halfkahm2_1024_15_64_ls9" \
             "PYTHON=python3" \
             "TARGET_CPU=${TARGET_CPU}" \
-            "COMPILER=${COMPILER}" \
+            "COMPILER=clang++" \
             "target=tournament" \
             "EXTRA_CPPFLAGS=-DHASH_KEY_BITS=128 -DTT_CLUSTER_SIZE=4 -DUSE_LAZY_EVALUATE" \
             > ../../artifact/BUILD_ARGS.txt
@@ -81,7 +79,7 @@ jobs:
       - name: ビルド成果物を保存
         uses: actions/upload-artifact@v4
         with:
-          name: windows-sfnn-1024-ls9-${{ matrix.target_cpu }}-${{ github.sha }}
+          name: NAGISA_V3-Windows-${{ matrix.target_cpu }}-${{ github.sha }}
           path: artifact/
           if-no-files-found: error
           retention-days: 30
