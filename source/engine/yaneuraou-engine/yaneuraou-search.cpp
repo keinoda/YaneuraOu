@@ -513,20 +513,20 @@ void SearchOptions::add_options(OptionsMap& options) {
                     return std::nullopt;
                 }));
 
-    options.add("OpeningTargetSfenBlack", Option("", [&](const Option& o) {
+    options.add_hidden("OpeningTargetSfenBlack", Option("", [&](const Option& o) {
                     return set_opening_target_sfen(BLACK, std::string(o));
                 }));
 
-    options.add("OpeningTargetSfenWhite", Option("", [&](const Option& o) {
+    options.add_hidden("OpeningTargetSfenWhite", Option("", [&](const Option& o) {
                     return set_opening_target_sfen(WHITE, std::string(o));
                 }));
 
-    options.add("OpeningTargetMaxPly", Option(0, 0, 512, [&](const Option& o) {
+    options.add_hidden("OpeningTargetMaxPly", Option(0, 0, 512, [&](const Option& o) {
                     opening_target_max_ply = int(o);
                     return std::nullopt;
                 }));
 
-    options.add("OpeningTargetPenalty", Option(1000, 0, 3000, [&](const Option& o) {
+    options.add_hidden("OpeningTargetPenalty", Option(1000, 0, 3000, [&](const Option& o) {
                     opening_target_penalty = int(o);
                     return std::nullopt;
                 }));

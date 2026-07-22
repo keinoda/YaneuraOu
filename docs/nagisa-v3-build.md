@@ -14,6 +14,14 @@ EXTRA_CPPFLAGS=-DHASH_KEY_BITS=128 -DTT_CLUSTER_SIZE=4 -DUSE_LAZY_EVALUATE
 
 CPU向けの命令セットだけを `TARGET_CPU` で指定する。
 
+## USIオプション表示
+
+開始局面誘導、進行度連動の時間管理、先後別の時間管理、ponder miss時の時間延長、
+定跡の千日手対策に関するオプションは、USIの `option` 行に出力しない。
+これらは内部登録を維持するため、既存の設定ファイルや `setoption` から引き続き利用できる。
+
+`FullTimeMode`、`LS_PROGRESS_COEFF`、`LS_BUCKET_MODE` はUSIオプションとして表示する。
+
 ## Apple Silicon
 
 M1以降のMacでは、リポジトリルートから次を実行する。

@@ -1401,12 +1401,12 @@ namespace Book
 		// 交互に辿り、そのライン上で同一局面の再現(対局履歴・ライン内のどちらも)を検出したら
 		// その候補手の実効値を千日手スコア(DrawValueBlack/White反映済み)へ置き換える。
 		// 定跡グラフ内の手待ちサイクル(1手先のチェックでは見えない)への対策。
-        options.add("BookRepetitionPly", Option(0, 0, 64));
+        options.add_hidden("BookRepetitionPly", Option(0, 0, 64));
 
 		// root局面がこの対局で2回目以降の出現(=定跡ラインがループしている兆候)なら、
 		// 定跡を用いず通常探索へフォールバックするオプション。
 		// DrawValueBlack/Whiteを負に設定していれば、探索側が千日手を避ける進行を選ぶ。
-        options.add("BookIgnoreRepeatedRoot", Option(false));
+        options.add_hidden("BookIgnoreRepeatedRoot", Option(false));
 	}
 
 	// 定跡ファイルの読み込み。

@@ -112,20 +112,20 @@ void TimeManagement::add_options(OptionsMap& options) {
 
     // 切れ負けのときの思考時間を調整する。百分率になっている。
     // 0は未指定。未指定側はSlowMoverの値を使う。
-    options.add("SlowMover_black", Option(0, 0, 1000));
-    options.add("SlowMover_white", Option(0, 0, 1000));
+    options.add_hidden("SlowMover_black", Option(0, 0, 1000));
+    options.add_hidden("SlowMover_white", Option(0, 0, 1000));
 
     // progress.bin由来の進行度でSlowMoverを間接的に補正する。
     // デフォルトでは無効。明示的に有効化したときだけ進行度時間制御を使う。
-    options.add("ProgressSlowMover", Option(false));
+    options.add_hidden("ProgressSlowMover", Option(false));
     // bucket 0-1, 2-5, 6-7 の倍率をこの順に指定する。区切りは "," "/" 空白など。
-    options.add("ProgressSlowMoverScales", Option("100,100,100"));
+    options.add_hidden("ProgressSlowMoverScales", Option("100,100,100"));
 
     // progress.bin由来の進行度で残り手数(MTG)を見積もる。
-    options.add("ProgressMtg", Option(false));
+    options.add_hidden("ProgressMtg", Option(false));
 
     // ponder miss時の最大思考時間倍率。100なら延長しない。200で従来の2倍延長。
-    options.add("PonderMissMaximumScale", Option(100, 100, 1000));
+    options.add_hidden("PonderMissMaximumScale", Option(100, 100, 1000));
 
     // 持ち時間、各秒のギリギリまで使うか。
     options.add("RoundUpToFullSecond", true);

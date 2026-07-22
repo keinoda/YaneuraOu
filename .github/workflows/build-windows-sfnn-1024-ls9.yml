@@ -62,6 +62,16 @@ jobs:
           grep -F 'id author nagisa' ../../artifact/usi.txt
           grep -F 'option name LS_BUCKET_MODE type combo default progress8kpabs' ../../artifact/usi.txt
           grep -F 'var progress8ek' ../../artifact/usi.txt
+          grep -F 'option name FullTimeMode type check default false' ../../artifact/usi.txt
+          for hidden_option in \
+            OpeningTargetSfenBlack OpeningTargetSfenWhite OpeningTargetMaxPly OpeningTargetPenalty \
+            SlowMover_black SlowMover_white ProgressSlowMover ProgressSlowMoverScales ProgressMtg \
+            PonderMissMaximumScale BookRepetitionPly BookIgnoreRepeatedRoot; do
+            if grep -Fq "option name ${hidden_option} type" ../../artifact/usi.txt; then
+              printf '非表示オプションがUSI応答に含まれています: %s\n' "${hidden_option}" >&2
+              exit 1
+            fi
+          done
           grep -F 'usiok' ../../artifact/usi.txt
           file "../../artifact/${OUTPUT_NAME}" | tee ../../artifact/file.txt
           (cd ../../artifact && sha256sum "${OUTPUT_NAME}" > SHA256SUMS)
