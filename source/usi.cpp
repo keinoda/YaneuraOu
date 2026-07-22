@@ -1737,6 +1737,32 @@ void test_cmd(IEngine& engine, std::istringstream& is) {
 void USIEngine::UnitTest(Test::UnitTester& tester, IEngine& engine) {
     auto section1 = tester.section("USI");
 
+#if !STOCKFISH
+    {
+        auto  section2 = tester.section("hidden options");
+        auto& options  = engine.get_options();
+
+        constexpr const char* hidden_option_name = "UnitTestHiddenOption";
+        if (!options.count(hidden_option_name))
+            options.add_hidden(hidden_option_name, Option(false));
+
+        std::ostringstream output;
+        output << options;
+
+        tester.test("hidden option remains registered", options.count(hidden_option_name) == 1);
+        tester.test("hidden option is not advertised",
+                    output.str().find("\noption name UnitTestHiddenOption type ")
+                      == std::string::npos);
+
+        std::istringstream set_hidden_option("name UnitTestHiddenOption value true");
+        options.setoption(set_hidden_option);
+        tester.test("hidden option accepts setoption", bool(options[hidden_option_name]));
+
+        std::istringstream reset_hidden_option("name UnitTestHiddenOption value false");
+        options.setoption(reset_hidden_option);
+    }
+#endif
+
     Position  pos;
     StateInfo si;
 

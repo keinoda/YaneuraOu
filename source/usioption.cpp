@@ -85,6 +85,11 @@ void OptionsMap::add(const std::string& name, const Option& option) {
 	}
 }
 
+void OptionsMap::add_hidden(const std::string& name, const Option& option) {
+	add(name, option);
+	options_map[name].visible_in_usi = false;
+}
+
 // 保持しているOptionのなかで、このoption_nameを持つものの数。
 std::size_t OptionsMap::count(const std::string& name) const { return options_map.count(name); }
 
@@ -276,6 +281,9 @@ std::ostream& operator<<(std::ostream& os, const OptionsMap& om) {
 			if (it.second.idx == idx)
 			{
 				const Option& o = it.second;
+				if (!o.visible_in_usi)
+					break;
+
 				// 📝 先頭で改行しているので、必ず1行目が空行になる。
 				os << "\noption name " << it.first << " type " << o.type;
 
