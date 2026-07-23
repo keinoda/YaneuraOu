@@ -20,15 +20,15 @@ constexpr int MovePickerScoreScale = 256;
 constexpr int move_picker_score_from_q8(int score) { return score / MovePickerScoreScale; }
 
 // V940の指し手オーダリング用パラメーター。
-TUNABLE_PARAM(MovePicker_quiet_partial_sort_1, -2931, -7120, 0)
-TUNABLE_PARAM(MovePicker_good_capture_see_1, 15, 1, 36)
-TUNABLE_PARAM(MovePicker_good_quiet_threshold_1, -13285, -28000, 0)
-TUNABLE_PARAM(MovePicker_low_ply_history_score_1, 1661, 0, 4096)
-TUNABLE_PARAM(MovePicker_quiet_score_1, 531, 0, 1024)
-TUNABLE_PARAM(MovePicker_quiet_score_2, 498, 0, 1024)
-TUNABLE_PARAM(MovePicker_quiet_score_3, -62, -150, 0)
-TUNABLE_PARAM(MovePicker_quiet_score_4, 18586, 0, 32768)
-TUNABLE_PARAM(MovePicker_capture_score_1, 1978, 0, 3584)
+TUNABLE_PARAM(MovePicker_quiet_partial_sort_1, -2807, -7120, 0)
+TUNABLE_PARAM(MovePicker_good_capture_see_1, 16, 1, 36)
+TUNABLE_PARAM(MovePicker_good_quiet_threshold_1, -11688, -28000, 0)
+TUNABLE_PARAM(MovePicker_low_ply_history_score_1, 1853, 0, 4096)
+TUNABLE_PARAM(MovePicker_quiet_score_1, 461, 0, 1024)
+TUNABLE_PARAM(MovePicker_quiet_score_2, 488, 0, 1024)
+TUNABLE_PARAM(MovePicker_quiet_score_3, -61, -150, 0)
+TUNABLE_PARAM(MovePicker_quiet_score_4, 16492, 0, 32768)
+TUNABLE_PARAM(MovePicker_capture_score_1, 2215, 0, 3584)
 
 // Q8化前の既定値と同じ切り捨て結果になることをコンパイル時にも確認する。
 static_assert(move_picker_score_from_q8(512 * 7183) == 2 * 7183);
