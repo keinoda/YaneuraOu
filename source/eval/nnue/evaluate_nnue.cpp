@@ -7,6 +7,9 @@
 #include <fstream>
 #include <sstream>
 #include <vector>
+#if defined(SFNNwoPSQT)
+#include <atomic>
+#endif
 
 #define INCBIN_SILENCE_BITCODE_WARNING
 #include "../../incbin/incbin.h"
@@ -158,6 +161,25 @@ namespace NNUE {
 
     // NNUE評価関数パラメーター（共有メモリまたはローカルメモリ上に配置）
     SystemWideSharedConstant<NnueNetworks> shared_networks;
+
+#if defined(SFNNwoPSQT) && defined(USE_NNUE_FINNY_TABLES)
+    // A generation counter makes evaluation-file reloads invalidate every
+    // worker's thread-local table, not only the thread that performed loading.
+    static std::atomic<std::uint64_t> finny_generation{1};
+    static thread_local FinnyTable finny_table;
+
+    static FinnyTable& current_finny_table() {
+        const auto generation =
+            finny_generation.load(std::memory_order_acquire);
+        if (finny_table.generation != generation)
+            finny_table.invalidate(generation);
+        return finny_table;
+    }
+
+    static void InvalidateFinnyTables() {
+        finny_generation.fetch_add(1, std::memory_order_release);
+    }
+#endif
 
     // 評価関数ファイル名
     const char* const kFileName = EvalFileDefaultName;
@@ -312,7 +334,12 @@ namespace {
 
     // 差分計算ができるなら進める
     static void UpdateAccumulatorIfPossible(const Position& pos) {
+#if defined(SFNNwoPSQT) && defined(USE_NNUE_FINNY_TABLES)
+        networks().feature_transformer.UpdateAccumulatorIfPossible(
+            pos, current_finny_table());
+#else
         networks().feature_transformer.UpdateAccumulatorIfPossible(pos);
+#endif
     }
 
 #if defined(SFNNwoPSQT)
@@ -349,7 +376,12 @@ namespace {
 
         alignas(kCacheLineSize) TransformedFeatureType
             transformed_features[FeatureTransformer::kBufferSize];
+#if defined(SFNNwoPSQT) && defined(USE_NNUE_FINNY_TABLES)
+        networks().feature_transformer.Transform(
+            pos, transformed_features, refresh, current_finny_table());
+#else
         networks().feature_transformer.Transform(pos, transformed_features, refresh);
+#endif
         alignas(kCacheLineSize) char buffer[Network::kBufferSize];
 #if defined(SFNNwoPSQT)
         const auto bucket = stack_index_for_nnue(pos);
@@ -499,6 +531,9 @@ void load_eval() {
 
 		// 評価関数ファイルの読み込みが完了した。
 		eval_loaded = true;
+#if defined(SFNNwoPSQT) && defined(USE_NNUE_FINNY_TABLES)
+        NNUE::InvalidateFinnyTables();
+#endif
     }
 }
 

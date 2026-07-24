@@ -3,6 +3,8 @@
 #ifndef CLASSIC_NNUE_SFNN_1536_H_INCLUDED
 #define CLASSIC_NNUE_SFNN_1536_H_INCLUDED
 
+#define NNUE_FINNY_TABLES_SUPPORTED
+
 #include "../features/feature_set.h"
 #include "../features/half_ka_hm.h"
 

@@ -233,6 +233,13 @@ else:
     print(f"Error : input feature {input_feature} is not supported.")
     raise SystemExit(1)
 
+if SFNN and input_feature in {
+    "halfka1", "halfkahm1", "halfka2", "halfkahm2"
+}:
+    header += """
+    #define NNUE_FINNY_TABLES_SUPPORTED
+    """
+
 if SFNN:
     header += """
     #include <cstring>

@@ -64,6 +64,18 @@
 
 #endif
 
+#if defined(USE_NNUE_FINNY_TABLES) && defined(DISABLE_NNUE_FINNY_TABLES)
+#error "USE_NNUE_FINNY_TABLES and DISABLE_NNUE_FINNY_TABLES cannot be used together"
+#endif
+
+// Finny Tables is the default for architectures that declare support.
+// Define DISABLE_NNUE_FINNY_TABLES for comparison builds without the cache.
+#if defined(SFNNwoPSQT) && defined(NNUE_FINNY_TABLES_SUPPORTED) \
+    && !defined(DISABLE_NNUE_FINNY_TABLES) \
+    && !defined(USE_NNUE_FINNY_TABLES)
+#define USE_NNUE_FINNY_TABLES
+#endif
+
 namespace YaneuraOu {
 namespace Eval::NNUE {
 
