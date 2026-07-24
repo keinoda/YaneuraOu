@@ -30,15 +30,17 @@ struct alignas(64) Accumulator {
 #if defined(SFNNwoPSQT) && defined(USE_NNUE_FINNY_TABLES)
 
 // Finny Tables cache one fully refreshed accumulator for each
-// perspective-specific king square. The sorted feature list is retained so a
-// later refresh can be reconstructed by applying only the symmetric difference.
+// perspective-specific king square.
 static constexpr IndexType kFinnyMaxActiveFeatures =
     RawFeatures::kMaxActiveDimensions;
 
 struct alignas(64) FinnyCacheEntry {
   std::int16_t accumulation[kTransformedFeatureDimensions];
-  IndexType active_indices[kFinnyMaxActiveFeatures];
+  // Holds either PieceList values or sorted active feature indices. Both are
+  // represented as IndexType to avoid union active-member lifetime issues.
+  IndexType cache_keys[kFinnyMaxActiveFeatures];
   std::uint16_t num_active = 0;
+  bool piece_list_mode = false;
   bool valid = false;
 };
 
