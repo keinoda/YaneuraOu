@@ -13,10 +13,6 @@
 #error "USE_NNUE_FINNY_TABLES requires an SFNNwoPSQT architecture"
 #endif
 
-#if defined(USE_NNUE_FINNY_PIECE_LIST) && !defined(USE_NNUE_FINNY_TABLES)
-#error "USE_NNUE_FINNY_PIECE_LIST requires USE_NNUE_FINNY_TABLES"
-#endif
-
 namespace YaneuraOu {
 namespace Eval::NNUE {
 
@@ -40,14 +36,11 @@ static constexpr IndexType kFinnyMaxActiveFeatures =
 
 struct alignas(64) FinnyCacheEntry {
   std::int16_t accumulation[kTransformedFeatureDimensions];
-#if defined(USE_NNUE_FINNY_PIECE_LIST)
-  // Experimental HalfKA_hm2 path: compare the 40 stable PieceList slots
-  // directly instead of generating and sorting active feature indices.
-  BonaPiece piece_list[PIECE_NUMBER_NB];
-#else
-  IndexType active_indices[kFinnyMaxActiveFeatures];
+  // Holds either PieceList values or sorted active feature indices. Both are
+  // represented as IndexType to avoid union active-member lifetime issues.
+  IndexType cache_keys[kFinnyMaxActiveFeatures];
   std::uint16_t num_active = 0;
-#endif
+  bool piece_list_mode = false;
   bool valid = false;
 };
 
