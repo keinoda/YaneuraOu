@@ -7,7 +7,7 @@
 #include <fstream>
 #include <sstream>
 #include <vector>
-#if defined(SFNNwoPSQT) && defined(USE_NNUE_FINNY_TABLES)
+#if defined(SFNNwoPSQT)
 #include <atomic>
 #endif
 
