@@ -216,12 +216,41 @@ class FeatureTransformer {
 		return false;
 	}
 
+#if defined(SFNNwoPSQT) && defined(USE_NNUE_FINNY_TABLES)
+	// Finny-enabled immediate-parent update. Deliberately does not include the
+	// separate multi-ply ancestor-search optimization.
+	bool UpdateAccumulatorIfPossible(
+		const Position& pos, FinnyTable& cache) const {
+		const auto now = pos.state();
+		if (now->accumulator.computed_accumulation)
+			return true;
+
+		const auto prev = now->previous;
+		if (prev && prev->accumulator.computed_accumulation) {
+			update_accumulator_with_cache(pos, cache);
+			return true;
+		}
+		return false;
+	}
+#endif
+
 	// Convert input features
 	// 入力特徴量を変換する
-	void Transform(const Position& pos, OutputType* output, bool refresh) const {
+	void Transform(
+		const Position& pos, OutputType* output, bool refresh
+#if defined(SFNNwoPSQT) && defined(USE_NNUE_FINNY_TABLES)
+		, FinnyTable& cache
+#endif
+	) const {
+#if defined(SFNNwoPSQT) && defined(USE_NNUE_FINNY_TABLES)
+		if (refresh || !UpdateAccumulatorIfPossible(pos, cache)) {
+			refresh_accumulator_with_cache(pos, cache);
+		}
+#else
 		if (refresh || !UpdateAccumulatorIfPossible(pos)) {
 			refresh_accumulator(pos);
 		}
+#endif
 		const auto& accumulation = pos.state()->accumulator.accumulation;
 
 #if defined(USE_ELEMENT_WISE_MULTIPLY)
@@ -601,6 +630,224 @@ class FeatureTransformer {
 		// Stockfishでは fc27d15(2020-09-07) にcomputed_scoreが排除されているので確認
 		accumulator.computed_score = false;
 	}
+
+#if defined(SFNNwoPSQT) && defined(USE_NNUE_FINNY_TABLES)
+	static constexpr IndexType kFinnyChunkSize =
+#if defined(VECTOR)
+		sizeof(vec_t) / sizeof(BiasType);
+#else
+		1;
+#endif
+
+	void add_weight(BiasType* accumulation, IndexType index) const {
+		const IndexType offset = kHalfDimensions * index;
+#if defined(VECTOR)
+		static_assert(kHalfDimensions % kFinnyChunkSize == 0);
+		constexpr IndexType kNumChunks = kHalfDimensions / kFinnyChunkSize;
+		auto* acc = reinterpret_cast<vec_t*>(accumulation);
+		const auto* column =
+			reinterpret_cast<const vec_t*>(&weights_[offset]);
+		for (IndexType j = 0; j < kNumChunks; ++j)
+			acc[j] = vec_add_16(acc[j], column[j]);
+#else
+		for (IndexType j = 0; j < kHalfDimensions; ++j)
+			accumulation[j] += weights_[offset + j];
+#endif
+	}
+
+	void sub_weight(BiasType* accumulation, IndexType index) const {
+		const IndexType offset = kHalfDimensions * index;
+#if defined(VECTOR)
+		static_assert(kHalfDimensions % kFinnyChunkSize == 0);
+		constexpr IndexType kNumChunks = kHalfDimensions / kFinnyChunkSize;
+		auto* acc = reinterpret_cast<vec_t*>(accumulation);
+		const auto* column =
+			reinterpret_cast<const vec_t*>(&weights_[offset]);
+		for (IndexType j = 0; j < kNumChunks; ++j)
+			acc[j] = vec_sub_16(acc[j], column[j]);
+#else
+		for (IndexType j = 0; j < kHalfDimensions; ++j)
+			accumulation[j] -= weights_[offset + j];
+#endif
+	}
+
+	void refresh_from_active_indices(
+		IndexType trigger_idx, const Features::IndexList& active,
+		BiasType* accumulation) const {
+		if (trigger_idx == 0)
+			std::memcpy(
+				accumulation, biases_,
+				kHalfDimensions * sizeof(BiasType));
+		else
+			std::memset(
+				accumulation, 0,
+				kHalfDimensions * sizeof(BiasType));
+
+		for (const auto index : active)
+			add_weight(accumulation, index);
+	}
+
+	static Square perspective_king_square(
+		const Position& pos, Color perspective) {
+		const auto square = pos.square<KING>(perspective);
+		if (square < SQ_ZERO || square >= SQ_NB)
+			return SQ_NONE;
+		return perspective == BLACK ? square : Inv(square);
+	}
+
+	void apply_cache_diff(
+		BiasType* accumulation,
+		const IndexType* cached, IndexType cached_len,
+		const IndexType* current, IndexType current_len) const {
+		IndexType cached_pos = 0;
+		IndexType current_pos = 0;
+
+		while (cached_pos < cached_len && current_pos < current_len) {
+			const auto cached_index = cached[cached_pos];
+			const auto current_index = current[current_pos];
+			if (cached_index < current_index) {
+				sub_weight(accumulation, cached_index);
+				++cached_pos;
+			} else if (current_index < cached_index) {
+				add_weight(accumulation, current_index);
+				++current_pos;
+			} else {
+				++cached_pos;
+				++current_pos;
+			}
+		}
+		while (cached_pos < cached_len)
+			sub_weight(accumulation, cached[cached_pos++]);
+		while (current_pos < current_len)
+			add_weight(accumulation, current[current_pos++]);
+	}
+
+	void refresh_perspective_with_cache(
+		const Position& pos, Color perspective, IndexType trigger_idx,
+		const Features::IndexList& active, BiasType* accumulation,
+		FinnyTable& cache) const {
+		static_assert(kRefreshTriggers.size() == 1);
+		static_assert(
+			kRefreshTriggers[0] ==
+			Features::TriggerEvent::kFriendKingMoved);
+		static_assert(
+			kFinnyMaxActiveFeatures <=
+			static_cast<IndexType>(UINT16_MAX));
+		static_assert(
+			kFinnyMaxActiveFeatures == PIECE_NUMBER_NB);
+
+		if (trigger_idx != 0 ||
+			active.size() > kFinnyMaxActiveFeatures) {
+			refresh_from_active_indices(
+				trigger_idx, active, accumulation);
+			return;
+		}
+
+		IndexType sorted_active[kFinnyMaxActiveFeatures];
+		const auto num_active =
+			static_cast<IndexType>(active.size());
+		std::copy(active.begin(), active.end(), sorted_active);
+		std::sort(sorted_active, sorted_active + num_active);
+
+		const auto king_square =
+			perspective_king_square(pos, perspective);
+		if (king_square < SQ_ZERO || king_square >= SQ_NB) {
+			refresh_from_active_indices(
+				trigger_idx, active, accumulation);
+			return;
+		}
+
+		auto& entry =
+			cache.entries[king_square][perspective];
+		if (entry.valid) {
+			std::memcpy(
+				accumulation, entry.accumulation,
+				kHalfDimensions * sizeof(BiasType));
+			apply_cache_diff(
+				accumulation,
+				entry.active_indices, entry.num_active,
+				sorted_active, num_active);
+		} else {
+			std::memcpy(
+				accumulation, biases_,
+				kHalfDimensions * sizeof(BiasType));
+			for (IndexType i = 0; i < num_active; ++i)
+				add_weight(accumulation, sorted_active[i]);
+		}
+
+		std::memcpy(
+			entry.accumulation, accumulation,
+			kHalfDimensions * sizeof(BiasType));
+		std::copy(
+			sorted_active, sorted_active + num_active,
+			entry.active_indices);
+		entry.num_active =
+			static_cast<std::uint16_t>(num_active);
+		entry.valid = true;
+	}
+
+	void refresh_accumulator_with_cache(
+		const Position& pos, FinnyTable& cache) const {
+		auto& accumulator = pos.state()->accumulator;
+		for (IndexType i = 0; i < kRefreshTriggers.size(); ++i) {
+			Features::IndexList active_indices[COLOR_NB];
+			RawFeatures::AppendActiveIndices(
+				pos, kRefreshTriggers[i], active_indices);
+			for (Color perspective : COLOR)
+				refresh_perspective_with_cache(
+					pos, perspective, i,
+					active_indices[perspective],
+					accumulator.accumulation[perspective][i],
+					cache);
+		}
+		accumulator.computed_accumulation = true;
+		accumulator.computed_score = false;
+	}
+
+	void update_accumulator_with_cache(
+		const Position& pos, FinnyTable& cache) const {
+		const auto& prev_accumulator =
+			pos.state()->previous->accumulator;
+		auto& accumulator = pos.state()->accumulator;
+
+		for (IndexType i = 0; i < kRefreshTriggers.size(); ++i) {
+			Features::IndexList removed_indices[COLOR_NB];
+			Features::IndexList added_indices[COLOR_NB];
+			bool reset[COLOR_NB] = {};
+			RawFeatures::AppendChangedIndices(
+				pos, kRefreshTriggers[i],
+				removed_indices, added_indices, reset);
+
+			for (Color perspective : COLOR) {
+				auto* current =
+					accumulator.accumulation[perspective][i];
+				if (reset[perspective]) {
+					// For a reset, AppendChangedIndices has already
+					// populated added_indices with every active feature.
+					refresh_perspective_with_cache(
+						pos, perspective, i,
+						added_indices[perspective],
+						current, cache);
+					continue;
+				}
+
+				std::memcpy(
+					current,
+					prev_accumulator.accumulation[perspective][i],
+					kHalfDimensions * sizeof(BiasType));
+				for (const auto index :
+					removed_indices[perspective])
+					sub_weight(current, index);
+				for (const auto index :
+					added_indices[perspective])
+					add_weight(current, index);
+			}
+		}
+
+		accumulator.computed_accumulation = true;
+		accumulator.computed_score = false;
+	}
+#endif
 
 	// parameter type
 	// パラメータの型
