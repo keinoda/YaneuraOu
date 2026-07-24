@@ -13,6 +13,10 @@
 #error "USE_NNUE_FINNY_TABLES requires an SFNNwoPSQT architecture"
 #endif
 
+#if defined(USE_NNUE_FINNY_PIECE_LIST) && !defined(USE_NNUE_FINNY_TABLES)
+#error "USE_NNUE_FINNY_PIECE_LIST requires USE_NNUE_FINNY_TABLES"
+#endif
+
 namespace YaneuraOu {
 namespace Eval::NNUE {
 
@@ -30,15 +34,20 @@ struct alignas(64) Accumulator {
 #if defined(SFNNwoPSQT) && defined(USE_NNUE_FINNY_TABLES)
 
 // Finny Tables cache one fully refreshed accumulator for each
-// perspective-specific king square. The sorted feature list is retained so a
-// later refresh can be reconstructed by applying only the symmetric difference.
+// perspective-specific king square.
 static constexpr IndexType kFinnyMaxActiveFeatures =
     RawFeatures::kMaxActiveDimensions;
 
 struct alignas(64) FinnyCacheEntry {
   std::int16_t accumulation[kTransformedFeatureDimensions];
+#if defined(USE_NNUE_FINNY_PIECE_LIST)
+  // Experimental HalfKA_hm2 path: compare the 40 stable PieceList slots
+  // directly instead of generating and sorting active feature indices.
+  BonaPiece piece_list[PIECE_NUMBER_NB];
+#else
   IndexType active_indices[kFinnyMaxActiveFeatures];
   std::uint16_t num_active = 0;
+#endif
   bool valid = false;
 };
 

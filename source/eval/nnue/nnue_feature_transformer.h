@@ -695,6 +695,7 @@ class FeatureTransformer {
 		return perspective == BLACK ? square : Inv(square);
 	}
 
+#if !defined(USE_NNUE_FINNY_PIECE_LIST)
 	void apply_cache_diff(
 		BiasType* accumulation,
 		const IndexType* cached, IndexType cached_len,
@@ -721,6 +722,7 @@ class FeatureTransformer {
 		while (current_pos < current_len)
 			add_weight(accumulation, current[current_pos++]);
 	}
+#endif
 
 	void refresh_perspective_with_cache(
 		const Position& pos, Color perspective, IndexType trigger_idx,
@@ -743,12 +745,6 @@ class FeatureTransformer {
 			return;
 		}
 
-		IndexType sorted_active[kFinnyMaxActiveFeatures];
-		const auto num_active =
-			static_cast<IndexType>(active.size());
-		std::copy(active.begin(), active.end(), sorted_active);
-		std::sort(sorted_active, sorted_active + num_active);
-
 		const auto king_square =
 			perspective_king_square(pos, perspective);
 		if (king_square < SQ_ZERO || king_square >= SQ_NB) {
@@ -756,6 +752,74 @@ class FeatureTransformer {
 				trigger_idx, active, accumulation);
 			return;
 		}
+
+#if defined(USE_NNUE_FINNY_PIECE_LIST)
+		using PieceFeature =
+			Features::HalfKA_hm2<Features::Side::kFriend>;
+		static_assert(
+			RawFeatures::kHashValue == PieceFeature::kHashValue);
+		static_assert(
+			RawFeatures::kDimensions == PieceFeature::kDimensions);
+
+		const auto* current_piece_list =
+			perspective == BLACK
+				? pos.eval_list()->piece_list_fb()
+				: pos.eval_list()->piece_list_fw();
+
+		auto& entry =
+			cache.entries[king_square][perspective];
+		if (entry.valid) {
+			std::memcpy(
+				accumulation, entry.accumulation,
+				kHalfDimensions * sizeof(BiasType));
+			for (IndexType i = 0; i < PIECE_NUMBER_NB; ++i) {
+				const auto cached_piece = entry.piece_list[i];
+				const auto current_piece = current_piece_list[i];
+				if (cached_piece == current_piece)
+					continue;
+
+				// This experiment intentionally matches the upstream
+				// piece-list implementation. Handicap positions containing
+				// BONA_PIECE_ZERO are outside its benchmark scope.
+				if (cached_piece != BONA_PIECE_ZERO)
+					sub_weight(
+						accumulation,
+						PieceFeature::MakeIndex(
+							king_square, cached_piece));
+				if (current_piece != BONA_PIECE_ZERO)
+					add_weight(
+						accumulation,
+						PieceFeature::MakeIndex(
+							king_square, current_piece));
+			}
+		} else {
+			std::memcpy(
+				accumulation, biases_,
+				kHalfDimensions * sizeof(BiasType));
+			for (IndexType i = 0; i < PIECE_NUMBER_NB; ++i) {
+				const auto piece = current_piece_list[i];
+				if (piece != BONA_PIECE_ZERO)
+					add_weight(
+						accumulation,
+						PieceFeature::MakeIndex(
+							king_square, piece));
+			}
+		}
+
+		std::memcpy(
+			entry.accumulation, accumulation,
+			kHalfDimensions * sizeof(BiasType));
+		std::copy(
+			current_piece_list,
+			current_piece_list + PIECE_NUMBER_NB,
+			entry.piece_list);
+		entry.valid = true;
+#else
+		IndexType sorted_active[kFinnyMaxActiveFeatures];
+		const auto num_active =
+			static_cast<IndexType>(active.size());
+		std::copy(active.begin(), active.end(), sorted_active);
+		std::sort(sorted_active, sorted_active + num_active);
 
 		auto& entry =
 			cache.entries[king_square][perspective];
@@ -784,12 +848,21 @@ class FeatureTransformer {
 		entry.num_active =
 			static_cast<std::uint16_t>(num_active);
 		entry.valid = true;
+#endif
 	}
 
 	void refresh_accumulator_with_cache(
 		const Position& pos, FinnyTable& cache) const {
 		auto& accumulator = pos.state()->accumulator;
 		for (IndexType i = 0; i < kRefreshTriggers.size(); ++i) {
+#if defined(USE_NNUE_FINNY_PIECE_LIST)
+			Features::IndexList unused_active;
+			for (Color perspective : COLOR)
+				refresh_perspective_with_cache(
+					pos, perspective, i, unused_active,
+					accumulator.accumulation[perspective][i],
+					cache);
+#else
 			Features::IndexList active_indices[COLOR_NB];
 			RawFeatures::AppendActiveIndices(
 				pos, kRefreshTriggers[i], active_indices);
@@ -799,6 +872,7 @@ class FeatureTransformer {
 					active_indices[perspective],
 					accumulator.accumulation[perspective][i],
 					cache);
+#endif
 		}
 		accumulator.computed_accumulation = true;
 		accumulator.computed_score = false;
