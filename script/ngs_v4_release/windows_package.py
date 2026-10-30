@@ -59,7 +59,7 @@ class Engine:
         environment = os.environ.copy()
         # MSYS2のDLL探索パスに依存せず、展開したZIPだけで動くことを確かめる。
         if sys.platform == "win32":
-            system = Path(environment["SystemRoot"])
+            system = Path(environment["SYSTEMROOT"])
             environment["PATH"] = str(system / "System32") + os.pathsep + str(system)
         self.process = subprocess.Popen([str(runtime / "NAGISA_V4.exe")], cwd=runtime,
                                         stdin=subprocess.PIPE, stdout=subprocess.PIPE,
