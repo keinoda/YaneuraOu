@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build-windows:
@@ -15,6 +15,20 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           persist-credentials: false
+
+      - name: draftを含むReleaseからソースを取得
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          @'
+          import subprocess
+          from pathlib import Path
+          with Path("source.tar.gz").open("wb") as stream:
+              subprocess.run(["gh", "api", "repos/keinoda/YaneuraOu/releases/assets/692042207",
+                              "--header", "Accept: application/octet-stream"], stdout=stream, check=True)
+          '@ | python
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: MSYS2のコンパイラを準備
         uses: msys2/setup-msys2@ec48f7c5447b3140e2b088413ae3a55687bccb6e
@@ -27,15 +41,6 @@ jobs:
             mingw-w64-x86_64-clang
             mingw-w64-x86_64-lld
             mingw-w64-x86_64-python
-
-      - name: draftを含むReleaseからソースを取得
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release download nagisa-v4 --repo "$env:GITHUB_REPOSITORY" `
-            --pattern NAGISA_V4-source-20261030-tournament.tar.gz --output source.tar.gz
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: ソースと元の評価データを照合
         shell: msys2 {0}
