@@ -1,0 +1,68 @@
+name: Build NAGISA_V4 Windows AVX2
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-windows:
+    runs-on: windows-2022
+    timeout-minutes: 90
+    steps:
+      - name: ビルドと検証のスクリプトを取得
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+
+      - name: MSYS2のコンパイラを準備
+        uses: msys2/setup-msys2@ec48f7c5447b3140e2b088413ae3a55687bccb6e
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            base-devel
+            mingw-w64-x86_64-toolchain
+            mingw-w64-x86_64-clang
+            mingw-w64-x86_64-lld
+            mingw-w64-x86_64-python
+
+      - name: 公開済みソースを照合して取得
+        shell: msys2 {0}
+        run: python script/ngs_v4_release/windows_package.py prepare
+
+      - name: 通常のtournament版をビルド
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          clang++ --version > validation/compiler.txt
+          cd work/NAGISA_V4
+          mingw32-make -C source -j"$(nproc)" tournament \
+            OS=Windows_NT \
+            YANEURAOU_EDITION=YANEURAOU_ENGINE_SFNN_halfkahm2_2304_15_64_k9k9_progress8 \
+            TARGET_CPU=AVX2 COMPILER=clang++ PYTHON=python \
+            ENGINE_NAME=NAGISA_V4 TARGET=../NAGISA_V4.exe \
+            2>&1 | tee ../../validation/build.log
+
+      - name: 配布ZIPを展開しWindowsで検証
+        shell: msys2 {0}
+        run: python script/ngs_v4_release/windows_package.py verify
+
+      - name: 検証済みWindows配布物を保存
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: NAGISA_V4-Windows-AVX2
+          path: artifacts/NAGISA_V4-Windows-AVX2.zip
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
+
+      - name: 検証記録を配布物とは別に保存
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: NAGISA_V4-Windows-validation
+          path: validation/
+          if-no-files-found: warn
+          retention-days: 30
