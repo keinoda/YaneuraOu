@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""公開ソースから作ったWindows配布ZIPを、展開後の状態で検証する。"""
+"""Releaseのソースから作ったWindows配布ZIPを、展開後の状態で検証する。"""
 import gzip
 import hashlib
 import json
@@ -14,14 +14,13 @@ import sys
 import tarfile
 import threading
 import time
-import urllib.request
 import zipfile
 
 ROOT = Path.cwd()
 SOURCE = ROOT / "work/NAGISA_V4"
 RECORDS = ROOT / "validation"
-ARCHIVE_SHA = "1fcd59d9c51baea0effe68d7648daa187ba9e281164c419aa2a226db1bafd7d7"
-NN_SHA = "60d1b1ce4b7e87f4f7ec5f4a0e82e2cbd57dee48aeb27eea5b9ce0c135fc7c2e"
+ARCHIVE_SHA = "e59f7ea8999acc3150bb0101bbaa13f4d69f0c469160cf3b881edef4ea8ef7b1"
+NN_SHA = "39dd05367e1b66c8a12d41aefb9ca81070dc643060bcb5cb3306043f118e7415"
 PROGRESS_SHA = "e7ed0eef88868335f9a46c58a121dccb5ad82a5eb1c8ee12de90365ab351e37d"
 SOURCE_URL = ("https://github.com/keinoda/YaneuraOu/releases/download/nagisa-v4/"
               "NAGISA_V4-source-20261030-tournament.tar.gz")
@@ -39,10 +38,9 @@ def sha256(path):
 def prepare():
     RECORDS.mkdir()
     (ROOT / "work").mkdir()
-    archive = ROOT / "work/source.tar.gz"
-    urllib.request.urlretrieve(SOURCE_URL, archive)
+    archive = ROOT / "source.tar.gz"
     if sha256(archive) != ARCHIVE_SHA:
-        raise ValueError("公開ソースのSHA-256が一致しません")
+        raise ValueError("Releaseから取得したソースのSHA-256が一致しません")
     with tarfile.open(archive) as tar:
         for member in tar.getmembers():
             if not member.isfile() or not member.name.startswith("NAGISA_V4/") or ".." in Path(member.name).parts:
@@ -54,8 +52,8 @@ def prepare():
 
 
 class Engine:
-    def __init__(self, runtime):
-        self.log = (RECORDS / "usi.log").open("w", encoding="utf-8")
+    def __init__(self, runtime, log_name="usi.log"):
+        self.log = (RECORDS / log_name).open("w", encoding="utf-8")
         environment = os.environ.copy()
         # MSYS2のDLL探索パスに依存せず、展開したZIPだけで動くことを確かめる。
         if sys.platform == "win32":
@@ -174,13 +172,43 @@ def check_build():
     definitions = {line.split()[1]: " ".join(line.split()[2:]) for line in macros.splitlines() if line.startswith("#define ")}
     if definitions.get("HASH_KEY_BITS") != "64" or definitions.get("TT_CLUSTER_SIZE") != "3" or "USE_LAZY_EVALUATE" in definitions:
         raise AssertionError("標準のHASH・TT・評価設定ではありません")
+    for key, expected in {"NNUE_SFNN_HAND_BUCKETS": "1", "NNUE_SFNN_KING_BUCKETS": "1", "NNUE_SFNN_PROGRESS_BUCKETS": "8"}.items():
+        if definitions.get(key) != expected:
+            raise AssertionError("進行度だけで8バケットを選ぶ設定ではありません: " + key)
     imports = subprocess.check_output(["objdump", "-p", str(SOURCE / "NAGISA_V4.exe")], text=True)
     (RECORDS / "pe-imports.txt").write_text(imports)
     dlls = re.findall(r"DLL Name:\s*(\S+)", imports)
     if any(re.match(r"lib(?:stdc\+\+|gcc|winpthread|ssp|gomp|atomic|c\+\+)", dll, re.I) for dll in dlls):
         raise AssertionError("配布物に含まれないランタイムDLLへの依存があります")
     return {"compile_command": line, "dlls": dlls, "HASH_KEY_BITS": 64, "TT_CLUSTER_SIZE": 3,
-            "USE_LAZY_EVALUATE": False, "FOR_TOURNAMENT": True}
+            "USE_LAZY_EVALUATE": False, "FOR_TOURNAMENT": True, "progress_buckets": 8, "king_buckets": 1}
+
+
+def check_unused_ninth(runtime, reference):
+    scratch = ROOT / "unused-ninth-runtime"
+    shutil.copytree(runtime, scratch)
+    nn = scratch / "eval/nn.bin"
+    original_sha = sha256(nn)
+    head_size = 4 + 16 * 4 + 2304 * 16 + 64 * 4 + 32 * 64 + 4 + 64
+    with nn.open("r+b") as stream:
+        # 構造ハッシュを残して9番目の重みを0にし、評価値へ影響しないことを確認する。
+        stream.seek(-head_size + 4, 2)
+        stream.write(bytes(head_size - 4))
+    mutated_sha = sha256(nn)
+    if original_sha != NN_SHA or original_sha == mutated_sha:
+        raise AssertionError("9番目の重みを変更する回帰検証の入力が不正です")
+    engine = Engine(scratch, "unused-ninth-usi.log")
+    try:
+        engine.ready()
+        for item in reference:
+            if engine.evaluate(item["position"]) != item["score"]:
+                raise AssertionError("9番目の重みが評価値へ影響しています: " + item["position"])
+    finally:
+        exit_code = engine.close()
+    if exit_code != 0:
+        raise AssertionError("9番目の不使用を検証したエンジンが正常終了しませんでした")
+    return {"evaluation_matches": len(reference), "original_sha256": original_sha,
+            "mutated_sha256": mutated_sha, "engine_exit_code": exit_code}
 
 
 def verify():
@@ -227,6 +255,7 @@ def verify():
         if count != 719731:
             raise AssertionError(f"perft(4)が一致しません: {count}")
         result["perft4"] = count
+        result["unused_ninth"] = check_unused_ninth(runtime, reference)
         result["archive_sha256"] = sha256(archive)
         result["archive_bytes"] = archive.stat().st_size
         result["passed"] = True

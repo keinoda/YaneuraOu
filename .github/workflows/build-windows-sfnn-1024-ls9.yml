@@ -28,7 +28,16 @@ jobs:
             mingw-w64-x86_64-lld
             mingw-w64-x86_64-python
 
-      - name: 公開済みソースを照合して取得
+      - name: draftを含むReleaseからソースを取得
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download nagisa-v4 --repo "$env:GITHUB_REPOSITORY" `
+            --pattern NAGISA_V4-source-20261030-tournament.tar.gz --output source.tar.gz
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: ソースと元の評価データを照合
         shell: msys2 {0}
         run: python script/ngs_v4_release/windows_package.py prepare
 
@@ -40,7 +49,7 @@ jobs:
           cd work/NAGISA_V4
           mingw32-make -C source -j"$(nproc)" tournament \
             OS=Windows_NT \
-            YANEURAOU_EDITION=YANEURAOU_ENGINE_SFNN_halfkahm2_2304_15_64_k9k9_progress8 \
+            YANEURAOU_EDITION=YANEURAOU_ENGINE_SFNN_halfkahm2_2304_15_64_progress8 \
             TARGET_CPU=AVX2 COMPILER=clang++ PYTHON=python \
             ENGINE_NAME=NAGISA_V4 TARGET=../NAGISA_V4.exe \
             2>&1 | tee ../../validation/build.log
