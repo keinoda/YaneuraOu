@@ -220,7 +220,8 @@ def verify():
     archive = artifacts / "NAGISA_V4-Windows-AVX2.zip"
     files = ["NAGISA_V4.exe", "engine_name.txt", "LICENSE", "eval/nn.bin", "eval/progress.bin", "eval/eval_options.txt"]
     expected = {name: sha256(SOURCE / name) for name in files}
-    with zipfile.ZipFile(archive, "x", compression=zipfile.ZIP_DEFLATED, compresslevel=6) as zipped:
+    with zipfile.ZipFile(archive, "x", compression=zipfile.ZIP_DEFLATED, compresslevel=6,
+                         strict_timestamps=False) as zipped:
         for name in files:
             zipped.write(SOURCE / name, "NAGISA_V4-Windows-AVX2/" + name)
     unpacked = ROOT / "unpacked"
