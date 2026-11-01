@@ -1,22 +1,26 @@
-name: Build NAGISA_V4 Windows AVX2
+name: Build NAGISA_V4 Windows AVX2/AVX512
 
 on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build-windows:
     runs-on: windows-2022
-    timeout-minutes: 90
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        cpu: [AVX2, AVX512]
     steps:
       - name: ビルドと検証のスクリプトを取得
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           persist-credentials: false
 
-      - name: draftを含むReleaseからソースを取得
+      - name: Releaseからソースを取得
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
@@ -37,16 +41,30 @@ jobs:
           update: true
           install: >-
             base-devel
+            xz
             mingw-w64-x86_64-toolchain
             mingw-w64-x86_64-clang
             mingw-w64-x86_64-lld
             mingw-w64-x86_64-python
 
+      - name: AVX512の検証用にIntel SDEを取得
+        if: matrix.cpu == 'AVX512'
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          # Intel公式の配布ページに掲載されたSHA-256で照合する。
+          curl -fsSL --retry 3 -o sde.tar.xz \
+            https://github.com/petarpetrovt/setup-sde/releases/download/binaries/sde-external-10.13.1-2026-07-28-win.tar.xz
+          echo "74e626ede09b0baa5011fc9e51b58627ea92c3fc0bae5fd7db34b490f335f651  sde.tar.xz" | sha256sum -c -
+          mkdir sde
+          tar -xJf sde.tar.xz -C sde --strip-components=1
+          ls sde
+
       - name: ソースと元の評価データを照合
         shell: msys2 {0}
         run: python script/ngs_v4_release/windows_package.py prepare
 
-      - name: 通常のtournament版をビルド
+      - name: 開発版の4指定とUSE_FINNY_RESETでtournament版をビルド
         shell: msys2 {0}
         run: |
           set -euo pipefail
@@ -55,19 +73,20 @@ jobs:
           mingw32-make -C source -j"$(nproc)" tournament \
             OS=Windows_NT \
             YANEURAOU_EDITION=YANEURAOU_ENGINE_SFNN_halfkahm2_2304_15_64_progress8 \
-            TARGET_CPU=AVX2 COMPILER=clang++ PYTHON=python \
+            TARGET_CPU=${{ matrix.cpu }} COMPILER=clang++ PYTHON=python \
             ENGINE_NAME=NAGISA_V4 TARGET=../NAGISA_V4.exe \
+            EXTRA_CPPFLAGS="-DHASH_KEY_BITS=128 -DTT_CLUSTER_SIZE=4 -DUSE_LAZY_EVALUATE -DUSE_FINNY_TABLES -DUSE_FINNY_RESET" \
             2>&1 | tee ../../validation/build.log
 
       - name: 配布ZIPを展開しWindowsで検証
         shell: msys2 {0}
-        run: python script/ngs_v4_release/windows_package.py verify
+        run: python script/ngs_v4_release/windows_package.py verify ${{ matrix.cpu }}
 
       - name: 検証済みWindows配布物を保存
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: NAGISA_V4-Windows-AVX2
-          path: artifacts/NAGISA_V4-Windows-AVX2.zip
+          name: NAGISA_V4-Windows-${{ matrix.cpu }}
+          path: artifacts/NAGISA_V4-Windows-${{ matrix.cpu }}.zip
           if-no-files-found: error
           compression-level: 0
           retention-days: 30
@@ -76,7 +95,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: NAGISA_V4-Windows-validation
+          name: NAGISA_V4-Windows-${{ matrix.cpu }}-validation
           path: validation/
           if-no-files-found: warn
           retention-days: 30

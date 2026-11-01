@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Releaseのソースから作ったWindows配布ZIPを、展開後の状態で検証する。"""
+"""Releaseのソースから作ったWindows配布ZIPを、展開後の状態で検証する。AVX512版はIntel SDEで実行する。"""
 import gzip
 import hashlib
 import json
@@ -24,6 +24,13 @@ NN_SHA = "39dd05367e1b66c8a12d41aefb9ca81070dc643060bcb5cb3306043f118e7415"
 PROGRESS_SHA = "e7ed0eef88868335f9a46c58a121dccb5ad82a5eb1c8ee12de90365ab351e37d"
 SOURCE_URL = ("https://github.com/keinoda/YaneuraOu/releases/download/nagisa-v4/"
               "NAGISA_V4-source-20261030-tournament.tar.gz")
+# 本家V9.90開発版の配布スクリプトの4指定に、本家で採用済みのUSE_FINNY_RESETを加える。
+FLAGS = ["-DHASH_KEY_BITS=128", "-DTT_CLUSTER_SIZE=4", "-DUSE_LAZY_EVALUATE",
+         "-DUSE_FINNY_TABLES", "-DUSE_FINNY_RESET"]
+EXPERIMENTAL = ["NNUE_FT_SPECIALIZED", "NNUE_FT_REGS", "NNUE_FINNY_CANCEL", "NNUE_SFNN_FUSED_FT",
+                "NNUE_FINNY_MASK_DIFF", "NNUE_FT_COMPACT"]
+# FT幅2304では、AVX512だけ本家の24レジスタ経路になり、AVX2は従来の16レジスタのまま。
+FT_REGISTERS = {"AVX2": 16, "AVX512": 24}
 MOVE = re.compile(r"(?:[1-9][a-i][1-9][a-i]\+?|[PLNSGBR]\*[1-9][a-i])\Z")
 
 
@@ -52,14 +59,20 @@ def prepare():
 
 
 class Engine:
-    def __init__(self, runtime, log_name="usi.log"):
+    def __init__(self, runtime, log_name="usi.log", sde=None):
         self.log = (RECORDS / log_name).open("w", encoding="utf-8")
+        # SDEのエミュレーションは遅いため、応答期限を延ばす。
+        self.timeout = 1800 if sde else 120
+        command = [str(runtime / "NAGISA_V4.exe")]
+        if sde:
+            # Skylake-X相当のCPUとして実行し、想定外の命令があれば失敗させる。
+            command = [str(sde), "-skx", "--"] + command
         environment = os.environ.copy()
         # MSYS2のDLL探索パスに依存せず、展開したZIPだけで動くことを確かめる。
         if sys.platform == "win32":
             system = Path(environment["SYSTEMROOT"])
             environment["PATH"] = str(system / "System32") + os.pathsep + str(system)
-        self.process = subprocess.Popen([str(runtime / "NAGISA_V4.exe")], cwd=runtime,
+        self.process = subprocess.Popen(command, cwd=runtime,
                                         stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                         stderr=subprocess.STDOUT, text=True, encoding="utf-8",
                                         errors="replace", bufsize=1, env=environment)
@@ -81,7 +94,7 @@ class Engine:
         self.process.stdin.flush()
 
     def until(self, predicate):
-        deadline = time.monotonic() + 120
+        deadline = time.monotonic() + self.timeout
         found = []
         while True:
             remaining = deadline - time.monotonic()
@@ -147,16 +160,13 @@ class Engine:
         return self.process.returncode
 
 
-def check_build():
+def check_build(cpu):
     log = (RECORDS / "build.log").read_text(encoding="utf-8", errors="replace")
     line = next(line for line in log.splitlines() if line.startswith("clang++ ") and "-c main.cpp" in line)
     flags = shlex.split(line)
-    for flag in ["-DUSE_LAZY_EVALUATE", "-DHASH_KEY_BITS=128", "-DTT_CLUSTER_SIZE=4",
-                 "-DUSE_FINNY_TABLES", "-DUSE_FINNY_RESET"]:
-        if flag in flags:
-            raise AssertionError("追加最適化が含まれています: " + flag)
-    if "-DFOR_TOURNAMENT" not in flags:
-        raise AssertionError("通常tournament版ではありません")
+    for flag in FLAGS + ["-DFOR_TOURNAMENT"]:
+        if flag not in flags:
+            raise AssertionError("ビルド指定が不足しています: " + flag)
     arguments = []
     index = 0
     while index < len(flags):
@@ -166,25 +176,38 @@ def check_build():
         if flags[index] not in {"-c", "-MMD", "-MP"}:
             arguments.append(flags[index])
         index += 1
-    arguments += ["-E", "-dM"]
-    macros = subprocess.check_output(arguments, cwd=SOURCE / "source", text=True)
+    macros = subprocess.check_output(arguments + ["-E", "-dM"], cwd=SOURCE / "source", text=True)
     (RECORDS / "macros.txt").write_text(macros)
     definitions = {line.split()[1]: " ".join(line.split()[2:]) for line in macros.splitlines() if line.startswith("#define ")}
-    if definitions.get("HASH_KEY_BITS") != "64" or definitions.get("TT_CLUSTER_SIZE") != "3" or "USE_LAZY_EVALUATE" in definitions:
-        raise AssertionError("標準のHASH・TT・評価設定ではありません")
-    for key, expected in {"NNUE_SFNN_HAND_BUCKETS": "1", "NNUE_SFNN_KING_BUCKETS": "1", "NNUE_SFNN_PROGRESS_BUCKETS": "8"}.items():
-        if definitions.get(key) != expected:
-            raise AssertionError("進行度だけで8バケットを選ぶ設定ではありません: " + key)
+    expected = {"HASH_KEY_BITS": "128", "TT_CLUSTER_SIZE": "4", "USE_LAZY_EVALUATE": "1", "USE_FINNY_TABLES": "1",
+                "USE_FINNY_RESET": "1", "FOR_TOURNAMENT": "1", "NNUE_SFNN_HAND_BUCKETS": "1",
+                "NNUE_SFNN_KING_BUCKETS": "1", "NNUE_SFNN_PROGRESS_BUCKETS": "8"}
+    expected["USE_AVX512" if cpu == "AVX512" else "USE_AVX2"] = "1"
+    for key, value in expected.items():
+        if definitions.get(key) != value:
+            raise AssertionError(f"実効設定が一致しません: {key}={definitions.get(key)}")
+    for key in EXPERIMENTAL + (["USE_VNNI"] if cpu == "AVX512" else ["USE_AVX512"]):
+        if key in definitions:
+            raise AssertionError("想定外の指定が有効です: " + key)
+    probe_dir = ROOT / "ft-register-probe"
+    probe_dir.mkdir()
+    probe = probe_dir / "probe.cpp"
+    probe.write_text('#include "config.h"\n#include "eval/nnue/nnue_feature_transformer.h"\n'
+                     "static_assert(YaneuraOu::Eval::NNUE::kTransformedFeatureDimensions == 2304, \"FT width\");\n"
+                     f"static_assert(YaneuraOu::Eval::NNUE::kNumRegs == {FT_REGISTERS[cpu]}, \"FT tile registers\");\n")
+    probe_arguments = [x for x in arguments if x != "main.cpp"]
+    subprocess.run(probe_arguments + ["-I", str(SOURCE / "source"), "-fsyntax-only", str(probe)],
+                   cwd=SOURCE / "source", check=True)
     imports = subprocess.check_output(["objdump", "-p", str(SOURCE / "NAGISA_V4.exe")], text=True)
     (RECORDS / "pe-imports.txt").write_text(imports)
     dlls = re.findall(r"DLL Name:\s*(\S+)", imports)
     if any(re.match(r"lib(?:stdc\+\+|gcc|winpthread|ssp|gomp|atomic|c\+\+)", dll, re.I) for dll in dlls):
         raise AssertionError("配布物に含まれないランタイムDLLへの依存があります")
-    return {"compile_command": line, "dlls": dlls, "HASH_KEY_BITS": 64, "TT_CLUSTER_SIZE": 3,
-            "USE_LAZY_EVALUATE": False, "FOR_TOURNAMENT": True, "progress_buckets": 8, "king_buckets": 1}
+    return {"compile_command": line, "dlls": dlls, "target_cpu": cpu, "extra_cppflags": FLAGS,
+            "macros": expected, "ft_tile_registers": FT_REGISTERS[cpu], "progress_buckets": 8, "king_buckets": 1}
 
 
-def check_unused_ninth(runtime, reference):
+def check_unused_ninth(runtime, reference, sde):
     scratch = ROOT / "unused-ninth-runtime"
     shutil.copytree(runtime, scratch)
     nn = scratch / "eval/nn.bin"
@@ -197,7 +220,7 @@ def check_unused_ninth(runtime, reference):
     mutated_sha = sha256(nn)
     if original_sha != NN_SHA or original_sha == mutated_sha:
         raise AssertionError("9番目の重みを変更する回帰検証の入力が不正です")
-    engine = Engine(scratch, "unused-ninth-usi.log")
+    engine = Engine(scratch, "unused-ninth-usi.log", sde)
     try:
         engine.ready()
         for item in reference:
@@ -211,32 +234,42 @@ def check_unused_ninth(runtime, reference):
             "mutated_sha256": mutated_sha, "engine_exit_code": exit_code}
 
 
-def verify():
+def find_sde():
+    found = [path for path in [ROOT / "sde/sde.exe", ROOT / "sde/sde64.exe"] if path.exists()]
+    if not found:
+        raise FileNotFoundError("AVX512の検証に使うIntel SDEが見つかりません")
+    return found[0]
+
+
+def verify(cpu):
     if sys.platform != "win32":
         raise RuntimeError("この最終検証はWindows上で実行してください")
-    build = check_build()
+    build = check_build(cpu)
+    sde = find_sde() if cpu == "AVX512" else None
+    build["sde"] = f"{sde.name} -skx" if sde else None
     artifacts = ROOT / "artifacts"
     artifacts.mkdir()
-    archive = artifacts / "NAGISA_V4-Windows-AVX2.zip"
+    name = "NAGISA_V4-Windows-" + cpu
+    archive = artifacts / (name + ".zip")
     files = ["NAGISA_V4.exe", "engine_name.txt", "LICENSE", "eval/nn.bin", "eval/progress.bin", "eval/eval_options.txt"]
-    expected = {name: sha256(SOURCE / name) for name in files}
+    expected = {file: sha256(SOURCE / file) for file in files}
     with zipfile.ZipFile(archive, "x", compression=zipfile.ZIP_DEFLATED, compresslevel=6,
                          strict_timestamps=False) as zipped:
-        for name in files:
-            zipped.write(SOURCE / name, "NAGISA_V4-Windows-AVX2/" + name)
+        for file in files:
+            zipped.write(SOURCE / file, name + "/" + file)
     unpacked = ROOT / "unpacked"
     with zipfile.ZipFile(archive) as zipped:
-        if set(zipped.namelist()) != {"NAGISA_V4-Windows-AVX2/" + name for name in files}:
+        if set(zipped.namelist()) != {name + "/" + file for file in files}:
             raise AssertionError("配布ZIPのファイル一覧が一致しません")
         zipped.extractall(unpacked)
-    runtime = unpacked / "NAGISA_V4-Windows-AVX2"
-    for name, digest in expected.items():
-        if sha256(runtime / name) != digest:
-            raise AssertionError("展開後のSHA-256が一致しません: " + name)
+    runtime = unpacked / name
+    for file, digest in expected.items():
+        if sha256(runtime / file) != digest:
+            raise AssertionError("展開後のSHA-256が一致しません: " + file)
     reference_path = Path(__file__).with_name("evaluation_reference.json.gz")
     reference = json.loads(gzip.decompress(reference_path.read_bytes()))
-    engine = Engine(runtime)
-    result = {"passed": False, "build": build, "file_sha256": expected, "searches": []}
+    engine = Engine(runtime, sde=sde)
+    result = {"passed": False, "target_cpu": cpu, "build": build, "file_sha256": expected, "searches": []}
     try:
         engine.ready()
         for item in reference:
@@ -256,7 +289,7 @@ def verify():
         if count != 719731:
             raise AssertionError(f"perft(4)が一致しません: {count}")
         result["perft4"] = count
-        result["unused_ninth"] = check_unused_ninth(runtime, reference)
+        result["unused_ninth"] = check_unused_ninth(runtime, reference, sde)
         result["archive_sha256"] = sha256(archive)
         result["archive_bytes"] = archive.stat().st_size
         result["passed"] = True
@@ -274,6 +307,9 @@ def verify():
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2 or sys.argv[1] not in {"prepare", "verify"}:
-        raise SystemExit("prepare または verify を指定してください")
-    {"prepare": prepare, "verify": verify}[sys.argv[1]]()
+    if sys.argv[1:] == ["prepare"]:
+        prepare()
+    elif len(sys.argv) == 3 and sys.argv[1] == "verify" and sys.argv[2] in FT_REGISTERS:
+        verify(sys.argv[2])
+    else:
+        raise SystemExit("prepare または verify AVX2|AVX512 を指定してください")
