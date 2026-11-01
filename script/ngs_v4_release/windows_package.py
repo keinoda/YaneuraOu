@@ -19,7 +19,7 @@ import zipfile
 ROOT = Path.cwd()
 SOURCE = ROOT / "work/NAGISA_V4"
 RECORDS = ROOT / "validation"
-ARCHIVE_SHA = "e59f7ea8999acc3150bb0101bbaa13f4d69f0c469160cf3b881edef4ea8ef7b1"
+ARCHIVE_SHA = "95afa6795c1c2531e2963b5ef7ec805edba0c8a458afbc4e30ff28e3c1fb55d9"
 NN_SHA = "39dd05367e1b66c8a12d41aefb9ca81070dc643060bcb5cb3306043f118e7415"
 PROGRESS_SHA = "e7ed0eef88868335f9a46c58a121dccb5ad82a5eb1c8ee12de90365ab351e37d"
 SOURCE_URL = ("https://github.com/keinoda/YaneuraOu/releases/download/nagisa-v4/"

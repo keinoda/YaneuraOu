@@ -29,7 +29,7 @@ jobs:
           import subprocess
           from pathlib import Path
           with Path("source.tar.gz").open("wb") as stream:
-              subprocess.run(["gh", "api", "repos/keinoda/YaneuraOu/releases/assets/692042207",
+              subprocess.run(["gh", "api", "repos/keinoda/YaneuraOu/releases/assets/698943960",
                               "--header", "Accept: application/octet-stream"], stdout=stream, check=True)
           '@ | python
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
